@@ -30,6 +30,11 @@ class RequirementIDCounter(models.Model):
         return f"{self.company.email} - {self.month} - {self.last_sequence}"
 
 
+class RequirementStatus(models.TextChoices):
+    HOT = "HOT", "Hot (0-4 hours)"
+    WARM = "WARM", "Warm (4-24 hours)"
+    COLD = "COLD", "Cold (24+ hours)"
+
 class Requirement(models.Model):
     """
     Main Requirement/JD Model - Company-wise isolated
@@ -45,6 +50,12 @@ class Requirement(models.Model):
     experience_required = models.CharField(max_length=50, verbose_name="Experience Required (Years)")
     rate = models.CharField(max_length=100, blank=True, null=True, verbose_name="Rate (Optional)")
     time_zone = models.CharField(max_length=100, verbose_name="Time Zone")
+    vendor_budget_range = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Vendor Budget Range"
+    )   
     jd_description = models.TextField(verbose_name="JD Description")
     skills = models.TextField(
         help_text="Comma separated skills (e.g., Python, Django, React)",
@@ -83,6 +94,21 @@ class Requirement(models.Model):
     )
     is_active = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
+    
+    # ================= STATUS FIELDS =================
+    manual_status = models.CharField(
+        max_length=10,
+        choices=RequirementStatus.choices,
+        blank=True,
+        null=True,
+        verbose_name="Manually Set Status",
+        help_text="If set, this overrides auto status"
+    )
+    manual_status_updated_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Manual Status Update Time"
+    )
 
     class Meta:
         ordering = ['-created_at']
@@ -97,17 +123,33 @@ class Requirement(models.Model):
     def __str__(self):
         return f"{self.requirement_id} - {self.title}"
 
+    # def save(self, *args, **kwargs):
+    #     # Company set karna agar create kar rahe hain to
+    #     if not self.company_id and self.created_by:
+    #         if self.created_by.role == 'SUB_ADMIN':
+    #             self.company = self.created_by
+    #         elif self.created_by.role == 'EMPLOYEE' and self.created_by.parent_user:
+    #             self.company = self.created_by.parent_user
+        
+    #     if not self.requirement_id:
+    #         self.requirement_id = self.generate_requirement_id()
+    #     super().save(*args, **kwargs)
+    
     def save(self, *args, **kwargs):
-        # Company set karna agar create kar rahe hain to
+        # Company set karna
         if not self.company_id and self.created_by:
             if self.created_by.role == 'SUB_ADMIN':
                 self.company = self.created_by
             elif self.created_by.role == 'EMPLOYEE' and self.created_by.parent_user:
                 self.company = self.created_by.parent_user
         
+        # Requirement ID generate for new record
         if not self.requirement_id:
             self.requirement_id = self.generate_requirement_id()
+        
         super().save(*args, **kwargs)
+        
+        
 
     def generate_requirement_id(self):
         """
@@ -135,6 +177,37 @@ class Requirement(models.Model):
         sequence = str(counter.last_sequence).zfill(3)
         
         return f"REQ-{current_month}-{sequence}"
+        
+    @property
+    def status(self):
+        """
+        Real-time status calculate karta hai
+        Agar manual status set hai to wo use hoga
+        Warna created_time ke hisaab se auto calculate
+        """
+        if self.manual_status and self.manual_status_updated_at:
+            # Manual status hai - check karo kitne time pehle update hua
+            hours_passed = (timezone.now() - self.manual_status_updated_at).total_seconds() / 3600
+            
+            # Agar 24 hours se jyada ho gaye manual update ko, to auto status aana chahiye
+            if hours_passed <= 24:
+                return self.manual_status
+        
+        # Auto status calculation based on created_at
+        hours_passed = (timezone.now() - self.created_at).total_seconds() / 3600
+        
+        if hours_passed <= 4:
+            return "HOT"
+        elif hours_passed <= 24:
+            return "WARM"
+        else:
+            return "COLD"
+        
+    def set_manual_status(self, new_status):
+        """Admin manually status set karne ke liye"""
+        self.manual_status = new_status
+        self.manual_status_updated_at = timezone.now()
+        self.save(update_fields=['manual_status', 'manual_status_updated_at'])
 
     def clean(self):
         """Validation rules"""

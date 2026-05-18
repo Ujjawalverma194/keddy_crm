@@ -123,7 +123,7 @@ function MyRequirements() {
                                         </td>
                                         <td style={styles.td}>
                                             <div style={styles.primaryText} title={req.title}>{truncateText(req.title, 35)}</div>
-                                            <div style={styles.subText} title={req.client_details?.name}>{truncateText(req.client_details?.name, 30)}</div>
+                                            <div style={styles.subText} title={req.client_details?.company_name}>{truncateText(req.client_details?.company_name, 30)}</div>
                                         </td>
                                         <td style={styles.td}>
                                             <div style={styles.infoText} title={req.experience_required}>{truncateText(req.experience_required, 15)}</div>

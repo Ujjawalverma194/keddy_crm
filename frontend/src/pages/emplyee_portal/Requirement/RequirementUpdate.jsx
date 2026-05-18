@@ -22,6 +22,7 @@ function RequirementUpdate() {
         client_display_name: "",
         experience_required: "",
         rate: "",
+        vendor_budget_range: "",
         time_zone: "IST",
         jd_description: "",
         skills: ""
@@ -39,16 +40,19 @@ function RequirementUpdate() {
                 // Yahan hum detail fetch karenge (Umid hai aapke paas detail API hogi)
                 // Agar detail API alag hai toh path change kar lena
                 const response = await apiRequest(`/jd-mapping/api/requirements/${id}/`, "GET");
-                if (response) {
+                // API returns wrapper { success, message, data }
+                const data = response && response.success ? response.data : response;
+                if (data) {
                     setForm({
-                        title: response.title || "",
-                        client_id: response.client_id || "", 
-                        client_display_name: response.client || "",
-                        experience_required: response.experience_required || "",
-                        rate: response.rate || "",
-                        time_zone: response.time_zone || "IST",
-                        jd_description: response.jd_description || "",
-                        skills: response.skills || ""
+                        title: data.title || "",
+                        client_id: data.client_details?.id || data.client_id || "", 
+                        client_display_name: data.client_details ? `${data.client_details.name} (${data.client_details.company_name || ''})` : (data.client || ""),
+                        experience_required: data.experience_required || "",
+                        rate: data.rate || "",
+                        vendor_budget_range: data.vendor_budget_range || "",
+                        time_zone: data.time_zone || "IST",
+                        jd_description: data.jd_description || "",
+                        skills: data.skills || ""
                     });
                 }
             } catch (error) {
@@ -112,6 +116,7 @@ function RequirementUpdate() {
             client_id: parseInt(form.client_id),
             experience_required: form.experience_required,
             rate: form.rate,
+            vendor_budget_range: form.vendor_budget_range || "",
             time_zone: form.time_zone,
             jd_description: form.jd_description,
             skills: form.skills
@@ -187,6 +192,11 @@ function RequirementUpdate() {
                     <div style={styles.inputGroup}>
                         <label style={styles.label}>Rate *</label>
                         <input style={styles.input} name="rate" value={form.rate} onChange={handleChange} required />
+                    </div>
+
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>Vendor Budget Range *</label>
+                        <input style={styles.input} name="vendor_budget_range" value={form.vendor_budget_range || ''} onChange={handleChange} placeholder="e.g., 1.3 LPM - 1.6 LPM" />
                     </div>
 
                     <div style={styles.inputGroup}>

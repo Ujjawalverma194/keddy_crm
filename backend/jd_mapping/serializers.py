@@ -1,9 +1,12 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Requirement
+from .models import Requirement,RequirementStatus
 from employee_portal.models import Client
 from employee_portal.resume_parser.skills import SKILL_KEYWORDS
 import re
+
+class RequirementStatusUpdateSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=RequirementStatus.choices)
 
 class RequirementCreateSerializer(serializers.ModelSerializer):
     client_id = serializers.IntegerField(write_only=True)
@@ -12,7 +15,7 @@ class RequirementCreateSerializer(serializers.ModelSerializer):
         model = Requirement
         fields = [
             'id', 'requirement_id', 'title', 'client_id', 'client',
-            'experience_required', 'rate', 'time_zone', 'jd_description',
+            'experience_required', 'rate','vendor_budget_range', 'time_zone', 'jd_description',
             'skills', 'created_at', 'created_by', 'company'
         ]
         read_only_fields = [
@@ -114,19 +117,25 @@ class RequirementCreateSerializer(serializers.ModelSerializer):
         
         return requirement
 
+    def update(self, instance, validated_data):
+        """Handle updates including optional client_id and vendor_budget_range."""
+        # Pop client_id if provided and set client relation
+        client_id = validated_data.pop('client_id', None)
+        if client_id:
+            try:
+                client = Client.objects.get(id=client_id)
+                instance.client = client
+            except Client.DoesNotExist:
+                raise serializers.ValidationError({"client_id": "Client not found"})
 
-# class RequirementListSerializer(serializers.ModelSerializer):
-#     """List view ke liye light-weight serializer"""
-#     client_name = serializers.CharField(source='client.company_name', read_only=True)
-#     created_by_name = serializers.CharField(source='created_by.email', read_only=True)
-    
-#     class Meta:
-#         model = Requirement
-#         fields = [
-#             'id', 'requirement_id', 'title', 'client_name', 
-#             'experience_required', 'rate', 'skills', 'created_by_name',
-#             'created_at'
-#         ]
+        # Update other fields normally
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
+
+
 
 class RequirementListSerializer(serializers.ModelSerializer):
     """List view ke liye serializer with full details"""
@@ -155,10 +164,12 @@ class RequirementListSerializer(serializers.ModelSerializer):
             'id', 
             'requirement_id', 
             'title', 
+            'status',
             'client_id',
             'client_name', 
             'experience_required', 
-            'rate', 
+            'rate',
+            'vendor_budget_range', 
             'time_zone',
             'jd_description',
             'skills', 
@@ -218,8 +229,8 @@ class RequirementDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Requirement
         fields = [
-            'id', 'requirement_id', 'title', 'client_details',
-            'experience_required', 'rate', 'time_zone', 'jd_description',
+            'id', 'requirement_id', 'title','status', 'client_details',
+            'experience_required', 'rate','vendor_budget_range',  'time_zone', 'jd_description',
             'skills', 'created_by_details', 'company_details', 'created_at',
             'total_submissions', 'unique_candidates', 'assignments', 'submissions'
         ]
@@ -644,8 +655,8 @@ class MyJDDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Requirement
         fields = [
-            'id', 'requirement_id', 'title', 'client_details',
-            'experience_required', 'rate', 'time_zone', 'jd_description',
+            'id', 'requirement_id', 'title','status', 'client_details',
+            'experience_required', 'rate', 'vendor_budget_range', 'time_zone', 'jd_description',
             'skills', 'created_by_details', 'created_at', 'assigned_to_details',
             'total_submissions'
         ]

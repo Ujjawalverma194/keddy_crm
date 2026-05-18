@@ -18,6 +18,7 @@ function RequirementList() {
     
     // Popup State
     const [selectedJd, setSelectedJd] = useState(null);
+    const [actionDropdownOpen, setActionDropdownOpen] = useState(null);
 
     const fetchRequirements = async (page = 1, search = "") => {
         setLoading(true);
@@ -51,6 +52,23 @@ function RequirementList() {
     const truncateText = (text, maxLength) => {
         if (!text) return "—";
         return text.length > maxLength ? text.substring(0, maxLength).trim() + "..." : text;
+    };
+
+    const toggleActionMenu = (id) => {
+        setActionDropdownOpen((prev) => (prev === id ? null : id));
+    };
+
+    const getStatusBadgeStyle = (status) => {
+        switch(status) {
+            case 'HOT':
+                return { background: '#FEF2F2', color: '#DC2626', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
+            case 'WARM':
+                return { background: '#FFFBEB', color: '#F59E0B', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
+            case 'COLD':
+                return { background: '#F1F5F9', color: '#64748B', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
+            default:
+                return { background: '#F1F5F9', color: '#64748B', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
+        }
     };
 
     // Helper to format assigned team
@@ -106,6 +124,8 @@ function RequirementList() {
                                 <th style={{ ...styles.th, width: "130px" }}>ID & Date</th>
                                 <th style={{ ...styles.th, width: "220px" }}>Title & Client</th>
                                 <th style={{ ...styles.th, width: "140px" }}>Exp / Rate</th>
+                                <th style={{ ...styles.th, width: "60px" }}>Status</th>
+                                <th style={{ ...styles.th, width: "120px" }}>Budget Range</th>
                                 <th style={{ ...styles.th, width: "240px" }}>JD Description</th>
                                 <th style={{ ...styles.th, width: "140px" }}>Stats / Team</th>
                                 {/* <th style={{ ...styles.th, width: "130px" }}>Creator</th> */}
@@ -132,6 +152,14 @@ function RequirementList() {
                                             <div style={styles.infoText} title={req.experience_required}>{truncateText(req.experience_required, 15)}</div>
                                             <div style={styles.rateText} title={req.rate}>{truncateText(req.rate, 15)}</div>
                                         </td>
+                                        
+                                        <td style={styles.td}>
+                                            <span style={getStatusBadgeStyle(req.status)}>{req.status || "—"}</span>
+                                        </td>
+                                        <td style={styles.td}>
+                                            <div style={styles.infoText} title={req.vendor_budget_range}>{truncateText(req.vendor_budget_range, 20) || "—"}</div>
+                                        </td>
+
                                         <td style={styles.td}>
                                             <div 
                                                 style={styles.jdTruncate} 
@@ -149,9 +177,33 @@ function RequirementList() {
                                             <div style={styles.subText} title={req.company_name}>{truncateText(req.company_name, 20)}</div>
                                         </td> */}
                                         <td style={styles.actionTd}>
-                                            <div style={styles.actionGroup}>
-                                                <button title="View Details" style={styles.viewBtn} onClick={() => navigate(`/employee/requirement/view/${req.id}`)}>View</button>
-                                                <button title="Update Requirement" style={styles.editBtn} onClick={() => navigate(`/employee/requirement/edit/${req.id}`)}>Update</button>
+                                            <div style={styles.actionMenuWrapper}>
+                                                <button
+                                                    type="button"
+                                                    style={styles.actionDotsBtn}
+                                                    onClick={() => toggleActionMenu(req.id)}
+                                                    title="Actions"
+                                                >
+                                                    ⋯
+                                                </button>
+                                                {actionDropdownOpen === req.id && (
+                                                    <div style={styles.actionDropdown}>
+                                                        <button
+                                                            type="button"
+                                                            style={styles.dropdownItem}
+                                                            onClick={() => { navigate(`/employee/requirement/view/${req.id}`); setActionDropdownOpen(null); }}
+                                                        >
+                                                            View
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            style={styles.dropdownItem}
+                                                            onClick={() => { navigate(`/employee/requirement/edit/${req.id}`); setActionDropdownOpen(null); }}
+                                                        >
+                                                            Update
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -209,7 +261,7 @@ const styles = {
     addBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "10px", fontWeight: "700", cursor: "pointer", whiteSpace: "nowrap" },
     pageTitle: { fontSize: "20px", color: "#1E293B", marginBottom: "15px", fontWeight: "800" },
     tableWrapper: { background: "#fff", borderRadius: "12px", overflowX: "auto", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" },
-    table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: "1000px" },
+    table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: "900px" },
     tableHeader: { background: "#F8FAFC", borderBottom: "1px solid #EDF2F7" },
     th: { padding: "15px", textAlign: "left", color: "#64748B", fontSize: "12px", fontWeight: "700", textTransform: "uppercase" },
     tableRow: { borderBottom: "1px solid #F1F5F9" },
@@ -233,6 +285,10 @@ const styles = {
     
     createdByText: { fontSize: "13px", fontWeight: "600", color: "#334155" },
     actionTd: { textAlign: "center" },
+    actionMenuWrapper: { position: "relative", display: "inline-block" },
+    actionDotsBtn: { background: "#F8FAFC", color: "#0F172A", border: "1px solid #CBD5E1", width: "36px", height: "36px", borderRadius: "50%", cursor: "pointer", fontSize: "18px", lineHeight: "1", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 },
+    actionDropdown: { position: "absolute", right: 0, top: "120%", background: "#fff", border: "1px solid #E2E8F0", borderRadius: "12px", boxShadow: "0 10px 25px rgba(15,23,42,0.12)", zIndex: 20, minWidth: "140px", padding: "6px 0" },
+    dropdownItem: { width: "100%", background: "transparent", border: "none", textAlign: "left", padding: "10px 16px", fontSize: "13px", color: "#0F172A", cursor: "pointer", outline: "none" },
     actionGroup: { display: "flex", gap: "6px", justifyContent: "center", flexWrap: "wrap" },
     viewBtn: { background: "#F8FAFC", color: "#0F172A", border: "1px solid #CBD5E1", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "700", transition: "0.2s" },
     editBtn: { background: "#1E293B", color: "#fff", border: "none", padding: "7px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "700", transition: "0.2s" },

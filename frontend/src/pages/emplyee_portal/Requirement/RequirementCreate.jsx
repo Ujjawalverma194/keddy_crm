@@ -20,6 +20,7 @@ function RequirementCreate() {
         client_display_name: "", // Only for UI
         experience_required: "",
         rate: "",
+        vendor_budget_range: "",
         time_zone: "IST",
         jd_description: "",
         skills: ""
@@ -86,6 +87,7 @@ function RequirementCreate() {
             client_id: parseInt(form.client_id),
             experience_required: form.experience_required,
             rate: form.rate,
+            vendor_budget_range: form.vendor_budget_range || "",
             time_zone: form.time_zone,
             jd_description: form.jd_description,
             skills: form.skills
@@ -163,7 +165,23 @@ function RequirementCreate() {
 
                     <div style={styles.inputGroup}>
                         <label style={styles.label}>Rate *</label>
-                        <input style={styles.input} name="rate" value={form.rate} onChange={handleChange} required placeholder="1.2 LPM" />
+                        <input style={styles.input} name="rate" value={form.rate} onChange={handleChange} required placeholder="1.8 LPM" />
+                    </div>
+
+                    {/* <div style={styles.inputGroup}>
+                        <label style={styles.label}>Vendor Budget Range *</label>
+                        <input style={styles.input} name="vendor_budget_range" value={form.vendor_budget_range} onChange={handleChange} required placeholder="1.3 LPM - 1.6 LPM" />
+                    </div> */}
+
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>Vendor Budget Range *</label>
+                        <input 
+                            style={styles.input} 
+                            name="vendor_budget_range" 
+                            value={form.vendor_budget_range || ''} 
+                            onChange={handleChange} required
+                            placeholder="e.g., 1.3 LPM - 1.6 LPM" 
+                        />
                     </div>
 
                     <div style={styles.inputGroup}>

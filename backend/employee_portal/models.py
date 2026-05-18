@@ -475,32 +475,7 @@ class CandidateRemarkHistory(models.Model):
 
     added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
-
-
-# ================= TIME SHEET =================
-# class TimeSheet(models.Model):
-#     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name="timesheets")
-#     month = models.DateField()  # Store first day of month (e.g., 2026-05-01)
-#     file = models.FileField(upload_to="candidates/timesheets/")
-#     uploaded_at = models.DateTimeField(auto_now_add=True)
-#     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="uploaded_timesheets")
-
-#     def __str__(self):
-#         return f"{self.candidate.candidate_name} - {self.month.strftime('%B %Y')}"
-
-
-# # ================= VENDOR INVOICE =================
-# class VendorInvoice(models.Model):
-#     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name="vendor_invoices")
-#     month = models.DateField()  # Store first day of month
-#     file = models.FileField(upload_to="candidates/vendor_invoices/")
-#     uploaded_at = models.DateTimeField(auto_now_add=True)
-#     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="uploaded_vendor_invoices")
-
-#     def __str__(self):
-#         return f"{self.candidate.candidate_name} - {self.month.strftime('%B %Y')}"
-    
+   
     
 class TimeSheet(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name="timesheets")

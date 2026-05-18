@@ -30,6 +30,9 @@ urlpatterns = [
     #sub-admin
     path('company-jds/', views.CompanyJDsAPIView.as_view(), name='company-jds'),
     
+    #=====Status - update =====
+    path('requirements/<int:pk>/update-status/', views.RequirementStatusUpdateView.as_view(), name='update-status'),
+    path('company-available-requirements/', views.CompanyAvailableRequirementsAPIView.as_view(), name='company-available-requirements'),
     #=================================================================================================================
     
 ]

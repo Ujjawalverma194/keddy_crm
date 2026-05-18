@@ -2,7 +2,7 @@ from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from django.db.models import Q
 from .models import Requirement
-from .serializers import RequirementCreateSerializer, RequirementListSerializer, RequirementDetailSerializer
+from .serializers import RequirementCreateSerializer, RequirementStatusUpdateSerializer,RequirementListSerializer, RequirementDetailSerializer
 from landing.models import User
 
 class IsAuthenticatedAndActive(permissions.BasePermission):
@@ -50,6 +50,7 @@ class RequirementCreateAPIView(generics.CreateAPIView):
                 "client": serializer.instance.client.company_name,
                 "experience_required": serializer.instance.experience_required,
                 "rate": serializer.instance.rate,
+                "vendor_budget_range" : serializer.instance.vendor_budget_range,
                 "time_zone": serializer.instance.time_zone,
                 "skills": serializer.instance.skills,
                 "created_by": serializer.instance.created_by.email,
@@ -409,6 +410,7 @@ class RequirementUpdateAPIView(generics.UpdateAPIView):
                     "client": instance.client.company_name if instance.client else None,
                     "experience_required": instance.experience_required,
                     "rate": instance.rate,
+                    "vendor_budget_range": instance.vendor_budget_range,
                     "time_zone": instance.time_zone,
                     "skills": instance.skills,
                     "updated_at": instance.updated_at
@@ -908,28 +910,132 @@ from django.utils import timezone
 from django.db.models import Q
 from .serializers import MyJDDetailSerializer
 from rest_framework.views import APIView
+# class MyJDsAPIView(APIView):
+#     """
+#     API: Get My JDs (Today & Yesterday)
+#     GET /api/jd/my-jds/
+    
+#     Filters:
+#     - today: JDs from today
+#     - yesterday: JDs from yesterday
+#     - search: search in title, requirement_id, skills, client_name
+    
+#     Query Params:
+#     ?type=today          # Today's JDs
+#     ?type=yesterday      # Yesterday's JDs
+#     ?type=both           # Both today and yesterday (default)
+#     ?search=python       # Search by title, req_id, skills, client
+#     """
+#     permission_classes = [IsAuthenticatedAndActive]
+    
+#     def get(self, request):
+#         user = request.user
+#         query_type = request.query_params.get('type', 'both')
+#         search_query = request.query_params.get('search', '').strip()
+        
+#         # Get today's date range
+#         today = timezone.now().date()
+#         yesterday = today - timedelta(days=1)
+        
+#         # Date range filter
+#         if query_type == 'today':
+#             start_date = datetime.combine(today, datetime.min.time())
+#             end_date = datetime.combine(today, datetime.max.time())
+#         elif query_type == 'yesterday':
+#             start_date = datetime.combine(yesterday, datetime.min.time())
+#             end_date = datetime.combine(yesterday, datetime.max.time())
+#         else:  # both
+#             start_date = datetime.combine(yesterday, datetime.min.time())
+#             end_date = datetime.combine(today, datetime.max.time())
+        
+#         # Get JDs where user is either creator or assigned
+#         # JDs created by user
+#         created_jds = Requirement.objects.filter(
+#             created_by=user,
+#             created_at__date__range=[start_date.date(), end_date.date()],
+#             is_deleted=False
+#         )
+        
+#         # JDs assigned to user
+#         assigned_jds = Requirement.objects.filter(
+#             assignments__assigned_to=user,
+#             created_at__date__range=[start_date.date(), end_date.date()],
+#             is_deleted=False
+#         )
+        
+#         # Combine both querysets
+#         all_jds = (created_jds | assigned_jds).distinct().order_by('-created_at')
+        
+#         # Apply search filter
+#         if search_query:
+#             all_jds = all_jds.filter(
+#                 Q(title__icontains=search_query) |
+#                 Q(requirement_id__icontains=search_query) |
+#                 Q(skills__icontains=search_query) |
+#                 Q(client__company_name__icontains=search_query)
+#             )
+        
+#         # Serialize
+#         serializer = MyJDDetailSerializer(all_jds, many=True)
+        
+#         # Prepare response with stats
+#         response_data = {
+#             "success": True,
+#             "type": query_type,
+#             "count": all_jds.count(),
+#             "stats": {
+#                 "total": all_jds.count(),
+#                 "created_by_me": created_jds.count(),
+#                 "assigned_to_me": assigned_jds.count()
+#             },
+#             "results": serializer.data
+#         }
+        
+#         return Response(response_data, status=status.HTTP_200_OK)
+
+
+from datetime import datetime, timedelta
+from django.utils import timezone
+from django.db.models import Q, Case, When, Value, CharField
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .serializers import MyJDDetailSerializer
+
 class MyJDsAPIView(APIView):
-    """
-    API: Get My JDs (Today & Yesterday)
-    GET /api/jd/my-jds/
     
-    Filters:
-    - today: JDs from today
-    - yesterday: JDs from yesterday
-    - search: search in title, requirement_id, skills, client_name
-    
-    Query Params:
-    ?type=today          # Today's JDs
-    ?type=yesterday      # Yesterday's JDs
-    ?type=both           # Both today and yesterday (default)
-    ?search=python       # Search by title, req_id, skills, client
-    """
     permission_classes = [IsAuthenticatedAndActive]
+    
+    def get_status_ordering(self):
+        """Custom ordering: HOT first, then WARM, then COLD"""
+        return [
+            Case(
+                When(status='HOT', then=Value('1')),
+                When(status='WARM', then=Value('2')),
+                When(status='COLD', then=Value('3')),
+                output_field=CharField(),
+            )
+        ]
+    
+    def filter_by_status(self, queryset, status_filter):
+        """Filter queryset by status"""
+        if not status_filter:
+            return queryset
+        
+        # Filter manually using status property
+        # Note: status is a property, not a database field
+        filtered_ids = []
+        for req in queryset:
+            if req.status == status_filter:
+                filtered_ids.append(req.id)
+        
+        return queryset.filter(id__in=filtered_ids)
     
     def get(self, request):
         user = request.user
         query_type = request.query_params.get('type', 'both')
         search_query = request.query_params.get('search', '').strip()
+        status_filter = request.query_params.get('status', '').strip().upper()
         
         # Get today's date range
         today = timezone.now().date()
@@ -947,14 +1053,12 @@ class MyJDsAPIView(APIView):
             end_date = datetime.combine(today, datetime.max.time())
         
         # Get JDs where user is either creator or assigned
-        # JDs created by user
         created_jds = Requirement.objects.filter(
             created_by=user,
             created_at__date__range=[start_date.date(), end_date.date()],
             is_deleted=False
         )
         
-        # JDs assigned to user
         assigned_jds = Requirement.objects.filter(
             assignments__assigned_to=user,
             created_at__date__range=[start_date.date(), end_date.date()],
@@ -962,7 +1066,7 @@ class MyJDsAPIView(APIView):
         )
         
         # Combine both querysets
-        all_jds = (created_jds | assigned_jds).distinct().order_by('-created_at')
+        all_jds = (created_jds | assigned_jds).distinct()
         
         # Apply search filter
         if search_query:
@@ -970,26 +1074,45 @@ class MyJDsAPIView(APIView):
                 Q(title__icontains=search_query) |
                 Q(requirement_id__icontains=search_query) |
                 Q(skills__icontains=search_query) |
-                Q(client__company_name__icontains=search_query)
+                Q(client__company_name__icontains=search_query) |
+                Q(status__icontains=search_query)
             )
         
+        # Apply status filter (HOT/WARM/COLD)
+        if status_filter and status_filter in ['HOT', 'WARM', 'COLD']:
+            all_jds = self.filter_by_status(all_jds, status_filter)
+        
+        # Order by: HOT first, then WARM, then COLD, then by created_at desc
+        # Since status is a property, we need to order in Python
+        all_jds_list = list(all_jds)
+        
+        # Sort: HOT (status='HOT' first), then WARM, then COLD
+        status_order = {'HOT': 1, 'WARM': 2, 'COLD': 3}
+        all_jds_list.sort(key=lambda x: (status_order.get(x.status, 4), -x.created_at.timestamp()))
+        
         # Serialize
-        serializer = MyJDDetailSerializer(all_jds, many=True)
+        serializer = MyJDDetailSerializer(all_jds_list, many=True)
         
         # Prepare response with stats
         response_data = {
             "success": True,
             "type": query_type,
-            "count": all_jds.count(),
+            "status_filter": status_filter if status_filter else "ALL",
+            "count": len(all_jds_list),
             "stats": {
-                "total": all_jds.count(),
+                "total": len(all_jds_list),
                 "created_by_me": created_jds.count(),
-                "assigned_to_me": assigned_jds.count()
+                "assigned_to_me": assigned_jds.count(),
+                "hot_count": len([r for r in all_jds_list if r.status == 'HOT']),
+                "warm_count": len([r for r in all_jds_list if r.status == 'WARM']),
+                "cold_count": len([r for r in all_jds_list if r.status == 'COLD'])
             },
             "results": serializer.data
         }
         
         return Response(response_data, status=status.HTTP_200_OK)
+
+
     
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -1138,3 +1261,187 @@ class CompanyJDsAPIView(APIView):
         }
         
         return Response(response_data, status=status.HTTP_200_OK)
+    
+#======================Requirement status - update==============================================
+from rest_framework.permissions import IsAuthenticated
+class RequirementStatusUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_requirement(self, pk, user):
+        """Company isolated requirement fetch"""
+        try:
+            if user.role == 'CENTRAL_ADMIN':
+                requirement = Requirement.objects.get(pk=pk, is_deleted=False)
+            elif user.role == 'SUB_ADMIN':
+                requirement = Requirement.objects.get(
+                    pk=pk, 
+                    company=user,
+                    is_deleted=False
+                )
+            elif user.role == 'EMPLOYEE':
+                requirement = Requirement.objects.get(
+                    pk=pk,
+                    company=user.parent_user,
+                    is_deleted=False
+                )
+            else:
+                raise PermissionDenied("Invalid user role")
+            return requirement
+        except Requirement.DoesNotExist:
+            raise NotFound("Requirement not found")
+
+    def put(self, request, pk):
+        user = request.user
+        
+        # Sirf SUB_ADMIN aur CENTRAL_ADMIN ko permission
+        if user.role not in ['SUB_ADMIN', 'CENTRAL_ADMIN']:
+            raise PermissionDenied("Only Admin can update status manually")
+        
+        requirement = self.get_requirement(pk, user)
+        
+        serializer = RequirementStatusUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        new_status = serializer.validated_data['status']
+        
+        # Manual status update
+        requirement.set_manual_status(new_status)
+        
+        return Response({
+            "message": "Status updated successfully",
+            "requirement_id": requirement.requirement_id,
+            "status": requirement.status,
+            "manual_status": requirement.manual_status,
+            "manual_status_updated_at": requirement.manual_status_updated_at
+        }, status=status.HTTP_200_OK)
+        
+class CompanyAvailableRequirementsAPIView(APIView):
+    """
+    API: Employee ke liye available requirements
+    - Jo employee ko assign nahi hui
+    - Jo employee ne khud create nahi ki
+    - Sirf TODAY aur YESTERDAY ki requirements
+    
+    GET /api/jd/company-available-requirements/
+    
+    Query Params:
+    ?search=python
+    ?status=HOT/WARM/COLD
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get_company_root(self, user):
+        """Get company root user"""
+        if user.role == 'EMPLOYEE' and user.parent_user:
+            return user.parent_user
+        raise PermissionDenied("This API is only for employees")
+    
+    def filter_by_status(self, queryset, status_filter):
+        """Filter queryset by status property"""
+        if not status_filter:
+            return queryset
+        
+        filtered_ids = []
+        for req in queryset:
+            if req.status == status_filter:
+                filtered_ids.append(req.id)
+        
+        return queryset.filter(id__in=filtered_ids)
+    
+    def get(self, request):
+        user = request.user
+        
+        # Sirf employee ke liye
+        if user.role != 'EMPLOYEE':
+            return Response({
+                "success": False,
+                "message": "This API is only for employees"
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        search_query = request.query_params.get('search', '').strip()
+        status_filter = request.query_params.get('status', '').strip().upper()
+        
+        # Get company
+        company_root = self.get_company_root(user)
+        
+        # Get today and yesterday date range
+        today = timezone.now().date()
+        yesterday = today - timedelta(days=1)
+        
+        start_date = datetime.combine(yesterday, datetime.min.time())
+        end_date = datetime.combine(today, datetime.max.time())
+        
+        # Company ki saari requirements (TODAY + YESTERDAY)
+        all_company_requirements = Requirement.objects.filter(
+            company=company_root,
+            is_deleted=False,
+            created_at__date__range=[start_date.date(), end_date.date()]
+        )
+        
+        # Requirements jo employee ko assign hain
+        assigned_requirement_ids = Requirement.objects.filter(
+            assignments__assigned_to=user,
+            is_deleted=False
+        ).values_list('id', flat=True)
+        
+        # Requirements jo employee ne khud create ki hain
+        self_created_requirement_ids = Requirement.objects.filter(
+            created_by=user,
+            is_deleted=False
+        ).values_list('id', flat=True)
+        
+        # Exclude: assigned + self-created
+        available_requirements = all_company_requirements.exclude(
+            id__in=assigned_requirement_ids
+        ).exclude(
+            id__in=self_created_requirement_ids
+        )
+        
+        # Apply search filter
+        if search_query:
+            available_requirements = available_requirements.filter(
+                Q(title__icontains=search_query) |
+                Q(requirement_id__icontains=search_query) |
+                Q(skills__icontains=search_query) |
+                Q(client__client_name__icontains=search_query) |
+                Q(client__company_name__icontains=search_query)
+            )
+        
+        # Apply status filter
+        if status_filter and status_filter in ['HOT', 'WARM', 'COLD']:
+            available_requirements = self.filter_by_status(available_requirements, status_filter)
+        
+        # Order by status (HOT first) then created_at desc
+        available_list = list(available_requirements)
+        
+        status_order = {'HOT': 1, 'WARM': 2, 'COLD': 3}
+        available_list.sort(key=lambda x: (status_order.get(x.status, 4), -x.created_at.timestamp()))
+        
+        # Serialize
+        serializer = MyJDDetailSerializer(available_list, many=True)
+        
+        # Prepare response
+        response_data = {
+            "success": True,
+            "employee": f"{user.first_name} {user.last_name}".strip(),
+            "employee_email": user.email,
+            "company": company_root.email,
+            "date_range": {
+                "from": start_date.date(),
+                "to": end_date.date()
+            },
+            "total_available": len(available_list),
+            "stats": {
+                "company_total": all_company_requirements.count(),
+                "assigned_to_me": assigned_requirement_ids.count(),
+                "created_by_me": self_created_requirement_ids.count(),
+                "available": len(available_list),
+                "hot_count": len([r for r in available_list if r.status == 'HOT']),
+                "warm_count": len([r for r in available_list if r.status == 'WARM']),
+                "cold_count": len([r for r in available_list if r.status == 'COLD'])
+            },
+            "results": serializer.data
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+  
