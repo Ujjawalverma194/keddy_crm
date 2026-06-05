@@ -15,8 +15,10 @@ const SubmissionModal = ({ isOpen, onClose, selectedCand, notify, refreshData, i
 
     const fetchEmployees = async (search = "") => {
         try {
-            const res = await apiRequest(`/employee-portal/api/employees/?search=${search}`);
-            setEmployees(Array.isArray(res) ? res : res.results || []);
+            const res = await apiRequest(
+                `/employee-portal/api/employees/?search=${encodeURIComponent(search)}`
+            );
+            setEmployees(Array.isArray(res) ? res : (res?.results && Array.isArray(res.results) ? res.results : []));
         } catch (err) { console.error("Employee search failed"); }
     };
 

@@ -54,7 +54,7 @@ function DirectorySelection() {
 
 const styles = {
     header: { marginBottom: "40px" },
-    backBtn: { background: "none", border: "none", color: "#7F8C8D", fontWeight: "700", cursor: "pointer", marginBottom: "10px", padding: 0 },
+    backBtn: { background: "#25343f", border: "none", color: "white", fontWeight: "700", cursor: "pointer", marginBottom: "10px", padding: 0  , borderRadius:"10px", padding:"10px"},
     title: { fontSize: "28px", color: "#25343F", fontWeight: "800", margin: "0 0 8px 0" },
     subtitle: { color: "#7F8C8D", fontSize: "15px", margin: 0 },
     

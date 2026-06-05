@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
+import { asList } from "../../utils/apiHelpers";
 import BaseLayout from "../components/emp_base";
 
 function AddCandidate() {
@@ -48,7 +49,7 @@ function AddCandidate() {
     const loadDropdowns = async () => {
         try {
             const empRes = await apiRequest("/employee-portal/api/employees/");
-            setEmployees(empRes || []);
+            setEmployees(asList(empRes));
             fetchVendors(""); 
         } catch (err) {
             console.error("Error loading dropdowns", err);
@@ -96,9 +97,16 @@ function AddCandidate() {
 
         try {
             const res = await apiRequest("/employee-portal/api/candidates/parse-resume/", "POST", fd);
-            if (res.data) {
-                setForm(prev => ({ ...prev, ...res.data }));
-                notify("Resume parsed successfully!");
+            if (res?.data) {
+                setForm((prev) => ({
+                    ...prev,
+                    ...res.data,
+                    years_of_experience_calculated:
+                        res.data.years_of_experience_calculated ?? prev.years_of_experience_calculated,
+                }));
+                notify(res.message || "Resume parsed successfully!");
+            } else {
+                notify(res?.detail || res?.error || "Could not extract details from resume", "error");
             }
         } catch (err) {
             notify("Failed to parse resume", "error");
@@ -106,32 +114,40 @@ function AddCandidate() {
         setIsParsing(false);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        // Double Click Prevention
-        if (isSubmitting) return; 
+   const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Double Click Prevention
+    if (isSubmitting) return; 
 
-        setIsSubmitting(true); 
-        const fd = new FormData();
-        Object.keys(form).forEach((k) => {
-            if (form[k] !== null && form[k] !== undefined && form[k] !== "") {
-                fd.append(k, form[k]);
-            }
-        });
-        if (resumeFile) fd.append("resume", resumeFile);
+    setIsSubmitting(true); 
 
-        try {
-            const res = await apiRequest("/employee-portal/api/candidates/create/", "POST", fd);
-            notify(res.message || "Candidate Created Successfully!");
-            setTimeout(() => {
-                window.location.reload(); 
-            }, 2000);
-        } catch (err) {
-            notify("Error creating candidate", "error");
-            setIsSubmitting(false); // Error aaye toh button wapas enable karein
+    const fd = new FormData();
+
+    Object.keys(form).forEach((k) => {
+        if (form[k] !== null && form[k] !== undefined && form[k] !== "") {
+            fd.append(k, form[k]);
         }
-    };
+    });
+
+    if (resumeFile) fd.append("resume", resumeFile);
+
+    try {
+        const res = await apiRequest("/employee-portal/api/candidates/create/", "POST", fd);
+
+        // Notification
+        notify(res.message || "Candidate Created Successfully!");
+
+        // Redirect after notification
+        setTimeout(() => {
+            navigate("/employee/user-candidates");
+        }, 1500);
+
+    } catch (err) {
+        notify("Error creating candidate", "error");
+        setIsSubmitting(false);
+    }
+};
 
     return (
         <BaseLayout>

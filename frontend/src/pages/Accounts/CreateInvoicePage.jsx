@@ -281,13 +281,16 @@ export default function CreateInvoice() {
     setLoadingClients(true);
     try {
       let all = [];
-      const searchParam = searchVal ? `?search=${encodeURIComponent(searchVal)}` : '';
-      let url = `/invoice/api/clients/${searchParam}`;
+      const qs = searchVal ? `?search=${encodeURIComponent(searchVal)}` : '';
+      let url = `/invoice/api/clients/${qs}`;
       while (url) {
         const res = await apiRequest(url);
-        if (res?.results) {
+        if (res?.results && Array.isArray(res.results)) {
           all = [...all, ...res.results];
-          url = res.next ? res.next.split('/api')[1] ? '/api' + res.next.split('/api')[1] : null : null;
+          url = res.next ? (res.next.includes('/invoice/') ? res.next.replace(/^.*\/invoice/, '/invoice') : null) : null;
+        } else if (Array.isArray(res)) {
+          all = res;
+          break;
         } else break;
       }
       setClients(all);
@@ -301,12 +304,11 @@ export default function CreateInvoice() {
       let all = [];
       const searchParam = searchVal ? `?search=${encodeURIComponent(searchVal)}` : '';
       let url = `/invoice/api/clients/${selectedClient.id}/candidates/${searchParam}`;
-      while (url) {
-        const res = await apiRequest(url);
-        if (res?.results) {
-          all = [...all, ...res.results];
-          url = res.next ? res.next.split('/api')[1] ? '/api' + res.next.split('/api')[1] : null : null;
-        } else break;
+      const res = await apiRequest(url);
+      if (res?.results && Array.isArray(res.results)) {
+        all = res.results;
+      } else if (Array.isArray(res)) {
+        all = res;
       }
       setCandidateList(all);
     } catch (error) { setCandidateList([]); } finally { setLoadingCandidates(false); }

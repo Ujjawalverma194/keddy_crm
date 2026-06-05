@@ -66,7 +66,7 @@ function AttendanceBoard() {
                     {toast.message}
                 </div>
             )}
-
+              
             {/* Top Bar */}
             <div style={styles.topBar}>
                 <button onClick={() => navigate("/employee/attendance")} style={styles.backBtn}>

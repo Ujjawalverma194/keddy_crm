@@ -226,12 +226,11 @@ export default function EditInvoicePage() {
   const fetchClients = useCallback(async (search = "") => {
     setLoadingClients(true);
     try {
-      let all = [], url = `/invoice/api/clients/${search ? `?search=${encodeURIComponent(search)}` : ""}`;
-      while (url) {
-        const res = await apiRequest(url);
-        if (res?.results) { all = [...all, ...res.results]; url = res.next ? "/api" + res.next.split("/api")[1] : null; }
-        else break;
-      }
+      let all = [];
+      const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+      const res = await apiRequest(`/invoice/api/clients/${qs}`);
+      if (res?.results && Array.isArray(res.results)) all = res.results;
+      else if (Array.isArray(res)) all = res;
       setClients(all);
     } catch (e) { console.error(e); }
     finally { setLoadingClients(false); }
@@ -250,13 +249,11 @@ export default function EditInvoicePage() {
     if (!selectedClient) { setCandidateList([]); return; }
     setLoadingCandidates(true);
     try {
-      let all = [], url = `/invoice/api/clients/${selectedClient.id}/candidates/${search ? `?search=${encodeURIComponent(search)}` : ""}`;
-      while (url) {
-        const res = await apiRequest(url);
-        if (res?.results) { all = [...all, ...res.results]; url = res.next ? "/api" + res.next.split("/api")[1] : null; }
-        else break;
-      }
-      setCandidateList(all);
+      const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+      const res = await apiRequest(`/invoice/api/clients/${selectedClient.id}/candidates/${qs}`);
+      if (res?.results && Array.isArray(res.results)) setCandidateList(res.results);
+      else if (Array.isArray(res)) setCandidateList(res);
+      else setCandidateList([]);
     } catch { setCandidateList([]); }
     finally { setLoadingCandidates(false); }
   }, [selectedClient]);

@@ -1,10 +1,10 @@
 // services/api.js
 
 // ✅ Use it on LIVE 
-export const API_BASE = "https://crm.keddycrm.in";
+// export const API_BASE = "https://crm.keddycrm.in";
 
 // ✅ Use it on LOCAL
-// export const API_BASE = "http://localhost:8000"
+export const API_BASE = "http://localhost:8000"
 
 export async function apiRequest(url, method = "GET", data = null) {
     const token = localStorage.getItem("access");
@@ -35,11 +35,13 @@ export async function apiRequest(url, method = "GET", data = null) {
     try {
         const response = await fetch(API_BASE + url, options);
 
-        // ✅ Unauthorized → logout
+        // ✅ Unauthorized → full logout (clear everything + prevent back-nav)
         if (response.status === 401) {
             localStorage.removeItem("access");
             localStorage.removeItem("refresh");
-            window.location.href = "/";
+            localStorage.removeItem("role");
+            // Use replace so the user can't hit "back" to return to the protected page
+            window.location.replace("/");
             return;
         }
 

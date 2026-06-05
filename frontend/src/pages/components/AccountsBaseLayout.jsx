@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { apiRequest } from "../../services/api";
+import { clearAuthData } from "./authSession";
 
 const AccountsBaseLayout = ({ children }) => {
     const navigate = useNavigate();
@@ -22,9 +23,9 @@ const AccountsBaseLayout = ({ children }) => {
     // }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        window.location.href = "/"; 
+        clearAuthData();
+        // Use replace to prevent back-button from returning to protected pages
+        window.location.replace("/"); 
     };
 
     const firstLetter = userName ? userName.charAt(0).toUpperCase() : "A";

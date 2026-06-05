@@ -6,6 +6,8 @@ import { apiRequest } from "../../services/api";
 // External Imports
 import StatusUpdateModal from "../../components/StatusUpdateModal";
 import { getStatusStyles } from "../../utils/statusHelper";
+import { getSubmittedToName, getCreatedByName } from "../../utils/candidateDisplay";
+
 
 const Icons = {
     UserPlus: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>,
@@ -34,6 +36,12 @@ function SubAdminDashboard() {
     const [selectedCand, setSelectedCand] = useState(null);
     const [editForm, setEditForm] = useState({ main_status: "", sub_status: "", remark: "" });
 
+    const toList = (data) => {
+        if (Array.isArray(data)) return data;
+        if (data?.results && Array.isArray(data.results)) return data.results;
+        return [];
+    };
+
     const fetchSubAdminData = async () => {
         try {
             const [sData, pData, subData, tPData] = await Promise.all([
@@ -42,10 +50,10 @@ function SubAdminDashboard() {
                 apiRequest("/sub-admin/api/subadmin/dashboard/today-verified/"),
                 apiRequest("/sub-admin/api/dashboard/today-profiles/")
             ]);
-            setStats(sData);
-            setPipelineData(pData);
-            setSubmittedData(subData);
-            setTodayProfilesData(tPData?.results || (Array.isArray(tPData) ? tPData : []));
+            setStats(sData && typeof sData === "object" && !Array.isArray(sData) ? sData : {});
+            setPipelineData(toList(pData));
+            setSubmittedData(toList(subData));
+            setTodayProfilesData(toList(tPData));
         } catch (err) {
             console.error("Failed to load Sub-Admin data", err);
         } finally {
@@ -83,7 +91,8 @@ function SubAdminDashboard() {
     const truncate = (text, limit) => (text?.length > limit ? text.substring(0, limit) + "..." : text);
 
     const renderRows = (list = []) => {
-        return list?.map((c, i) => {
+        const rows = Array.isArray(list) ? list : [];
+        return rows.map((c, i) => {
             const currentDate = new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
             const statusStyle = getStatusStyles(c.main_status || 'SUBMITTED');
 
@@ -91,8 +100,8 @@ function SubAdminDashboard() {
                 <tr key={c.id || i} style={{ ...styles.tableRow, backgroundColor: statusStyle.bg }} onClick={() => navigate(`/sub-admin/candidate/view/${c.id}`)}>
                     <td style={styles.td}><b>{currentDate}</b></td>
                     <td style={styles.td}>
-                        <div>To: <b>{truncate(c.submitted_to_name, 15) || '-'}</b></div>
-                        <div>By: <b style={{color: "#27AE60"}}>{truncate(c.created_by_name, 15) || '-'}</b></div>
+                        <div>To: <b>{truncate(getSubmittedToName(c), 15) || '-'}</b></div>
+                        <div>By: <b style={{color: "#27AE60"}}>{truncate(getCreatedByName(c), 15) || '-'}</b></div>
                     </td>
                     <td style={styles.td}><b>{truncate(c.candidate_name || '', 15)}</b></td>
                     <td style={styles.td}>{truncate(c.technology, 30)}</td>
@@ -109,7 +118,7 @@ function SubAdminDashboard() {
                     </td>
                     <td style={styles.td}>
                         <b>₹{c.vendor_rate} {c.vendor_rate_type || ''}</b>
-                        <small style={styles.subStatusText}>₹{c.client_rate} {c.client_rate_type || ''}</small>
+                        {/* <small style={styles.subStatusText}>₹{c.client_rate} {c.client_rate_type || ''}</small> */}
 
                         </td>
 
@@ -131,6 +140,7 @@ function SubAdminDashboard() {
     if (loading) return <SubAdminLayout><div style={styles.loading}>Loading Dashboard...</div></SubAdminLayout>;
 
     return (
+        <>
         <SubAdminLayout>
             {toast.show && (
                 <div style={{...styles.toast, backgroundColor: toast.type === 'error' ? '#E74C3C' : '#27AE60'}}>
@@ -153,7 +163,7 @@ function SubAdminDashboard() {
 
             <div style={styles.statsGrid}>
                 {[
-                    { label: "Team Pipeline", val: stats.team_pipeline, icon: <Icons.Pipeline />, col: "#4834D4", path: "/sub-admin/pipeline" },
+                    { label: "Team Pipeline", val: stats.team_pipeline, icon: <Icons.Pipeline />, col: "#4834D4", path: "/sub-admin/Pipeline" },
                     { label: "Today's Profiles", val: stats.today_profiles, icon: <Icons.UserPlus />, col: "#25343F", path: "/sub-admin/todays-New-Profiles" },
                     { label: "Today Submitted", val: stats.today_submitted_profiles, icon: <Icons.Send />, col: "#FF9B51", path: "/sub-admin/todays-submitted-profiles" },
                     { label: "Total Submitted", val: stats.total_submitted_profiles, icon: <Icons.Send />, col: "#27AE60", path: "/sub-admin/total-submitted-profiles" },
@@ -235,7 +245,10 @@ function SubAdminDashboard() {
                 setFormData={setEditForm}
                 onSave={handleUpdateSubmit}
             />
+           
         </SubAdminLayout>
+        
+         </>
     );
 }
 

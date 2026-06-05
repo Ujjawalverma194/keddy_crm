@@ -199,7 +199,7 @@ function EditVendor() {
 // Styles are exactly same as your AddVendor
 const styles = {
     topBar: { display: "flex", alignItems: "center", gap: "20px", marginBottom: "20px" },
-    backBtn: { background: "none", border: "none", color: "#25343F", fontWeight: "700", cursor: "pointer", fontSize: "15px" },
+    backBtn: { background: "#25343f", border: "none", color: "white", fontWeight: "700", cursor: "pointer", fontSize: "15px",padding:"15px", borderRadius:"15px" },
     pageTitle: { fontSize: "22px", color: "#25343F", fontWeight: "800", margin: 0 },
     card: { background: "#BFC9D1", borderRadius: "15px", padding: "25px", boxShadow: "0 4px 15px rgba(0,0,0,0.05)", maxWidth: "850px", margin: "0 auto" },
     formGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "15px" },

@@ -106,8 +106,9 @@ function TeamReports() {
 
             <div style={styles.topBar}>
                 <button onClick={() => navigate("/sub-admin")} style={styles.backBtn}>← Back</button>
-                <h2 style={{ margin: 0 }}>Team Daily Reports</h2>
+                
             </div>
+            <h2 style={{ margin: 0 }}>Team Daily Reports</h2>
 
             {/* Filter Bar */}
             <div style={styles.filterBar}>
@@ -200,7 +201,7 @@ const styles = {
     modalLabel: { fontSize: "11px", fontWeight: "800", color: "#94A3B8", marginBottom: "5px" },
     modalContent: { fontSize: "15px", lineHeight: "1.6", color: "#334155" },
     topBar: { display: "flex", alignItems: "center", gap: "15px", marginBottom: "20px" },
-    backBtn: { border: "none", background: "#f1f5f9", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: "600" },
+    backBtn: { border: "none", background: "#1e293b",color:"white", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: "600" },
     filterBar: { display: "flex", gap: "12px", marginBottom: "20px", background: "#fff", padding: "15px", borderRadius: "12px", flexWrap: "wrap", alignItems: "flex-end", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" },
     filterGroup: { display: "flex", flexDirection: "column", gap: "4px" },
     label: { fontSize: "11px", fontWeight: "700", color: "#64748B" },

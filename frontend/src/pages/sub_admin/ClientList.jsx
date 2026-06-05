@@ -63,7 +63,13 @@ function ClientList() {
     const fetchEmployees = async () => {
         try {
             const response = await apiRequest("/sub-admin/api/users/", "GET", null, getAuthHeaders());
-            setEmployees(response.results || []);
+            if (Array.isArray(response)) {
+                setEmployees(response);
+            } else if (response?.results && Array.isArray(response.results)) {
+                setEmployees(response.results);
+            } else {
+                setEmployees([]);
+            }
         } catch (error) { console.error("Employee fetch error:", error); }
     };
 

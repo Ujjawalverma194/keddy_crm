@@ -76,6 +76,10 @@ function RequirementUpdate() {
     };
 
     useEffect(() => {
+        fetchClients("");
+    }, []);
+
+    useEffect(() => {
         const delayDebounce = setTimeout(() => {
             if (showDropdown) fetchClients(clientSearch);
         }, 400);
@@ -111,9 +115,15 @@ function RequirementUpdate() {
         if (isSubmitting) return;
         setIsSubmitting(true);
         
+        if (!form.client_id) {
+            notify("Please select a client", "error");
+            setIsSubmitting(false);
+            return;
+        }
+
         const payload = {
             title: form.title,
-            client_id: parseInt(form.client_id),
+            client_id: parseInt(form.client_id, 10),
             experience_required: form.experience_required,
             rate: form.rate,
             vendor_budget_range: form.vendor_budget_range || "",
@@ -125,12 +135,14 @@ function RequirementUpdate() {
         try {
             // PUT request as per your requirement
             const response = await apiRequest(`/jd-mapping/api/requirements/${id}/update/`, "PUT", payload);
-            if (response && response.success) {
-                notify("Requirement updated successfully", "success");
+            if (response && (response.success || response.id || response.requirement_id)) {
+                notify(response.message || "Requirement updated successfully", "success");
                 setTimeout(() => navigate("/employee/requirements"), 1500);
+            } else {
+                notify("Update failed.", "error");
             }
         } catch (error) {
-            notify("Error: Update failed.", "error");
+            notify(error?.detail || error?.message || "Error: Update failed.", "error");
         } finally {
             setIsSubmitting(false);
         }

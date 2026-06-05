@@ -42,6 +42,10 @@ function RequirementCreate() {
     };
 
     useEffect(() => {
+        fetchClients("");
+    }, []);
+
+    useEffect(() => {
         const delayDebounce = setTimeout(() => {
             if (showDropdown) fetchClients(clientSearch);
         }, 400);

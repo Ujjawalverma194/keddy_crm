@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../../services/api";
+import { asList } from "../../../utils/apiHelpers";
 import BaseLayout from "../../components/SubAdminLayout";
 
 function SubAdminRequirementList() {
@@ -59,8 +60,8 @@ function SubAdminRequirementList() {
 
     useEffect(() => {
         const fetchEmployees = async () => {
-            const response = await apiRequest("/sub-admin/api/users/", "GET", null, getAuthHeaders());
-            setEmployees(response.results || []);
+            const response = await apiRequest("/sub-admin/api/users/", "GET");
+            setEmployees(asList(response));
         };
         fetchEmployees();
     }, []);

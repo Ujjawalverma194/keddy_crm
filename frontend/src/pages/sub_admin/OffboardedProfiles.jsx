@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiRequest } from "../../services/api";
+import { apiRequest, API_BASE } from "../../services/api";
 import SubAdminLayout from "../components/SubAdminLayout";
 
 // External Imports
@@ -122,7 +122,7 @@ function OffboardedProfiles() {
                         </td>
                         {/* 9. CV */}
                         <td style={styles.td}>
-                            <button onClick={(e) => { e.stopPropagation(); window.open(c.resume, '_blank'); }} style={styles.cvBtn}>
+                            <button onClick={(e) => { e.stopPropagation(); if(c.resume) window.open(c.resume.startsWith('http') ? c.resume : `${API_BASE}${c.resume}`, '_blank'); }} style={styles.cvBtn}>
                                 <Icons.File /> CV
                             </button>
                         </td>
@@ -142,15 +142,15 @@ function OffboardedProfiles() {
     return (
         <SubAdminLayout>
             {toast.show && <div style={{...styles.toast, backgroundColor: toast.type === 'error' ? '#E74C3C' : '#27AE60'}}>{toast.msg}</div>}
-
+            <div style={styles.btnGroup}>
+                    <button onClick={() => navigate(-1)} style={{...styles.actionBtn, background: '#25343F'}}>← Back</button>
+                </div>
             <div style={styles.header}>
                 <div>
                     <h2 style={styles.welcome}>Offboarded Profiles ({count})</h2>
                     <p style={styles.subText}>Management dashboard for tracking offboarded candidates.</p>
                 </div>
-                <div style={styles.btnGroup}>
-                    <button onClick={() => navigate(-1)} style={{...styles.actionBtn, background: '#25343F'}}>← Back</button>
-                </div>
+                
             </div>
 
             <div style={styles.filterBar}>
@@ -212,7 +212,7 @@ const styles = {
     header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", flexWrap: "wrap", gap: "15px" },
     welcome: { fontSize: "24px", color: "#25343F", fontWeight: "800", margin: 0 },
     subText: { color: "#7F8C8D", fontSize: "14px", margin: "4px 0 0 0" },
-    btnGroup: { display: "flex", gap: "10px", alignItems: "center"},
+    btnGroup: { display: "flex", gap: "10px", alignItems: "center",marginBottom:"10px"},
     actionBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" },
     filterBar: { display: "flex", gap: "15px", marginBottom: "20px" },
     searchInput: { flex: 2, padding: "12px", borderRadius: "10px", border: "1px solid #F0F2F4", outline: "none", fontSize: '13px' },

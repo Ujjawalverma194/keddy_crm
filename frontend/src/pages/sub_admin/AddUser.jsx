@@ -205,11 +205,13 @@ const styles = {
     header: { display: "flex", alignItems: "center", gap: "20px", marginBottom: "30px" },
 
     backBtn: {
-        background: "transparent",
-        color: "#25343F",
+        background: "#1e293b",
+        color: "white",
         border: "none",
         fontWeight: "700",
-        cursor: "pointer"
+        cursor: "pointer",
+        padding:"10px 15px",
+        borderRadius:"10px"
     },
 
     pageTitle: {

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        :root { --brand-color: #0d3b66; --text-dark: #222; --bg-light: #f9f9f9; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: var(--text-dark); margin: 0; padding: 1px 5px; }
+        .header-table { width: 100%; border-bottom: 3px solid var(--brand-color); margin-bottom: 8px; }
+        .logo { max-height: 140px; }
+        .company-info h2 { margin: 0; color: var(--brand-color); font-size: 24px; font-weight: 800; }
+        .title-strip { background-color: var(--brand-color); color: white; text-align: center; font-size: 16px; font-weight: bold; padding: 5px; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: #f2f2f2; color: var(--brand-color); padding: 6px; border: 1px solid #ddd; font-size: 11px; text-transform: uppercase; }
+        td { border: 1px solid #eee; padding: 6px; }
+        .bill-details td { border: none; padding: 0px; }
+        .summary-wrapper { display: flex; justify-content: space-between; margin-top: 8px; }
+        .bank-box { width: 55%; border: 1px solid #eee; padding: 8px; background: var(--bg-light); }
+        .totals-box { width: 35%; }
+        .total-row { background: var(--brand-color); color: white; font-weight: bold; }
+        .signature-area { text-align: right; margin-top: 10px; }
+        .seal-img { max-height: 100px; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+    </style>
+</head>
+<body>
+<table class="header-table">
+    <tr>
+        <td style="border:none; width: 65%;">
+            {{LOGO_BLOCK}}
+            <div class="company-info">
+                <h2>{{COMPANY_NAME}}</h2>
+                <div>{{COMPANY_ADDRESS}}</div>
+                <div><strong>GSTIN:</strong> {{COMPANY_GSTIN}}</div>
+                <div><strong>Ph:</strong> {{COMPANY_PHONE}} | <strong>Email:</strong> {{COMPANY_EMAIL}}</div>
+            </div>
+        </td>
+        <td style="border:none;" class="right">
+            <div style="margin-top: 20px;">
+                <span class="bold" style="color: var(--brand-color);">INVOICE DETAILS</span><br>
+                <strong>Invoice No:</strong> {{INVOICE_NUMBER}}<br>
+                <strong>Date:</strong> {{INVOICE_DATE}}<br>
+                <strong>Due Date:</strong> {{DUE_DATE}}
+            </div>
+        </td>
+    </tr>
+</table>
+<div class="title-strip">Tax Invoice</div>
+<table class="bill-details" style="margin-bottom: 12px;">
+    <tr>
+        <td>
+            <strong style="color: var(--brand-color);">BILL TO:</strong><br>
+            <div class="bold">{{BILL_TO_COMPANY}}</div>
+            {{BILL_TO_ADDRESS}}<br>
+            <strong>GSTIN:</strong> {{BILL_TO_GSTIN}}
+        </td>
+    </tr>
+</table>
+<table>
+    <thead>
+        <tr>
+            <th style="text-align:left;">Description</th>
+            <th>SAC</th>
+            <th class="right">Rate</th>
+            <th class="right">Days / Hours</th>
+            <th class="right">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ITEM_ROWS}}
+    </tbody>
+</table>
+<div class="summary-wrapper">
+    <div class="bank-box">
+        <strong style="color: var(--brand-color);">BANK DETAILS</strong><br>
+        <strong>Bank:</strong> {{BANK_NAME}}<br>
+        <strong>IFSC:</strong> {{BANK_IFSC}}<br>
+        <strong>A/C No:</strong> {{BANK_ACCOUNT}}<br>
+        <strong>Name:</strong> {{BANK_HOLDER}}
+    </div>
+    <div class="totals-box">
+        <table>
+            <tr>
+                <td class="right" style="border:none;">Subtotal:</td>
+                <td class="right" style="border:none;">{{SUBTOTAL}}</td>
+            </tr>
+            <tr>
+                <td class="right" style="border:none;">GST @ {{GST_RATE}}%</td>
+                <td class="right" style="border:none;">{{GST_AMOUNT}}</td>
+            </tr>
+            <tr class="total-row">
+                <td class="right">TOTAL:</td>
+                <td class="right">{{TOTAL_AMOUNT}}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+{{TERMS_BLOCK}}
+<div class="signature-area">
+    {{SIGNATURE_BLOCK}}
+    <div class="bold">For {{COMPANY_NAME}}</div>
+    <div style="font-size: 10px;">Authorized Signatory</div>
+</div>
+</body>
+</html>

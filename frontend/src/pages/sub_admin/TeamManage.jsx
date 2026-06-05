@@ -178,7 +178,7 @@ function UserManagement() {
 const styles = {
     toast: { position: 'fixed', top: '20px', right: '20px', color: '#fff', padding: '12px 25px', borderRadius: '8px', zIndex: 10001, fontWeight: '700' },
     topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", gap: "15px" },
-    backBtn: { background: "transparent", color: "#25343F", border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer" },
+    backBtn: { background: "#1e293b", color: "white", border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer" ,padding:"10px", borderRadius:"10px" },
     searchContainer: { flex: 1, maxWidth: "400px" },
     searchInput: { width: "100%", padding: "12px 15px", borderRadius: "10px", border: "1px solid #BFC9D1", outline: "none", fontSize: "14px" },
     addBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "12px 24px", borderRadius: "10px", fontWeight: "700", cursor: "pointer", boxShadow: "0 4px 12px rgba(255, 155, 81, 0.3)" },

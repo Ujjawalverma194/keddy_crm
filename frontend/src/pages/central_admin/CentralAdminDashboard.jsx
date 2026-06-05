@@ -3,22 +3,18 @@
 import React from "react";
 
 function CentralAdminDashboard() {
-    return ( <
-        div style = { styles.page } >
-        <
-        div style = { styles.card } >
-        <
-        h1 style = { styles.title } > Keddy CRM < /h1> <
-        p style = { styles.subtitle } > Central Admin Dashboard < /p>
+    return (
+        <div style={styles.page}>
+            <div style={styles.card}>
+                <h1 style={styles.title}>Keddy CRM</h1>
+                <p style={styles.subtitle}>Central Admin Dashboard</p>
 
-        <
-        div style = { styles.box } >
-        <
-        h3 > Welcome Central Admin👑 < /h3> <
-        p > You have full control over the CRM system. < /p> < /
-        div > <
-        /div> < /
-        div >
+                <div style={styles.box}>
+                    <h3>Welcome Central Admin 👑</h3>
+                    <p>You have full control over the CRM system.</p>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -37,8 +33,15 @@ const styles = {
         width: 500,
         boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
     },
-    title: { textAlign: "center", margin: 0 },
-    subtitle: { textAlign: "center", color: "#6b7280", marginBottom: 20 },
+    title: {
+        textAlign: "center",
+        margin: 0,
+    },
+    subtitle: {
+        textAlign: "center",
+        color: "#6b7280",
+        marginBottom: 20,
+    },
     box: {
         padding: 20,
         borderRadius: 8,

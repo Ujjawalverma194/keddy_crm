@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiRequest } from "../../services/api";
+import { apiRequest, API_BASE } from "../../services/api";
 import SubAdminLayout from "../components/SubAdminLayout";
 
 // External Imports
 import StatusUpdateModal from "../../components/StatusUpdateModal";
 import { getStatusStyles } from "../../utils/statusHelper";
+import { getSubmittedToName, getCreatedByName } from "../../utils/candidateDisplay";
 
 const Icons = {
     Edit: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
@@ -97,8 +98,8 @@ function SubmittedProfileList() {
                     {dateSeparator}
                     <tr style={{ ...styles.tableRow, backgroundColor: statusStyle.bg }} onClick={() => navigate(`/sub-admin/candidate/view/${c.id}`)}>
                         <td style={styles.td}>
-                            <div>To: <b>{truncate(c.submitted_to_name, 15) || '-'}</b></div>
-                            <div>By: <b style={{color: "#27AE60"}}>{truncate(c.created_by_name, 15) || '-'}</b></div>
+                            <div>To: <b>{truncate(getSubmittedToName(c), 15) || '-'}</b></div>
+                            <div>By: <b style={{color: "#27AE60"}}>{truncate(getCreatedByName(c), 15) || '-'}</b></div>
                         </td>
                         <td style={styles.td}><b>{c.candidate_name}</b></td>
                         <td style={styles.td}>{truncate(c.technology || 'N/A', 30)}</td>
@@ -117,7 +118,7 @@ function SubmittedProfileList() {
                             <small style={{ ...styles.subStatusText, color: statusStyle.text, fontWeight: '700' }}>{c.sub_status}</small>
                         </td>
                         <td style={styles.td}>
-                            <button disabled={!c.resume} onClick={(e) => { e.stopPropagation(); if(c.resume) window.open(c.resume, '_blank'); }} style={{...styles.cvBtn, opacity: c.resume ? 1 : 0.5}}>
+                            <button disabled={!c.resume} onClick={(e) => { e.stopPropagation(); if(c.resume) window.open(c.resume.startsWith('http') ? c.resume : `${API_BASE}${c.resume}`, '_blank'); }} style={{...styles.cvBtn, opacity: c.resume ? 1 : 0.5}}>
                                 <Icons.File /> CV
                             </button>
                         </td>
@@ -136,15 +137,15 @@ function SubmittedProfileList() {
     return (
         <SubAdminLayout>
             {toast.show && <div style={{...styles.toast, backgroundColor: toast.type === 'error' ? '#E74C3C' : '#27AE60'}}>{toast.msg}</div>}
-
+ <div style={styles.btnGroup}>
+                    <button onClick={() => navigate(-1)} style={{...styles.actionBtn, background: '#25343F'}}>← Back</button>
+                </div>
             <div style={styles.header}>
                 <div>
                     <h2 style={styles.welcome}>Total Submitted Profiles ({count})</h2>
                     <p style={styles.subText}>List of all profiles submitted by the team.</p>
                 </div>
-                <div style={styles.btnGroup}>
-                    <button onClick={() => navigate(-1)} style={{...styles.actionBtn, background: '#25343F'}}>← Back</button>
-                </div>
+               
             </div>
 
             <div style={styles.filterBar}>
@@ -207,7 +208,7 @@ const styles = {
     header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", flexWrap: "wrap", gap: "15px" },
     welcome: { fontSize: "24px", color: "#25343F", fontWeight: "800", margin: 0 },
     subText: { color: "#7F8C8D", fontSize: "14px", margin: "4px 0 0 0" },
-    btnGroup: { display: "flex", gap: "10px", alignItems: "center"},
+    btnGroup: { display: "flex", gap: "10px", alignItems: "center",marginBottom:"15px"},
     actionBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" },
     filterBar: { display: "flex", gap: "15px", marginBottom: "20px" },
     searchInput: { flex: 2, padding: "12px", borderRadius: "10px", border: "1px solid #F0F2F4", outline: "none", fontSize: '13px' },

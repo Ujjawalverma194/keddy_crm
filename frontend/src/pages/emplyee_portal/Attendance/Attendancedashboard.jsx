@@ -134,7 +134,9 @@ function AttendanceDashboard() {
                     {toast.message}
                 </div>
             )}
-
+          <div style={styles.topBar}>
+                <button onClick={() => navigate(-1)} style={styles.backBtn}>← Back</button>
+              </div>
             {/* Check-In Confirm Modal */}
             {showCheckInModal && (
                 <div style={styles.modalOverlay}>
@@ -430,6 +432,8 @@ function AttendanceDashboard() {
 }
 
 const styles = {
+    backBtn: { background: "#25343f", border: "none", color: "white", fontWeight: "700", cursor: "pointer", fontSize: "15px",padding:"15px", borderRadius:"15px" },
+  
     toast: {
         position: "fixed", top: "20px", right: "20px", color: "#fff",
         padding: "12px 25px", borderRadius: "8px", zIndex: 9999,

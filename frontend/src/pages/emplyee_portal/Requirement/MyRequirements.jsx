@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { apiRequest } from "../../../services/api";
 import BaseLayout from "../../components/emp_base";
+import RequirementRowWrapper from "../../../components/RequirementRowWrapper";
+import StatusTimer from "../../../components/StatusTimer";
 
 function useQuery() {
     return new URLSearchParams(useLocation().search);
@@ -17,20 +19,24 @@ function MyRequirements() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedJd, setSelectedJd] = useState(null);
-    const [actionDropdownOpen, setActionDropdownOpen] = useState(null);
+    
+    const [actionDropdownOpenMy, setActionDropdownOpenMy] = useState(null);
+    const [actionDropdownOpenAvailable, setActionDropdownOpenAvailable] = useState(null);
 
-    // New table states
     const [availableRequirements, setAvailableRequirements] = useState([]);
     const [availableStats, setAvailableStats] = useState({ total_available: 0, hot_count: 0, warm_count: 0, cold_count: 0 });
     const [loadingAvailable, setLoadingAvailable] = useState(true);
     const [searchQueryAvailable, setSearchQueryAvailable] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
+    const [statusFilterAvailable, setStatusFilterAvailable] = useState("");
 
-    // Fetch My Requirements (Existing Table)
-    const fetchMyRequirements = async (type, search) => {
+    // Fetch My Requirements
+    const fetchMyRequirements = async (type, search, status) => {
         setLoading(true);
         try {
-            const response = await apiRequest(`/jd-mapping/my-jds/?type=${type}&search=${search}`, "GET");
+            let url = `/jd-mapping/my-jds/?type=${type}&search=${search}`;
+            if (status) url += `&status=${status}`;
+            const response = await apiRequest(url, "GET");
             if (response && response.success) {
                 setRequirements(response.results || []);
                 setStats(response.stats || { total: 0, created_by_me: 0, assigned_to_me: 0 });
@@ -42,14 +48,12 @@ function MyRequirements() {
         }
     };
 
-    // Fetch Available Requirements (New Table)
+    // Fetch Available Requirements
     const fetchAvailableRequirements = async (search, status) => {
         setLoadingAvailable(true);
         try {
             let url = `/jd-mapping/company-available-requirements/?search=${search}`;
-            if (status) {
-                url += `&status=${status}`;
-            }
+            if (status) url += `&status=${status}`;
             const response = await apiRequest(url, "GET");
             if (response && response.success) {
                 setAvailableRequirements(response.results || []);
@@ -64,37 +68,40 @@ function MyRequirements() {
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
-            fetchMyRequirements(typeParam, searchQuery);
+            fetchMyRequirements(typeParam, searchQuery, statusFilter);
         }, 500);
         return () => clearTimeout(delayDebounceFn);
-    }, [searchQuery, typeParam]);
+    }, [searchQuery, typeParam, statusFilter]);
 
+    // ✅ Available Requirements Filter Effect - Verified & Fixed
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
-            fetchAvailableRequirements(searchQueryAvailable, statusFilter);
+            fetchAvailableRequirements(searchQueryAvailable, statusFilterAvailable);
         }, 500);
         return () => clearTimeout(delayDebounceFn);
-    }, [searchQueryAvailable, statusFilter]);
+    }, [searchQueryAvailable, statusFilterAvailable]); // ✅ Both states in dependency array
 
     const truncateText = (text, maxLength) => {
         if (!text) return "—";
         return text.length > maxLength ? text.substring(0, maxLength).trim() + "..." : text;
     };
 
-    const toggleActionMenu = (id) => {
-        setActionDropdownOpen((prev) => (prev === id ? null : id));
+    const toggleActionMenuMy = (id) => {
+        setActionDropdownOpenMy((prev) => (prev === id ? null : id));
+        setActionDropdownOpenAvailable(null);
+    };
+
+    const toggleActionMenuAvailable = (id) => {
+        setActionDropdownOpenAvailable((prev) => (prev === id ? null : id));
+        setActionDropdownOpenMy(null);
     };
 
     const getStatusBadgeStyle = (status) => {
         switch(status) {
-            case 'HOT':
-                return { background: '#FEF2F2', color: '#DC2626', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
-            case 'WARM':
-                return { background: '#FFFBEB', color: '#F59E0B', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
-            case 'COLD':
-                return { background: '#F1F5F9', color: '#64748B', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
-            default:
-                return { background: '#F1F5F9', color: '#64748B', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
+            case 'HOT': return { background: '#FEF2F2', color: '#DC2626', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
+            case 'WARM': return { background: '#FFFBEB', color: '#F59E0B', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
+            case 'COLD': return { background: '#F1F5F9', color: '#64748B', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
+            default: return { background: '#F1F5F9', color: '#64748B', padding: '4px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' };
         }
     };
 
@@ -123,22 +130,15 @@ function MyRequirements() {
             {/* Section 1: My Requirements Table */}
             <div style={styles.topBar}>
                 <div style={styles.leftActions}>
-                     <button onClick={() => navigate('/employee')} style={styles.backBtn}>← Dashboard</button>
+                     <button onClick={() => navigate('/employee')} style={styles.backBtn}>← Back </button>
                      <div style={styles.filterGroup}>
                          <button onClick={() => navigate("/employee/requirements/my?type=today")} style={typeParam === 'today' ? styles.activeFilterBtn : styles.filterBtn}>Today</button>
                          <button onClick={() => navigate("/employee/requirements/my?type=yesterday")} style={typeParam === 'yesterday' ? styles.activeFilterBtn : styles.filterBtn}>Yesterday</button>
                          <button onClick={() => navigate("/employee/requirements")} style={typeParam === 'both' ? styles.activeFilterBtn : styles.filterBtn}>All</button>
                      </div>
                 </div>
-
                 <div style={styles.searchContainer}>
-                    <input 
-                        type="text" 
-                        placeholder="Search by ID, Title, Client, Skills..." 
-                        style={styles.searchInput}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+                    <input type="text" placeholder="Search by ID, Title, Client, Skills..." style={styles.searchInput} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
             </div>
 
@@ -150,6 +150,13 @@ function MyRequirements() {
 
             <div style={styles.section}>
                 <h2 style={styles.pageTitle}>{getPageTitle()}</h2>
+                <div style={{ marginBottom: "15px" }}>
+                    <div style={styles.filterGroup}>
+                        <button onClick={() => setStatusFilter("")} style={!statusFilter ? styles.activeFilterBtn : styles.filterBtn}>All</button>
+                        <button onClick={() => setStatusFilter("HOT")} style={statusFilter === "HOT" ? styles.activeFilterBtn : styles.filterBtn}>HOT</button>
+                        <button onClick={() => setStatusFilter("WARM")} style={statusFilter === "WARM" ? styles.activeFilterBtn : styles.filterBtn}>WARM</button>
+                    </div>
+                </div>
 
                 <div style={styles.tableWrapper}>
                     <table style={styles.table}>
@@ -158,7 +165,7 @@ function MyRequirements() {
                                 <th style={{ ...styles.th, width: "130px" }}>ID & Date</th>
                                 <th style={{ ...styles.th, width: "200px" }}>Title & Client</th>
                                 <th style={{ ...styles.th, width: "100px" }}>Exp / Rate</th>
-                                <th style={{ ...styles.th, width: "60px" }}>Status</th>
+                                <th style={{ ...styles.th, width: "80px" }}>Status</th>
                                 <th style={{ ...styles.th, width: "120px" }}>Budget Range</th>
                                 <th style={{ ...styles.th, width: "200px" }}>JD Description</th>
                                 <th style={{ ...styles.th, width: "120px" }}>Stats / Team</th>
@@ -170,12 +177,10 @@ function MyRequirements() {
                                 <tr><td colSpan="8" style={styles.loadingTd}>Loading requirements...</td></tr>
                             ) : requirements.length > 0 ? (
                                 requirements.map((req) => (
-                                    <tr key={req.id} style={styles.tableRow}>
+                                    <RequirementRowWrapper key={req.id} status={req.status} onClick={() => navigate(`/employee/requirement/view/${req.id}`)}>
                                         <td style={styles.td}>
                                             <div style={styles.reqIdBadge}>{req.requirement_id}</div>
-                                            <div style={styles.dateText}>
-                                                {new Date(req.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                            </div>
+                                            <div style={styles.dateText}>{new Date(req.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
                                         </td>
                                         <td style={styles.td}>
                                             <div style={styles.primaryText} title={req.title}>{truncateText(req.title, 35)}</div>
@@ -187,15 +192,11 @@ function MyRequirements() {
                                         </td>
                                         <td style={styles.td}>
                                             <span style={getStatusBadgeStyle(req.status)}>{req.status || "—"}</span>
+                                            <StatusTimer createdAt={req.created_at} status={req.status} manual_status={req.manual_status} manual_status_updated_at={req.manual_status_updated_at} />
                                         </td>
+                                        <td style={styles.td}><div style={styles.infoText} title={req.vendor_budget_range}>{truncateText(req.vendor_budget_range, 20) || "—"}</div></td>
                                         <td style={styles.td}>
-                                            <div style={styles.infoText} title={req.vendor_budget_range}>{truncateText(req.vendor_budget_range, 20) || "—"}</div>
-                                        </td>
-                                        <td style={styles.td}>
-                                            <div 
-                                                style={styles.jdTruncate} 
-                                                onClick={() => setSelectedJd({ title: req.title, desc: req.jd_description })}
-                                            >
+                                            <div style={styles.jdTruncate} onClick={(e) => { e.stopPropagation(); setSelectedJd({ title: req.title, desc: req.jd_description }); }}>
                                                 {req.jd_description || "No description provided."}
                                             </div>
                                         </td>
@@ -205,35 +206,16 @@ function MyRequirements() {
                                         </td>
                                         <td style={styles.actionTd}>
                                             <div style={styles.actionMenuWrapper}>
-                                                <button
-                                                    type="button"
-                                                    style={styles.actionDotsBtn}
-                                                    onClick={() => toggleActionMenu(req.id)}
-                                                    title="Actions"
-                                                >
-                                                    ⋯
-                                                </button>
-                                                {actionDropdownOpen === req.id && (
+                                                <button type="button" style={styles.actionDotsBtn} onClick={(e) => { e.stopPropagation(); toggleActionMenuMy(req.id); }} title="Actions">⋯</button>
+                                                {actionDropdownOpenMy === req.id && (
                                                     <div style={styles.actionDropdown}>
-                                                        <button
-                                                            type="button"
-                                                            style={styles.dropdownItem}
-                                                            onClick={() => { navigate(`/employee/requirement/view/${req.id}`); setActionDropdownOpen(null); }}
-                                                        >
-                                                            View
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            style={styles.dropdownItem}
-                                                            onClick={() => { navigate(`/employee/requirement/edit/${req.id}`); setActionDropdownOpen(null); }}
-                                                        >
-                                                            Update
-                                                        </button>
+                                                        <button type="button" style={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); navigate(`/employee/requirement/view/${req.id}`); setActionDropdownOpenMy(null); }}>View</button>
+                                                        <button type="button" style={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); navigate(`/employee/requirement/edit/${req.id}`); setActionDropdownOpenMy(null); }}>Update</button>
                                                     </div>
                                                 )}
                                             </div>
                                         </td>
-                                    </tr>
+                                    </RequirementRowWrapper>
                                 ))
                             ) : (
                                 <tr><td colSpan="8" style={styles.loadingTd}>No requirements found.</td></tr>
@@ -243,48 +225,27 @@ function MyRequirements() {
                 </div>
             </div>
 
-            {/* Section 2: Available Requirements Table (New) */}
+            {/* Section 2: Available Requirements Table */}
             <div style={{ ...styles.section, marginTop: "40px" }}>
                 <h2 style={styles.pageTitle}>Available Requirements <span style={{ fontSize: "14px", fontWeight: "normal", color: "#64748B" }}>(Not assigned to you)</span></h2>
 
-                {/* Available Requirements Filters */}
                 <div style={{ ...styles.topBar, marginBottom: "20px" }}>
+                    {/* ✅ Available Requirements Filters - Correctly Wired */}
                     <div style={styles.filterGroup}>
-                        <button 
-                            onClick={() => setStatusFilter("")} 
-                            style={!statusFilter ? styles.activeFilterBtn : styles.filterBtn}
-                        >All</button>
-                        <button 
-                            onClick={() => setStatusFilter("HOT")} 
-                            style={statusFilter === "HOT" ? styles.activeFilterBtn : styles.filterBtn}
-                        >HOT</button>
-                        <button 
-                            onClick={() => setStatusFilter("WARM")} 
-                            style={statusFilter === "WARM" ? styles.activeFilterBtn : styles.filterBtn}
-                        >WARM</button>
-                        <button 
-                            onClick={() => setStatusFilter("COLD")} 
-                            style={statusFilter === "COLD" ? styles.activeFilterBtn : styles.filterBtn}
-                        >COLD</button>
+                        <button onClick={() => setStatusFilterAvailable("")} style={!statusFilterAvailable ? styles.activeFilterBtn : styles.filterBtn}>All</button>
+                        <button onClick={() => setStatusFilterAvailable("HOT")} style={statusFilterAvailable === "HOT" ? styles.activeFilterBtn : styles.filterBtn}>HOT</button>
+                        <button onClick={() => setStatusFilterAvailable("WARM")} style={statusFilterAvailable === "WARM" ? styles.activeFilterBtn : styles.filterBtn}>WARM</button>
                     </div>
 
                     <div style={styles.searchContainer}>
-                        <input 
-                            type="text" 
-                            placeholder="Search available requirements..." 
-                            style={styles.searchInput}
-                            value={searchQueryAvailable}
-                            onChange={(e) => setSearchQueryAvailable(e.target.value)}
-                        />
+                        <input type="text" placeholder="Search available requirements..." style={styles.searchInput} value={searchQueryAvailable} onChange={(e) => setSearchQueryAvailable(e.target.value)} />
                     </div>
                 </div>
 
-                {/* Available Requirements Stats */}
                 <div style={styles.statsContainer}>
                     <div style={styles.statCard}>Available: <strong>{availableStats.total_available || 0}</strong></div>
                     <div style={styles.statCard}>HOT: <strong style={{color: '#DC2626'}}>{availableStats.hot_count || 0}</strong></div>
                     <div style={styles.statCard}>WARM: <strong style={{color: '#F59E0B'}}>{availableStats.warm_count || 0}</strong></div>
-                    <div style={styles.statCard}>COLD: <strong style={{color: '#64748B'}}>{availableStats.cold_count || 0}</strong></div>
                 </div>
 
                 <div style={styles.tableWrapper}>
@@ -294,7 +255,7 @@ function MyRequirements() {
                                 <th style={{ ...styles.th, width: "130px" }}>ID & Date</th>
                                 <th style={{ ...styles.th, width: "200px" }}>Title & Client</th>
                                 <th style={{ ...styles.th, width: "100px" }}>Exp / Rate</th>
-                                <th style={{ ...styles.th, width: "60px" }}>Status</th>
+                                <th style={{ ...styles.th, width: "80px" }}>Status</th>
                                 <th style={{ ...styles.th, width: "120px" }}>Budget Range</th>
                                 <th style={{ ...styles.th, width: "220px" }}>JD Description</th>
                                 <th style={{ ...styles.th, width: "120px" }}>Stats</th>
@@ -306,12 +267,10 @@ function MyRequirements() {
                                 <tr><td colSpan="8" style={styles.loadingTd}>Loading available requirements...</td></tr>
                             ) : availableRequirements.length > 0 ? (
                                 availableRequirements.map((req) => (
-                                    <tr key={req.id} style={styles.tableRow}>
+                                    <RequirementRowWrapper key={req.id} status={req.status} onClick={() => navigate(`/employee/requirement/view/${req.id}`)}>
                                         <td style={styles.td}>
                                             <div style={styles.reqIdBadge}>{req.requirement_id}</div>
-                                            <div style={styles.dateText}>
-                                                {new Date(req.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                            </div>
+                                            <div style={styles.dateText}>{new Date(req.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
                                         </td>
                                         <td style={styles.td}>
                                             <div style={styles.primaryText} title={req.title}>{truncateText(req.title, 35)}</div>
@@ -323,45 +282,26 @@ function MyRequirements() {
                                         </td>
                                         <td style={styles.td}>
                                             <span style={getStatusBadgeStyle(req.status)}>{req.status || "—"}</span>
+                                            <StatusTimer createdAt={req.created_at} status={req.status} manual_status={req.manual_status} manual_status_updated_at={req.manual_status_updated_at} />
                                         </td>
+                                        <td style={styles.td}><div style={styles.infoText} title={req.vendor_budget_range}>{truncateText(req.vendor_budget_range, 20) || "—"}</div></td>
                                         <td style={styles.td}>
-                                            <div style={styles.infoText} title={req.vendor_budget_range}>{truncateText(req.vendor_budget_range, 20) || "—"}</div>
-                                        </td>
-                                        <td style={styles.td}>
-                                            <div 
-                                                style={styles.jdTruncate} 
-                                                onClick={() => setSelectedJd({ title: req.title, desc: req.jd_description })}
-                                            >
+                                            <div style={styles.jdTruncate} onClick={(e) => { e.stopPropagation(); setSelectedJd({ title: req.title, desc: req.jd_description }); }}>
                                                 {req.jd_description || "No description provided."}
                                             </div>
                                         </td>
-                                        <td style={styles.td}>
-                                            <div style={styles.statLine}>Submissions: <strong>{req.total_submissions || 0}</strong></div>
-                                        </td>
+                                        <td style={styles.td}><div style={styles.statLine}>Submissions: <strong>{req.total_submissions || 0}</strong></div></td>
                                         <td style={styles.actionTd}>
                                             <div style={styles.actionMenuWrapper}>
-                                                <button
-                                                    type="button"
-                                                    style={styles.actionDotsBtn}
-                                                    onClick={() => toggleActionMenu(req.id)}
-                                                    title="Actions"
-                                                >
-                                                    ⋯
-                                                </button>
-                                                {actionDropdownOpen === req.id && (
+                                                <button type="button" style={styles.actionDotsBtn} onClick={(e) => { e.stopPropagation(); toggleActionMenuAvailable(req.id); }} title="Actions">⋯</button>
+                                                {actionDropdownOpenAvailable === req.id && (
                                                     <div style={styles.actionDropdown}>
-                                                        <button
-                                                            type="button"
-                                                            style={styles.dropdownItem}
-                                                            onClick={() => { navigate(`/employee/requirement/view/${req.id}`); setActionDropdownOpen(null); }}
-                                                        >
-                                                            View
-                                                        </button>
+                                                        <button type="button" style={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); navigate(`/employee/requirement/view/${req.id}`); setActionDropdownOpenAvailable(null); }}>View</button>
                                                     </div>
                                                 )}
                                             </div>
                                         </td>
-                                    </tr>
+                                    </RequirementRowWrapper>
                                 ))
                             ) : (
                                 <tr><td colSpan="8" style={styles.loadingTd}>No available requirements found.</td></tr>
@@ -389,7 +329,7 @@ function MyRequirements() {
 const styles = {
     topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", gap: "15px", flexWrap: "wrap" },
     leftActions: { display: "flex", alignItems: "center", gap: "15px" },
-    backBtn: { background: "transparent", color: "#64748B", border: "none", fontWeight: "600", cursor: "pointer", padding: "0" },
+    backBtn: { background: "#25343f", color: "white", border: "none", fontWeight: "600", cursor: "pointer", padding: "10px" ,borderRadius:"10px" },
     filterGroup: { display: "flex", gap: "10px", background: "#F1F5F9", padding: "4px", borderRadius: "8px" },
     filterBtn: { background: "transparent", border: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "13px", fontWeight: "600", color: "#475569", cursor: "pointer", transition: "0.2s" },
     activeFilterBtn: { background: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "13px", fontWeight: "700", color: "#1E293B", cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.05)", transition: "0.2s" },
@@ -398,6 +338,7 @@ const styles = {
     statsContainer: { display: "flex", gap: "15px", marginBottom: "25px", flexWrap: "wrap" },
     statCard: { background: "#fff", padding: "12px 20px", borderRadius: "10px", boxShadow: "0 2px 10px rgba(0,0,0,0.03)", fontSize: "14px", color: "#475569", border: "1px solid #E2E8F0" },
     pageTitle: { fontSize: "20px", color: "#1E293B", marginBottom: "15px", fontWeight: "800" },
+    section: { marginBottom: "30px" },
     tableWrapper: { background: "#fff", borderRadius: "12px", overflowX: "auto", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" },
     table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: "900px" },
     tableHeader: { background: "#F8FAFC", borderBottom: "1px solid #EDF2F7" },
@@ -419,11 +360,20 @@ const styles = {
     actionTd: { textAlign: "center" },
     actionMenuWrapper: { position: "relative", display: "inline-block" },
     actionDotsBtn: { background: "#F8FAFC", color: "#0F172A", border: "1px solid #CBD5E1", width: "36px", height: "36px", borderRadius: "50%", cursor: "pointer", fontSize: "18px", lineHeight: "1", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 },
-    actionDropdown: { position: "absolute", right: 0, top: "120%", background: "#fff", border: "1px solid #E2E8F0", borderRadius: "12px", boxShadow: "0 10px 25px rgba(15,23,42,0.12)", zIndex: 20, minWidth: "140px", padding: "6px 0" },
+    actionDropdown: { 
+        position: "absolute", 
+        right: 0, 
+        bottom: "100%", 
+        marginBottom: "8px",
+        background: "#fff", 
+        border: "1px solid #E2E8F0", 
+        borderRadius: "12px", 
+        boxShadow: "0 10px 25px rgba(15,23,42,0.12)", 
+        zIndex: 20, 
+        minWidth: "140px", 
+        padding: "6px 0" 
+    },
     dropdownItem: { width: "100%", background: "transparent", border: "none", textAlign: "left", padding: "10px 16px", fontSize: "13px", color: "#0F172A", cursor: "pointer", outline: "none" },
-    actionGroup: { display: "flex", gap: "6px", justifyContent: "center", flexWrap: "wrap" },
-    viewBtn: { background: "#F8FAFC", color: "#0F172A", border: "1px solid #CBD5E1", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "700", transition: "0.2s" },
-    editBtn: { background: "#1E293B", color: "#fff", border: "none", padding: "7px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "700", transition: "0.2s" },
     loadingTd: { textAlign: "center", padding: "40px", color: "#64748B" },
     modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
     modalContent: { background: "#fff", borderRadius: "12px", width: "90%", maxWidth: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 25px rgba(0,0,0,0.2)" },
@@ -434,11 +384,6 @@ const styles = {
 };
 
 export default MyRequirements;
-
-
-
-
-
 
 
 // import React, { useState, useEffect } from "react";

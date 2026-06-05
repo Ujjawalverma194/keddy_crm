@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { apiRequest } from "../../services/api";
+import { clearAuthData } from "./authSession";
 
 const BaseLayout = ({ children }) => {
     const navigate = useNavigate();
@@ -22,10 +23,9 @@ const BaseLayout = ({ children }) => {
 
     // --- LOGOUT LOGIC ---
     const handleLogout = () => {
-        localStorage.removeItem("accessToken"); // Ya aapka jo bhi token key hai
-        localStorage.removeItem("refreshToken");
-        // Redirect to login
-        window.location.href = "/"; // Force refresh to clear all states
+        clearAuthData();
+        // Use replace to prevent back-button from returning to protected pages
+        window.location.replace("/");
     };
 
     const firstLetter = userName ? userName.charAt(0).toUpperCase() : "U";

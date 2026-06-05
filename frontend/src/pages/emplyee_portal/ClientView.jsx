@@ -24,6 +24,7 @@ function ClientView() {
             const data = await apiRequest(`/employee-portal/api/clients/${id}/`, "GET");
             setClient(data);
             setFilteredCount(data.profile_count);
+           
         } catch (error) {
             console.error("Error fetching client details:", error);
         } finally {
@@ -136,7 +137,10 @@ function ClientView() {
                     <div style={styles.card}>
                         <h3 style={styles.cardHeading}>System Metadata</h3>
                         <div style={styles.metaList}>
-                            <p style={styles.metaItem}><strong>Added By:</strong> {client.created_by_name} ({client.created_by})</p>
+                           <p style={styles.metaItem}>
+    <strong>Added By:</strong> {client.created_by_name}
+    ({client.created_by?.email})
+</p>
                             <p style={styles.metaItem}><strong>Created On:</strong> {new Date(client.created_at).toLocaleString()}</p>
                         </div>
                     </div>

@@ -39,16 +39,19 @@ function RequirementUpdate() {
                 // Yahan hum detail fetch karenge (Umid hai aapke paas detail API hogi)
                 // Agar detail API alag hai toh path change kar lena
                 const response = await apiRequest(`/jd-mapping/api/requirements/${id}/`, "GET");
-                if (response) {
+                const data = response?.success ? response.data : response;
+                if (data) {
                     setForm({
-                        title: response.title || "",
-                        client_id: response.client_id || "", 
-                        client_display_name: response.client || "",
-                        experience_required: response.experience_required || "",
-                        rate: response.rate || "",
-                        time_zone: response.time_zone || "IST",
-                        jd_description: response.jd_description || "",
-                        skills: response.skills || ""
+                        title: data.title || "",
+                        client_id: data.client_id || data.client_details?.id || "",
+                        client_display_name: data.client_details
+                            ? `${data.client_details.name} (${data.client_details.company_name || ''})`
+                            : (data.client_name || ""),
+                        experience_required: data.experience_required || "",
+                        rate: data.rate || "",
+                        time_zone: data.time_zone || "IST",
+                        jd_description: data.jd_description || "",
+                        skills: data.skills || ""
                     });
                 }
             } catch (error) {
@@ -65,11 +68,15 @@ function RequirementUpdate() {
     const fetchClients = async (search = "") => {
         try {
             const data = await apiRequest(`/sub-admin/api/clients/?search=${search}`, "GET");
-            setClients(data.results || []);
+            setClients(Array.isArray(data) ? data : (data?.results || []));
         } catch (error) {
             console.error("Error fetching clients:", error);
         }
     };
+
+    useEffect(() => {
+        fetchClients("");
+    }, []);
 
     useEffect(() => {
         const delayDebounce = setTimeout(() => {
@@ -107,9 +114,15 @@ function RequirementUpdate() {
         if (isSubmitting) return;
         setIsSubmitting(true);
         
+        if (!form.client_id) {
+            notify("Please select a client", "error");
+            setIsSubmitting(false);
+            return;
+        }
+
         const payload = {
             title: form.title,
-            client_id: parseInt(form.client_id),
+            client_id: parseInt(form.client_id, 10),
             experience_required: form.experience_required,
             rate: form.rate,
             time_zone: form.time_zone,
@@ -120,12 +133,14 @@ function RequirementUpdate() {
         try {
             // PUT request as per your requirement
             const response = await apiRequest(`/jd-mapping/api/requirements/${id}/update/`, "PUT", payload);
-            if (response && response.success) {
-                notify("Requirement updated successfully", "success");
+            if (response && (response.success || response.id || response.requirement_id)) {
+                notify(response.message || "Requirement updated successfully", "success");
                 setTimeout(() => navigate("/sub-admin/requirements"), 1500);
+            } else {
+                notify("Update failed.", "error");
             }
         } catch (error) {
-            notify("Error: Update failed.", "error");
+            notify(error?.detail || error?.message || "Error: Update failed.", "error");
         } finally {
             setIsSubmitting(false);
         }

@@ -1,6 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { apiRequest } from "../services/api";
 import { useNavigate, Link } from "react-router-dom";
+
+// Helper: map role to its home dashboard path
+const ROLE_HOME = {
+    CENTRAL_ADMIN: "/central-admin",
+    SUB_ADMIN: "/sub-admin",
+    EMPLOYEE: "/employee",
+    ACCOUNTANT: "/accounts",
+};
 
 function Login() {
     const navigate = useNavigate();
@@ -10,6 +18,15 @@ function Login() {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    // ✅ If already logged in, redirect to correct dashboard
+    useEffect(() => {
+        const token = localStorage.getItem("access");
+        const role = localStorage.getItem("role");
+        if (token && role && ROLE_HOME[role]) {
+            navigate(ROLE_HOME[role], { replace: true });
+        }
+    }, [navigate]);
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -21,28 +38,33 @@ function Login() {
         setError("");
 
         try {
+            // ✅ Clear ALL old auth data before new login (prevents cross-role contamination)
+            localStorage.removeItem("access");
+            localStorage.removeItem("refresh");
+            localStorage.removeItem("role");
+
             const res = await apiRequest("/api/login/", "POST", form);
 
-            // ✅ Correct token storage (IMPORTANT)
             if (res.access) {
-                console.log("Access token received:", res.access);
-                console.log("ROLE:", res.role);
                 localStorage.setItem("access", res.access);
-
             }
 
             if (res.refresh) {
                 localStorage.setItem("refresh", res.refresh);
-                
             }
 
-            // Role based navigation
-            if (res.role === "CENTRAL_ADMIN") navigate("/central-admin");
-            else if (res.role === "SUB_ADMIN") navigate("/sub-admin");
-            else if (res.role === "EMPLOYEE") navigate("/employee");
-            else if (res.role === "ACCOUNTANT") navigate("/accounts");
+            // ✅ Store role in localStorage so ProtectedRoute can check it
+            if (res.role) {
+                localStorage.setItem("role", res.role);
+            }
 
-            else setError("Login failed. Please check your credentials.");
+            // ✅ Role based navigation with replace: true (prevents back-button to login)
+            const home = ROLE_HOME[res.role];
+            if (home) {
+                navigate(home, { replace: true });
+            } else {
+                setError("Login failed. Please check your credentials.");
+            }
 
         } catch (err) {
             setError("Invalid credentials or server error.");

@@ -173,7 +173,7 @@ function VendorList() {
 const styles = {
     // Styles same as previous - optimized for spacing
     topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", gap: "15px" },
-    backBtn: { background: "transparent", color: "#64748B", border: "none", fontSize: "14px", fontWeight: "600", cursor: "pointer" },
+    backBtn: { background: "#25343f", color: "white", border: "none", fontSize: "14px", fontWeight: "600", cursor: "pointer", borderRadius:"10px", padding:"10px" },
     searchContainer: { flex: 1, maxWidth: "450px" },
     searchInput: { width: "100%", padding: "12px 18px", borderRadius: "12px", border: "1px solid #E2E8F0", outline: "none", fontSize: "14px" },
     addBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "12px 24px", borderRadius: "10px", fontWeight: "700", cursor: "pointer" },

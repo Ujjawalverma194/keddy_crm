@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiRequest } from "../../services/api";
+import { apiRequest, API_BASE } from "../../services/api";
 import SubAdminLayout from "../components/SubAdminLayout";
 
 // External Imports
@@ -114,7 +114,7 @@ function OnboardProfileList() {
                             <small style={{ ...styles.subStatusText, color: statusStyle.text, fontWeight: '700' }}>{c.sub_status}</small>
                         </td>
                         <td style={styles.td}>
-                            <button disabled={!c.resume} onClick={(e) => { e.stopPropagation(); if(c.resume) window.open(c.resume, '_blank'); }} style={{...styles.cvBtn, opacity: c.resume ? 1 : 0.5}}>
+                            <button disabled={!c.resume} onClick={(e) => { e.stopPropagation(); if(c.resume) window.open(c.resume.startsWith('http') ? c.resume : `${API_BASE}${c.resume}`, '_blank'); }} style={{...styles.cvBtn, opacity: c.resume ? 1 : 0.5}}>
                                 <Icons.File /> CV
                             </button>
                         </td>
@@ -133,15 +133,15 @@ function OnboardProfileList() {
     return (
         <SubAdminLayout>
             {toast.show && <div style={{...styles.toast, backgroundColor: toast.type === 'error' ? '#E74C3C' : '#27AE60'}}>{toast.msg}</div>}
-
+ <div style={styles.btnGroup}>
+                    <button onClick={() => navigate(-1)} style={{...styles.actionBtn, background: '#25343F'}}>← Back</button>
+                </div>
             <div style={styles.header}>
                 <div>
                     <h2 style={styles.welcome}>Onboarded Profiles ({count})</h2>
                     <p style={styles.subText}>Profiles that have successfully moved to the onboarding stage.</p>
                 </div>
-                <div style={styles.btnGroup}>
-                    <button onClick={() => navigate(-1)} style={{...styles.actionBtn, background: '#25343F'}}>← Back</button>
-                </div>
+               
             </div>
 
             <div style={styles.buttonBar}>
@@ -208,7 +208,7 @@ const styles = {
     header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", flexWrap: "wrap", gap: "15px" },
     welcome: { fontSize: "24px", color: "#25343F", fontWeight: "800", margin: 0 },
     subText: { color: "#7F8C8D", fontSize: "14px", margin: "4px 0 0 0" },
-    btnGroup: { display: "flex", gap: "10px", alignItems: "center"},
+    btnGroup: { display: "flex", gap: "10px", alignItems: "center",marginBottom:"15px"},
     actionBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" },
     buttonBar: { display: "flex", gap: "10px", marginBottom: "20px" },
     offboardedBtn: { background: "#E8F4FD", color: "#1976D2", border: "1px solid #B3E5FC", padding: "10px 18px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", transition: "all 0.3s ease" },
