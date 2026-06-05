@@ -1,8 +1,0 @@
-
-cd frontend
-npx create-react-app .
-npm start
-
-
-npm install react-router-dom
-npm start
