@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { apiRequest } from "../../services/api";
+import { apiRequest, API_BASE } from "../../services/api";
 import BaseLayout from "../components/SubAdminLayout";
 
 function UpdateCandidate() {
@@ -13,6 +13,24 @@ function UpdateCandidate() {
   const [loading, setLoading] = useState(true);
   const [vendors, setVendors] = useState([]);
   const [vendorSearch, setVendorSearch] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+
+  const getResumeUrl = (resumePath) => {
+    if (!resumePath) return "";
+    return resumePath.startsWith("http") ? resumePath : `${API_BASE}${resumePath}`;
+  };
+
+  const getResumeName = (resumePath) => {
+    if (!resumePath) return "No resume uploaded";
+    try {
+      const cleanPath = resumePath.split("?")[0];
+      const fileName = cleanPath.split("/").filter(Boolean).pop();
+      return fileName || "Current resume";
+    } catch {
+      return "Current resume";
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -98,6 +116,9 @@ function UpdateCandidate() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     const fd = new FormData();
 
     const editableFields = [
@@ -137,15 +158,31 @@ function UpdateCandidate() {
     if (resumeFile) fd.append("resume", resumeFile);
 
     try {
+      // IMPORTANT:
+      // Candidate detail API is under /employee-portal/api/..., so update API
+      // must also use /api/. Without /api/ React dev server proxy throws EPROTO.
+      // FormData is passed directly so the resume file is sent as multipart/form-data.
       const res = await apiRequest(
-        `/employee-portal/candidates/${id}/update/`,
+        `/employee-portal/api/candidates/${id}/update/`,
         "PUT",
         fd,
       );
-      alert(res.message || "Candidate updated successfully");
-      navigate(`/employee/candidate/view/${id}`);
+
+      if (res?.resume) {
+        setForm((prev) => ({ ...prev, resume: res.resume }));
+      }
+      setResumeFile(null);
+      alert(res?.message || "Candidate updated successfully");
+      navigate(`/sub-admin/candidate/view/${id}`);
     } catch (err) {
-      alert("Update failed!");
+      console.error("Candidate update error", err);
+      alert(
+        err?.message ||
+          err?.detail ||
+          "Update failed! Please check backend update API and try again."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -481,12 +518,40 @@ function UpdateCandidate() {
         <div style={styles.section}>
           <h3 style={styles.secTitle}>3. Documents & Remarks</h3>
           <div style={styles.inputGroup}>
+            <label style={styles.label}>Current Resume</label>
+            {form.resume ? (
+              <div style={styles.currentResumeBox}>
+                <div>
+                  <span style={styles.resumeLabel}>Existing file</span>
+                  <div style={styles.resumeName}>{getResumeName(form.resume)}</div>
+                </div>
+                <a
+                  href={getResumeUrl(form.resume)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={styles.resumeLink}
+                >
+                  View
+                </a>
+              </div>
+            ) : (
+              <div style={styles.noResumeBox}>No resume uploaded yet</div>
+            )}
+          </div>
+
+          <div style={styles.inputGroup}>
             <label style={styles.label}>Replace Resume (Optional)</label>
             <input
               type="file"
+              accept=".pdf,.doc,.docx"
               style={styles.input}
-              onChange={(e) => setResumeFile(e.target.files[0])}
+              onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
             />
+            {resumeFile && (
+              <div style={styles.selectedResumeBox}>
+                New selected resume: <strong>{resumeFile.name}</strong>
+              </div>
+            )}
           </div>
           <div style={{ ...styles.grid, marginTop: "15px" }}>
             <div style={styles.inputGroup}>
@@ -510,8 +575,8 @@ function UpdateCandidate() {
           </div>
         </div>
 
-        <button type="submit" style={styles.submitBtn}>
-          Update Candidate Details
+        <button type="submit" style={styles.submitBtn} disabled={isSubmitting}>
+          {isSubmitting ? "Updating..." : "Update Candidate Details"}
         </button>
       </form>
     </BaseLayout>
@@ -565,6 +630,57 @@ const styles = {
     border: "1px solid #ccc",
     minHeight: "80px",
     outline: "none",
+  },
+  currentResumeBox: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    padding: "12px",
+    borderRadius: "10px",
+    border: "1px solid #E2E8F0",
+    background: "#F8FAFC",
+  },
+  resumeLabel: {
+    fontSize: "11px",
+    color: "#64748B",
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  resumeName: {
+    color: "#25343F",
+    fontSize: "13px",
+    fontWeight: "700",
+    marginTop: "3px",
+    wordBreak: "break-all",
+  },
+  resumeLink: {
+    background: "#25343F",
+    color: "#fff",
+    textDecoration: "none",
+    padding: "7px 14px",
+    borderRadius: "8px",
+    fontSize: "12px",
+    fontWeight: "700",
+    whiteSpace: "nowrap",
+  },
+  noResumeBox: {
+    padding: "12px",
+    borderRadius: "10px",
+    border: "1px dashed #CBD5E1",
+    background: "#F8FAFC",
+    color: "#94A3B8",
+    fontSize: "13px",
+    fontWeight: "700",
+  },
+  selectedResumeBox: {
+    padding: "9px 12px",
+    borderRadius: "8px",
+    background: "#FFF7ED",
+    color: "#9A3412",
+    fontSize: "12px",
+    fontWeight: "600",
+    border: "1px solid #FED7AA",
   },
   submitBtn: {
     padding: "15px",

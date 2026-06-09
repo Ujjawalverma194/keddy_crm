@@ -10,6 +10,37 @@ const { Invoice } = require('../../models/Invoice');
 const { TimeSheet, VendorInvoice } = require('../../models/Documents');
 const { mediaUrl } = require('../../utils/serialize');
 
+
+function getUploadedResumeFile(req) {
+  if (req.file) return req.file;
+
+  const files = req.files || {};
+
+  if (Array.isArray(files.resume) && files.resume.length > 0) {
+    return files.resume[0];
+  }
+
+  if (files.resume && !Array.isArray(files.resume)) {
+    return files.resume;
+  }
+
+  if (Array.isArray(files) && files.length > 0) {
+    return files.find((file) => file.fieldname === 'resume') || files[0];
+  }
+
+  return null;
+}
+
+function getUploadedFilePath(file) {
+  if (!file) return null;
+  return file.path || file.filepath || file.tempFilePath || file.location || file.key || null;
+}
+
+function getResumeRelativePath(file) {
+  const filePath = getUploadedFilePath(file);
+  return filePath ? relPath(filePath) : null;
+}
+
 function parseBool(value) {
   if (value === undefined || value === null || value === '') return undefined;
   if (value === true || value === 'true' || value === '1' || value === 1) return true;
@@ -109,12 +140,14 @@ async function create(req, res) {
   const data = buildCreateData(b);
   if (!data.candidateName) return res.status(400).json({ candidate_name: ['Required'] });
 
-  const files = req.files || {};
+  const uploadedResume = getUploadedResumeFile(req);
+  const uploadedResumePath = getResumeRelativePath(uploadedResume);
+
   const candidate = Candidate.build({
     ...data,
     createdById: req.user.id,
     changedById: req.user.id,
-    resume: files.resume?.[0] ? relPath(files.resume[0].path) : req.file ? relPath(req.file.path) : undefined,
+    resume: uploadedResumePath || undefined,
   });
   await setCompany(candidate, req.user);
   if (!candidate.submittedToId) candidate.submittedToId = req.user.id;
@@ -139,8 +172,13 @@ async function update(req, res) {
 
   applyCandidatePatch(candidate, req.body || {});
 
-  const files = req.files || {};
-  if (files.resume?.[0]) candidate.resume = relPath(files.resume[0].path);
+  const uploadedResume = getUploadedResumeFile(req);
+  const uploadedResumePath = getResumeRelativePath(uploadedResume);
+
+  if (uploadedResumePath) {
+    candidate.resume = uploadedResumePath;
+  }
+
   candidate.changedById = req.user.id;
 
   if (candidate.mainStatus && candidate.mainStatus !== oldStatus) {
@@ -161,7 +199,12 @@ async function update(req, res) {
   }
 
   await candidate.save();
-  return res.json(await candidateToJSON(candidate));
+  const updatedJson = await candidateToJSON(candidate);
+  return res.json({
+    ...updatedJson,
+    resume: mediaUrl(candidate.resume),
+    message: 'Candidate updated successfully',
+  });
 }
 
 async function list(req, res) {
@@ -319,8 +362,8 @@ async function createTimesheet(req, res) {
   const t = await TimeSheet.create({
     candidateId: parseInt(req.params.candidate_id, 10),
     month: req.body.month ? new Date(req.body.month) : new Date(),
-    totalWorkingDays: parseInt(req.body.total_working_days || 0, 10),
-    workingDays: parseInt(req.body.working_days || 0, 10),
+    totalWorkingDays: parseFloat(req.body.total_working_days || 0),
+    workingDays: parseFloat(req.body.working_days || 0),
     file: file ? relPath(file.path) : null,
     uploadedById: req.user.id,
   });

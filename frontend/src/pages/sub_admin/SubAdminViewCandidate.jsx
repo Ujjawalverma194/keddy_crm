@@ -56,6 +56,22 @@ const Icons = {
       <line x1="10" y1="14" x2="21" y2="3" />
     </svg>
   ),
+  Download: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  ),
 };
 
 function DetailedViewCandidate() {
@@ -92,7 +108,16 @@ function DetailedViewCandidate() {
   const [previewHtml, setPreviewHtml] = useState("");
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewType, setPreviewType] = useState("");
+  const [previewTitle, setPreviewTitle] = useState("Resume Preview");
+  const [previewSourceUrl, setPreviewSourceUrl] = useState("");
   const [pdfPages, setPdfPages] = useState(null);
+  const [expandedLists, setExpandedLists] = useState({
+    recentTimesheets: false,
+    recentVendorInvoices: false,
+    documentTimesheets: false,
+    documentVendorInvoices: false,
+    documentClientInvoices: false,
+  });
   const fetchCandidateDetails = async () => {
     try {
       const res = await apiRequest(
@@ -168,12 +193,21 @@ function DetailedViewCandidate() {
     formData.append("file", uploadModal.file);
 
     if (uploadModal.type === "timesheet") {
-      if (!uploadModal.total_working_days || !uploadModal.working_days) {
+      const totalWorkingDays = normalizeDecimalInput(uploadModal.total_working_days);
+      const workingDays = normalizeDecimalInput(uploadModal.working_days);
+
+      if (!totalWorkingDays || !workingDays) {
         notify("Please enter total working days and working days", "error");
         return;
       }
-      formData.append("total_working_days", uploadModal.total_working_days);
-      formData.append("working_days", uploadModal.working_days);
+
+      if (!isValidDecimalInput(totalWorkingDays) || !isValidDecimalInput(workingDays)) {
+        notify("Please enter valid decimal values for working days", "error");
+        return;
+      }
+
+      formData.append("total_working_days", totalWorkingDays);
+      formData.append("working_days", workingDays);
     } else {
       if (!uploadModal.total_amount_with_gst || !uploadModal.gst_rate) {
         notify("Please enter total amount and GST rate", "error");
@@ -245,10 +279,16 @@ function DetailedViewCandidate() {
   }, [id]);
 
   useEffect(() => {
-    if (id) {
+    if (!id || !candidate) return;
+
+    if (shouldShowDocumentsAndInvoices(candidate)) {
       fetchDocuments();
+    } else {
+      setTimesheets([]);
+      setVendorInvoices([]);
+      setClientInvoices([]);
     }
-  }, [id]);
+  }, [id, candidate]);
 
   const notify = (msg, type = "success") => {
     setToast({ show: true, msg, type });
@@ -296,6 +336,8 @@ function DetailedViewCandidate() {
         const blobUrl = URL.createObjectURL(blob);
 
         setPreviewUrl(blobUrl);
+        setPreviewSourceUrl(fileUrl);
+        setPreviewTitle("Resume Preview");
         setPreviewType("pdf");
         setPreviewHtml("");
         setPdfPages(null);
@@ -310,6 +352,8 @@ function DetailedViewCandidate() {
 
         setPreviewHtml(result.value);
         setPreviewUrl("");
+        setPreviewSourceUrl(fileUrl);
+        setPreviewTitle("Resume Preview");
         setPreviewType("docx");
         setShowPreviewModal(true);
         return;
@@ -319,6 +363,68 @@ function DetailedViewCandidate() {
     } catch (error) {
       console.error("Resume preview error:", error);
       notify("Preview failed. Please download the resume.", "error");
+    }
+  };
+
+
+  const handlePreviewDocument = async (filePath, title = "Document Preview") => {
+    try {
+      const fileUrl = getFileUrl(filePath);
+      const lowerUrl = fileUrl.toLowerCase().split("?")[0];
+
+      setPreviewTitle(title);
+      setPreviewSourceUrl(fileUrl);
+      setPreviewHtml("");
+      setPreviewUrl("");
+      setPdfPages(null);
+
+      if (lowerUrl.endsWith(".pdf")) {
+        const response = await fetch(fileUrl);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        setPreviewUrl(blobUrl);
+        setPreviewType("pdf");
+        setShowPreviewModal(true);
+        return;
+      }
+
+      if (lowerUrl.endsWith(".docx")) {
+        const response = await fetch(fileUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+
+        setPreviewHtml(result.value);
+        setPreviewType("docx");
+        setShowPreviewModal(true);
+        return;
+      }
+
+      if (
+        lowerUrl.endsWith(".png") ||
+        lowerUrl.endsWith(".jpg") ||
+        lowerUrl.endsWith(".jpeg") ||
+        lowerUrl.endsWith(".webp")
+      ) {
+        setPreviewUrl(fileUrl);
+        setPreviewType("image");
+        setShowPreviewModal(true);
+        return;
+      }
+
+      setPreviewType("unsupported");
+      setPreviewHtml("Preview is not available for this file type. Please use Download to open it in a new tab.");
+      setShowPreviewModal(true);
+    } catch (error) {
+      console.error("Document preview error:", error);
+      notify("Preview failed. Please use Download to open the document.", "error");
+    }
+  };
+
+  const handleOpenDocument = (filePath) => {
+    const fileUrl = getFileUrl(filePath);
+    if (fileUrl) {
+      window.open(fileUrl, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -332,8 +438,32 @@ function DetailedViewCandidate() {
     setPreviewUrl("");
     setPreviewHtml("");
     setPreviewType("");
+    setPreviewTitle("Resume Preview");
+    setPreviewSourceUrl("");
     setPdfPages(null);
   };
+  const shouldShowDocumentsAndInvoices = (candidateData) => {
+    if (!candidateData) return false;
+
+    const statusesToCheck = [
+      candidateData.main_status,
+      candidateData.sub_status,
+      candidateData.status,
+    ];
+
+    return statusesToCheck.some((status) => {
+      const normalizedStatus = String(status || "")
+        .toLowerCase()
+        .replace(/[\s_-]/g, "");
+
+      return (
+        normalizedStatus.includes("onboard") ||
+        normalizedStatus.includes("onbord") ||
+        normalizedStatus.includes("offboard")
+      );
+    });
+  };
+
   // Get current month and last month data
   const getCurrentMonthData = () => {
     const now = new Date();
@@ -369,6 +499,129 @@ function DetailedViewCandidate() {
     lastVendorInvoice,
   } = getCurrentMonthData();
 
+  const toggleExpandedList = (listKey) => {
+    setExpandedLists((prev) => ({
+      ...prev,
+      [listKey]: !prev[listKey],
+    }));
+  };
+
+  const getVisibleListItems = (items, listKey) => {
+    if (!Array.isArray(items)) return [];
+    return expandedLists[listKey] ? items : items.slice(0, 2);
+  };
+
+  const getFirstAvailableValue = (source, keys) => {
+    if (!source) return "";
+
+    for (const key of keys) {
+      const value = source[key];
+      if (value !== null && value !== undefined && value !== "") {
+        return value;
+      }
+    }
+
+    return "";
+  };
+
+  const formatDayValue = (value) => {
+    if (value === null || value === undefined || value === "") return "0";
+
+    const valueString = String(value).trim();
+    if (!valueString) return "0";
+
+    const normalizedValue = valueString.replace(",", ".");
+    const numericValue = Number(normalizedValue);
+
+    if (Number.isNaN(numericValue)) return valueString;
+
+    return normalizedValue.includes(".")
+      ? normalizedValue.replace(/0+$/, "").replace(/\.$/, "")
+      : normalizedValue;
+  };
+
+
+  const normalizeDecimalInput = (value) => {
+    if (value === null || value === undefined) return "";
+    return String(value).trim().replace(",", ".");
+  };
+
+  const isValidDecimalInput = (value) => /^\d+(\.\d+)?$/.test(normalizeDecimalInput(value));
+
+  const getTimesheetDayValue = (timesheet, field) => {
+    const fieldMap = {
+      working_days: [
+        "working_days",
+        "workingDays",
+        "working_days_decimal",
+        "workingDaysDecimal",
+        "candidate_working_days",
+        "candidateWorkingDays",
+        "actual_working_days",
+        "actualWorkingDays",
+      ],
+      total_working_days: [
+        "total_working_days",
+        "totalWorkingDays",
+        "total_working_days_decimal",
+        "totalWorkingDaysDecimal",
+        "total_days",
+        "totalDays",
+      ],
+      leave_days: [
+        "leave_days",
+        "leaveDays",
+        "leave_days_decimal",
+        "leaveDaysDecimal",
+      ],
+    };
+
+    return formatDayValue(getFirstAvailableValue(timesheet, fieldMap[field] || [field]));
+  };
+
+  const formatDocumentDate = (doc) => {
+    const rawDate =
+      doc?.uploaded_at ||
+      doc?.uploadedAt ||
+      doc?.uploaded_on ||
+      doc?.uploadedOn ||
+      doc?.uploaded_date ||
+      doc?.uploadedDate ||
+      doc?.upload_date ||
+      doc?.uploadDate ||
+      doc?.upload_at ||
+      doc?.uploadAt ||
+      doc?.uploaded ||
+      doc?.created_at ||
+      doc?.createdAt ||
+      doc?.created_on ||
+      doc?.createdOn ||
+      doc?.created_date ||
+      doc?.createdDate ||
+      doc?.created ||
+      doc?.updated_at ||
+      doc?.updatedAt ||
+      doc?.updated_on ||
+      doc?.updatedOn ||
+      doc?.updated_date ||
+      doc?.updatedDate ||
+      doc?.invoice_date ||
+      doc?.invoiceDate ||
+      doc?.date ||
+      doc?.month_year ||
+      doc?.month;
+
+    if (rawDate) {
+      const parsedDate = new Date(rawDate);
+      if (!Number.isNaN(parsedDate.getTime())) {
+        return parsedDate.toLocaleDateString();
+      }
+      return rawDate;
+    }
+
+    return "N/A";
+  };
+
   if (loading)
     return (
       <BaseLayout>
@@ -381,6 +634,8 @@ function DetailedViewCandidate() {
         <h3>Candidate not found!</h3>
       </BaseLayout>
     );
+
+  const canShowDocumentsAndInvoices = shouldShowDocumentsAndInvoices(candidate);
 
   return (
     <BaseLayout>
@@ -546,99 +801,6 @@ function DetailedViewCandidate() {
           </div>
         </div>
 
-        {/* Recent Documents Card */}
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Recent Documents</h3>
-          <div style={styles.summaryGrid}>
-            <div style={styles.summarySection}>
-              <h4 style={styles.summaryMonth}>Recent Timesheets</h4>
-              {timesheets.slice(0, 2).map((ts, idx) => (
-                <div key={ts.id || idx} style={styles.summaryItem}>
-                  <div style={styles.summarySubRow}>
-                    <span>{ts.month_year || ts.month}</span>
-                  </div>
-                  <div style={styles.summaryRow}>
-                    <span>Working days</span>
-                    <strong>
-                      {ts.working_days ?? 0}/{ts.total_working_days ?? 0}
-                    </strong>
-                  </div>
-                  <div style={styles.summaryRow}>
-                    <span>Leave days</span>
-                    <strong>{ts.leave_days ?? 0}</strong>
-                  </div>
-                  {ts.file && (
-                    <a
-                      href={
-                        ts.file?.startsWith("http")
-                          ? ts.file
-                          : `${API_BASE}${ts.file}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={styles.viewBtn}
-                    >
-                      View
-                    </a>
-                  )}
-                </div>
-              ))}
-              {timesheets.slice(0, 2).length === 0 && (
-                <div style={styles.summaryItem}>
-                  <span style={styles.emptyText}>No recent timesheets</span>
-                </div>
-              )}
-            </div>
-            <div style={styles.summarySection}>
-              <h4 style={styles.summaryMonth}>Recent Vendor Invoices</h4>
-              {vendorInvoices.slice(0, 2).map((vi, idx) => (
-                <div key={vi.id || idx} style={styles.summaryItem}>
-                  <div style={styles.summarySubRow}>
-                    <span>{vi.month_year || vi.month}</span>
-                  </div>
-                  <div style={styles.summaryRow}>
-                    <span>Total amount (GST)</span>
-                    <strong>
-                      ₹{vi.total_amount_with_gst ?? vi.total_amount ?? 0}
-                    </strong>
-                  </div>
-                  <div style={styles.summaryRow}>
-                    <span>GST rate</span>
-                    <strong>
-                      {vi.gst_rate != null ? `${vi.gst_rate}%` : "N/A"}
-                    </strong>
-                  </div>
-                  <div style={styles.summaryRow}>
-                    <span>Without GST</span>
-                    <strong>₹{vi.total_amount_without_gst ?? 0}</strong>
-                  </div>
-                  {vi.file && (
-                    <a
-                      href={
-                        vi.file?.startsWith("http")
-                          ? vi.file
-                          : `${API_BASE}${vi.file}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={styles.viewBtn}
-                    >
-                      View
-                    </a>
-                  )}
-                </div>
-              ))}
-              {vendorInvoices.slice(0, 2).length === 0 && (
-                <div style={styles.summaryItem}>
-                  <span style={styles.emptyText}>
-                    No recent vendor invoices
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* 4. Blocklist Info */}
         {candidate.is_blocklisted && (
           <div
@@ -698,196 +860,422 @@ function DetailedViewCandidate() {
           </div>
         </div>
 
-        {/* 7. Documents Card */}
-        <div style={styles.fullWidthCard}>
-          <h3 style={styles.cardTitle}>Documents & Invoices</h3>
-
-          <div style={styles.documentsGrid}>
-            {/* Timesheet Section */}
-            <div style={styles.docSection}>
-              <div style={styles.sectionHeader}>
-                <h4 style={styles.sectionTitle}>Monthly Timesheets</h4>
-                <button
-                  onClick={() =>
-                    setUploadModal({
-                      show: true,
-                      type: "timesheet",
-                      month: "",
-                      file: null,
-                      total_working_days: "",
-                      working_days: "",
-                      total_amount_with_gst: "",
-                      gst_rate: "",
-                    })
-                  }
-                  style={styles.addBtn}
+        {/* Recent Documents Card - Full Width */}
+        {canShowDocumentsAndInvoices && (
+          <div style={styles.fullWidthCard}>
+            <h3 style={styles.cardTitle}>Recent Documents</h3>
+            <div style={styles.summaryGrid}>
+              <div style={styles.summarySection}>
+                <h4 style={styles.summaryMonth}>Recent Timesheets</h4>
+                <div
+                  style={{
+                    ...styles.summaryList,
+                    ...(expandedLists.recentTimesheets && timesheets.length > 2
+                      ? styles.summaryListScrollable
+                      : {}),
+                  }}
                 >
-                  + Upload
-                </button>
-              </div>
-              <div style={styles.docList}>
-                {timesheets.length === 0 ? (
-                  <p style={styles.emptyText}>No timesheets uploaded</p>
-                ) : (
-                  timesheets.map((ts) => (
-                    <div key={ts.id} style={styles.docItem}>
-                      <div>
-                        <div style={styles.docMonth}>{ts.month_year}</div>
-                        <div style={styles.docDate}>
-                          Working: {ts.working_days}/{ts.total_working_days}{" "}
-                          days
-                        </div>
-                        <div style={styles.docDate}>
-                          Leave: {ts.leave_days} days
-                        </div>
-                        <div style={styles.docDate}>
-                          Uploaded:{" "}
-                          {new Date(ts.uploaded_at).toLocaleDateString()}
-                        </div>
+                  {getVisibleListItems(timesheets, "recentTimesheets").map((ts, idx) => (
+                    <div key={ts.id || idx} style={styles.summaryItem}>
+                      <div style={styles.summarySubRow}>
+                        <span>{ts.month_year || ts.month}</span>
                       </div>
-                      <div style={styles.docActions}>
-                        <a
-                          href={
-                            ts.file?.startsWith("http")
-                              ? ts.file
-                              : `${API_BASE}${ts.file}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={styles.viewBtn}
-                        >
-                          View
-                        </a>
-                        <button
-                          onClick={() => handleDelete("timesheet", ts.id)}
-                          style={styles.deleteBtn}
-                        >
-                          Delete
-                        </button>
+                      <div style={styles.summaryRow}>
+                        <span style={styles.summaryLabel}>Working days</span>
+                        <strong style={styles.summaryValue}>
+                          {getTimesheetDayValue(ts, "working_days")}/{getTimesheetDayValue(ts, "total_working_days")}
+                        </strong>
                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Vendor Invoice Section */}
-            <div style={styles.docSection}>
-              <div style={styles.sectionHeader}>
-                <h4 style={styles.sectionTitle}>Vendor Invoices</h4>
-                <button
-                  onClick={() =>
-                    setUploadModal({
-                      show: true,
-                      type: "vendor",
-                      month: "",
-                      file: null,
-                      total_working_days: "",
-                      working_days: "",
-                      total_amount_with_gst: "",
-                      gst_rate: "",
-                    })
-                  }
-                  style={styles.addBtn}
-                >
-                  + Upload
-                </button>
-              </div>
-              <div style={styles.docList}>
-                {vendorInvoices.length === 0 ? (
-                  <p style={styles.emptyText}>No vendor invoices uploaded</p>
-                ) : (
-                  vendorInvoices.map((vi) => (
-                    <div key={vi.id} style={styles.docItem}>
-                      <div>
-                        <div style={styles.docMonth}>{vi.month_year}</div>
-                        <div style={styles.docDate}>
-                          With GST: ₹{vi.total_amount_with_gst}
-                        </div>
-                        <div style={styles.docDate}>GST: {vi.gst_rate}%</div>
-                        <div style={styles.docDate}>
-                          Without GST: ₹{vi.total_amount_without_gst}
-                        </div>
-                        <div style={styles.docDate}>
-                          Uploaded:{" "}
-                          {new Date(vi.uploaded_at).toLocaleDateString()}
-                        </div>
+                      <div style={styles.summaryRow}>
+                        <span style={styles.summaryLabel}>Leave days</span>
+                        <strong style={styles.summaryValue}>{getTimesheetDayValue(ts, "leave_days")}</strong>
                       </div>
-                      <div style={styles.docActions}>
-                        <a
-                          href={
-                            vi.file?.startsWith("http")
-                              ? vi.file
-                              : `${API_BASE}${vi.file}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={styles.viewBtn}
-                        >
-                          View
-                        </a>
-                        <button
-                          onClick={() => handleDelete("vendor", vi.id)}
-                          style={styles.deleteBtn}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Client Invoice Section */}
-            <div style={styles.docSection}>
-              <div style={styles.sectionHeader}>
-                <h4 style={styles.sectionTitle}>Client Invoices</h4>
-              </div>
-              <div style={styles.docList}>
-                {clientInvoices.length === 0 ? (
-                  <p style={styles.emptyText}>No client invoices generated</p>
-                ) : (
-                  clientInvoices.map((ci) => (
-                    <div key={ci.id} style={styles.docItem}>
-                      <div>
-                        <div style={styles.docInvoiceNum}>
-                          #{ci.invoice_number}
-                        </div>
-                        <div style={styles.docAmount}>₹{ci.amount}</div>
-                        <div style={styles.docDate}>
-                          Date: {new Date(ci.invoice_date).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <div style={styles.docActions}>
-                        <span
-                          style={{
-                            ...styles.statusBadge,
-                            ...(ci.status === "PAID"
-                              ? styles.paidStatus
-                              : styles.pendingStatus),
-                          }}
-                        >
-                          {ci.status}
-                        </span>
-                        {ci.pdf_file && (
-                          <a
-                            href={ci.pdf_file}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={styles.viewBtn}
+                      {ts.file && (
+                        <div style={styles.summaryActions}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handlePreviewDocument(
+                                ts.file,
+                                `Timesheet - ${ts.month_year || ts.month || "Document"}`,
+                              )
+                            }
+                            style={styles.summaryViewBtn}
                           >
                             View
-                          </a>
-                        )}
-                      </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDocument(ts.file)}
+                            style={styles.summaryDownloadBtn}
+                            title="Open document in new tab"
+                          >
+                            <Icons.Download />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  ))
+                  ))}
+                  {timesheets.length === 0 && (
+                    <div style={{ ...styles.summaryItem, ...styles.emptySummaryItem }}>
+                      <span style={styles.emptyText}>No recent timesheets</span>
+                    </div>
+                  )}
+                </div>
+                {timesheets.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpandedList("recentTimesheets")}
+                    style={styles.viewMoreBtn}
+                  >
+                    {expandedLists.recentTimesheets ? "View Less" : "View More"}
+                  </button>
+                )}
+              </div>
+
+              <div style={styles.summarySection}>
+                <h4 style={styles.summaryMonth}>Recent Vendor Invoices</h4>
+                <div
+                  style={{
+                    ...styles.summaryList,
+                    ...(expandedLists.recentVendorInvoices && vendorInvoices.length > 2
+                      ? styles.summaryListScrollable
+                      : {}),
+                  }}
+                >
+                  {getVisibleListItems(vendorInvoices, "recentVendorInvoices").map((vi, idx) => (
+                    <div key={vi.id || idx} style={styles.summaryItem}>
+                      <div style={styles.summarySubRow}>
+                        <span>{vi.month_year || vi.month}</span>
+                      </div>
+                      <div style={styles.summaryRow}>
+                        <span style={styles.summaryLabel}>Total amount (GST)</span>
+                        <strong style={styles.summaryValue}>
+                          ₹{vi.total_amount_with_gst ?? vi.total_amount ?? 0}
+                        </strong>
+                      </div>
+                      <div style={styles.summaryRow}>
+                        <span style={styles.summaryLabel}>Without GST</span>
+                        <strong style={styles.summaryValue}>₹{vi.total_amount_without_gst ?? 0}</strong>
+                      </div>
+                      {vi.file && (
+                        <div style={styles.summaryActions}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handlePreviewDocument(
+                                vi.file,
+                                `Vendor Invoice - ${vi.month_year || vi.month || "Document"}`,
+                              )
+                            }
+                            style={styles.summaryViewBtn}
+                          >
+                            View
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDocument(vi.file)}
+                            style={styles.summaryDownloadBtn}
+                            title="Open document in new tab"
+                          >
+                            <Icons.Download />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {vendorInvoices.length === 0 && (
+                    <div style={{ ...styles.summaryItem, ...styles.emptySummaryItem }}>
+                      <span style={styles.emptyText}>No recent vendor invoices</span>
+                    </div>
+                  )}
+                </div>
+                {vendorInvoices.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpandedList("recentVendorInvoices")}
+                    style={styles.viewMoreBtn}
+                  >
+                    {expandedLists.recentVendorInvoices ? "View Less" : "View More"}
+                  </button>
                 )}
               </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* 7. Documents Card */}
+        {canShowDocumentsAndInvoices && (
+          <div style={styles.fullWidthCard}>
+            <h3 style={styles.cardTitle}>Documents & Invoices</h3>
+
+            <div style={styles.documentsGrid}>
+              {/* Timesheet Section */}
+              <div style={styles.docSection}>
+                <div style={styles.sectionHeader}>
+                  <h4 style={styles.sectionTitle}>Monthly Timesheets</h4>
+                  <button
+                    onClick={() =>
+                      setUploadModal({
+                        show: true,
+                        type: "timesheet",
+                        month: "",
+                        file: null,
+                        total_working_days: "",
+                        working_days: "",
+                        total_amount_with_gst: "",
+                        gst_rate: "",
+                      })
+                    }
+                    style={styles.addBtn}
+                  >
+                    + Upload
+                  </button>
+                </div>
+                <div style={{ ...styles.docList, ...(expandedLists.documentTimesheets && timesheets.length > 2 ? styles.docListScrollable : {}) }}> 
+                  {timesheets.length === 0 ? (
+                    <p style={styles.emptyText}>No timesheets uploaded</p>
+                  ) : (
+                    getVisibleListItems(timesheets, "documentTimesheets").map((ts) => (
+                      <div key={ts.id} style={styles.docItem}>
+                        <div style={styles.docContent}>
+                          <div style={styles.docMonth}>{ts.month_year}</div>
+                          <div style={styles.docInfoRow}>
+                            <span style={styles.docInfoLabel}>Working days</span>
+                            <strong style={styles.docInfoValue}>
+                              {getTimesheetDayValue(ts, "working_days")}/{getTimesheetDayValue(ts, "total_working_days")}
+                            </strong>
+                          </div>
+                          <div style={styles.docInfoRow}>
+                            <span style={styles.docInfoLabel}>Leave days</span>
+                            <strong style={styles.docInfoValue}>{getTimesheetDayValue(ts, "leave_days")}</strong>
+                          </div>
+                          <div style={styles.docInfoRow}>
+                            <span style={styles.docInfoLabel}>Uploaded</span>
+                            <strong style={styles.docInfoValue}>
+                              {formatDocumentDate(ts)}
+                            </strong>
+                          </div>
+                        </div>
+                        <div style={styles.docActions}>
+                          {ts.file && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handlePreviewDocument(
+                                    ts.file,
+                                    `Timesheet - ${ts.month_year || ts.month || "Document"}`,
+                                  )
+                                }
+                                style={styles.viewBtn}
+                              >
+                                View
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDocument(ts.file)}
+                                style={styles.summaryDownloadBtn}
+                                title="Open document in new tab"
+                              >
+                                <Icons.Download />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => handleDelete("timesheet", ts.id)}
+                            style={styles.deleteBtn}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {timesheets.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpandedList("documentTimesheets")}
+                    style={styles.viewMoreBtn}
+                  >
+                    {expandedLists.documentTimesheets ? "View Less" : "View More"}
+                  </button>
+                )}
+              </div>
+
+              {/* Vendor Invoice Section */}
+              <div style={styles.docSection}>
+                <div style={styles.sectionHeader}>
+                  <h4 style={styles.sectionTitle}>Vendor Invoices</h4>
+                  <button
+                    onClick={() =>
+                      setUploadModal({
+                        show: true,
+                        type: "vendor",
+                        month: "",
+                        file: null,
+                        total_working_days: "",
+                        working_days: "",
+                        total_amount_with_gst: "",
+                        gst_rate: "",
+                      })
+                    }
+                    style={styles.addBtn}
+                  >
+                    + Upload
+                  </button>
+                </div>
+                <div style={{ ...styles.docList, ...(expandedLists.documentVendorInvoices && vendorInvoices.length > 2 ? styles.docListScrollable : {}) }}> 
+                  {vendorInvoices.length === 0 ? (
+                    <p style={styles.emptyText}>No vendor invoices uploaded</p>
+                  ) : (
+                    getVisibleListItems(vendorInvoices, "documentVendorInvoices").map((vi) => (
+                      <div key={vi.id} style={styles.docItem}>
+                        <div style={styles.docContent}>
+                          <div style={styles.docMonth}>{vi.month_year}</div>
+                          <div style={styles.docInfoRow}>
+                            <span style={styles.docInfoLabel}>With GST</span>
+                            <strong style={styles.docInfoValue}>₹{vi.total_amount_with_gst ?? vi.total_amount ?? 0}</strong>
+                          </div>
+                         
+                          <div style={styles.docInfoRow}>
+                            <span style={styles.docInfoLabel}>Without GST</span>
+                            <strong style={styles.docInfoValue}>₹{vi.total_amount_without_gst ?? 0}</strong>
+                          </div>
+                          <div style={styles.docInfoRow}>
+                            <span style={styles.docInfoLabel}>Uploaded</span>
+                            <strong style={styles.docInfoValue}>
+                              {formatDocumentDate(vi)}
+                            </strong>
+                          </div>
+                        </div>
+                        <div style={styles.docActions}>
+                          {vi.file && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handlePreviewDocument(
+                                    vi.file,
+                                    `Vendor Invoice - ${vi.month_year || vi.month || "Document"}`,
+                                  )
+                                }
+                                style={styles.viewBtn}
+                              >
+                                View
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDocument(vi.file)}
+                                style={styles.summaryDownloadBtn}
+                                title="Open document in new tab"
+                              >
+                                <Icons.Download />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => handleDelete("vendor", vi.id)}
+                            style={styles.deleteBtn}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {vendorInvoices.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpandedList("documentVendorInvoices")}
+                    style={styles.viewMoreBtn}
+                  >
+                    {expandedLists.documentVendorInvoices ? "View Less" : "View More"}
+                  </button>
+                )}
+              </div>
+
+              {/* Client Invoice Section */}
+              <div style={styles.docSection}>
+                <div style={styles.sectionHeader}>
+                  <h4 style={styles.sectionTitle}>Client Invoices</h4>
+                </div>
+                <div style={{ ...styles.docList, ...(expandedLists.documentClientInvoices && clientInvoices.length > 2 ? styles.docListScrollable : {}) }}> 
+                  {clientInvoices.length === 0 ? (
+                    <p style={styles.emptyText}>No client invoices generated</p>
+                  ) : (
+                    getVisibleListItems(clientInvoices, "documentClientInvoices").map((ci) => (
+                      <div key={ci.id} style={styles.docItem}>
+                        <div style={styles.docContent}>
+                          <div style={styles.docInvoiceNum}>
+                            #{ci.invoice_number}
+                          </div>
+                          <div style={styles.docInfoRow}>
+                            <span style={styles.docInfoLabel}>Amount</span>
+                            <strong style={styles.docInfoValue}>₹{ci.amount ?? 0}</strong>
+                          </div>
+                          <div style={styles.docInfoRow}>
+                            <span style={styles.docInfoLabel}>Date</span>
+                            <strong style={styles.docInfoValue}>
+                              {ci.invoice_date ? new Date(ci.invoice_date).toLocaleDateString() : "—"}
+                            </strong>
+                          </div>
+                        </div>
+                        <div style={styles.docActions}>
+                          <span
+                            style={{
+                              ...styles.statusBadge,
+                              ...(ci.status === "PAID"
+                                ? styles.paidStatus
+                                : styles.pendingStatus),
+                            }}
+                          >
+                            {ci.status}
+                          </span>
+                          {ci.pdf_file && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handlePreviewDocument(
+                                    ci.pdf_file,
+                                    `Client Invoice - ${ci.invoice_number || "Document"}`,
+                                  )
+                                }
+                                style={styles.viewBtn}
+                              >
+                                View
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDocument(ci.pdf_file)}
+                                style={styles.summaryDownloadBtn}
+                                title="Open document in new tab"
+                              >
+                                <Icons.Download />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {clientInvoices.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpandedList("documentClientInvoices")}
+                    style={styles.viewMoreBtn}
+                  >
+                    {expandedLists.documentClientInvoices ? "View Less" : "View More"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <StatusUpdateModal
@@ -904,7 +1292,7 @@ function DetailedViewCandidate() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={styles.previewHeader}>
-              <h3 style={{ margin: 0, color: "#25343F" }}>Resume Preview</h3>
+              <h3 style={{ margin: 0, color: "#25343F" }}>{previewTitle}</h3>
 
               <button
                 onClick={closePreviewModal}
@@ -933,6 +1321,14 @@ function DetailedViewCandidate() {
                   ))}
                 </Document>
               </div>
+            ) : previewType === "image" ? (
+              <div style={styles.imagePreviewBox}>
+                <img src={previewUrl} alt={previewTitle} style={styles.previewImage} />
+              </div>
+            ) : previewType === "unsupported" ? (
+              <div style={styles.unsupportedPreviewBox}>
+                {previewHtml}
+              </div>
             ) : (
               <div
                 style={styles.wordPreviewBox}
@@ -943,7 +1339,7 @@ function DetailedViewCandidate() {
         </div>
       )}
       {/* Upload Modal */}
-      {uploadModal.show && (
+      {uploadModal.show && canShowDocumentsAndInvoices && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             <h3 style={{ color: "#25343F", marginBottom: "20px" }}>
@@ -969,9 +1365,11 @@ function DetailedViewCandidate() {
                 <div style={styles.inputGroup}>
                   <label style={styles.modalLabel}>Total Working Days</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9]*[.]?[0-9]*"
                     style={styles.dateInput}
-                    placeholder="e.g., 30"
+                    placeholder="e.g., 30 or 30.5"
                     value={uploadModal.total_working_days}
                     onChange={(e) =>
                       setUploadModal({
@@ -986,9 +1384,11 @@ function DetailedViewCandidate() {
                     Working Days (by candidate)
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9]*[.]?[0-9]*"
                     style={styles.dateInput}
-                    placeholder="e.g., 22"
+                    placeholder="e.g., 22.5"
                     value={uploadModal.working_days}
                     onChange={(e) =>
                       setUploadModal({
@@ -1337,21 +1737,44 @@ const styles = {
     fontWeight: "700",
     cursor: "pointer",
   },
+  viewMoreBtn: {
+    display: "block",
+    margin: "12px auto 0",
+    background: "#fff",
+    color: "#FF9B51",
+    border: "1px solid #FF9B51",
+    padding: "6px 14px",
+    borderRadius: "8px",
+    fontSize: "12px",
+    fontWeight: "800",
+    cursor: "pointer",
+  },
   docList: {
     display: "flex",
     flexDirection: "column",
     gap: "10px",
-    maxHeight: "300px",
+    width: "100%",
+  },
+  docListScrollable: {
+    maxHeight: "390px",
     overflowY: "auto",
+    paddingRight: "6px",
   },
   docItem: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "10px",
+    flexDirection: "column",
+    alignItems: "stretch",
+    width: "100%",
+    minHeight: "178px",
+    padding: "12px",
     background: "#fff",
     borderRadius: "8px",
     border: "1px solid #E2E8F0",
+    boxSizing: "border-box",
+  },
+  docContent: {
+    width: "100%",
+    flex: 1,
   },
   docMonth: { fontSize: "13px", fontWeight: "700", color: "#25343F" },
   docInvoiceNum: { fontSize: "13px", fontWeight: "700", color: "#25343F" },
@@ -1362,16 +1785,79 @@ const styles = {
     marginTop: "3px",
   },
   docDate: { fontSize: "10px", color: "#94A3B8", marginTop: "2px" },
-  docActions: { display: "flex", gap: "8px", alignItems: "center" },
+  docInfoRow: {
+    width: "100%",
+    boxSizing: "border-box",
+    fontSize: "11px",
+    color: "#64748B",
+    marginTop: "6px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "10px",
+    padding: "7px 10px",
+    background: "#F8FAFC",
+    border: "1px solid #E2E8F0",
+    borderRadius: "7px",
+  },
+  docInfoLabel: {
+    color: "#25343F",
+    fontWeight: "800",
+  },
+  docInfoValue: {
+    color: "#FF9B51",
+    fontWeight: "900",
+    whiteSpace: "nowrap",
+  },
+  docActions: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    width: "100%",
+    marginTop: "auto",
+    paddingTop: "12px",
+  },
   viewBtn: {
     background: "#1E293B",
     color: "#fff",
+    border: "none",
     textDecoration: "none",
     padding: "4px 10px",
     borderRadius: "4px",
     fontSize: "11px",
     fontWeight: "600",
     cursor: "pointer",
+  },
+  summaryViewBtn: {
+    background: "#1E293B",
+    color: "#fff",
+    border: "none",
+    textDecoration: "none",
+    padding: "4px 10px",
+    borderRadius: "4px",
+    fontSize: "11px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+  summaryActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginTop: "6px",
+  },
+  summaryDownloadBtn: {
+    width: "26px",
+    height: "26px",
+    border: "1px solid #E2E8F0",
+    background: "#F8FAFC",
+    borderRadius: "5px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#475569",
   },
   deleteBtn: {
     background: "#FEE2E2",
@@ -1413,27 +1899,55 @@ const styles = {
     display: "flex",
     gap: "20px",
     justifyContent: "space-between",
+    alignItems: "stretch",
   },
-  summarySection: { flex: 1, textAlign: "center" },
+  summarySection: {
+    flex: 1,
+    textAlign: "center",
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "100%",
+  },
+  summaryList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  summaryListScrollable: {
+    maxHeight: "352px",
+    overflowY: "auto",
+    paddingRight: "6px",
+  },
   summaryItem: {
     background: "#fff",
     borderRadius: "12px",
-    padding: "12px",
-    marginBottom: "12px",
+    padding: "14px",
+    marginBottom: 0,
     border: "1px solid #E2E8F0",
     textAlign: "left",
+    minHeight: "170px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    boxSizing: "border-box",
+  },
+  emptySummaryItem: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   summarySubRow: {
-    fontSize: "13px",
-    color: "#334155",
+    fontSize: "14px",
+    color: "#25343F",
     marginBottom: "10px",
-    fontWeight: "700",
+    fontWeight: "800",
+    paddingBottom: "8px",
+    borderBottom: "1px solid #E2E8F0",
   },
   summaryMonth: {
-    fontSize: "13px",
-    fontWeight: "700",
+    fontSize: "14px",
+    fontWeight: "800",
     color: "#FF9B51",
-    marginBottom: "10px",
+    marginBottom: "12px",
   },
   summaryRow: {
     fontSize: "12px",
@@ -1441,7 +1955,21 @@ const styles = {
     marginBottom: "8px",
     display: "flex",
     justifyContent: "space-between",
-    padding: "4px 0",
+    alignItems: "center",
+    gap: "12px",
+    padding: "7px 10px",
+    background: "#F8FAFC",
+    borderRadius: "8px",
+  },
+  summaryLabel: {
+    color: "#25343F",
+    fontWeight: "800",
+    letterSpacing: "0.2px",
+  },
+  summaryValue: {
+    color: "#FF9B51",
+    fontWeight: "900",
+    whiteSpace: "nowrap",
   },
   noResumeText: {
     display: "inline-block",
@@ -1504,6 +2032,7 @@ const styles = {
     alignItems: "center",
   },
 
+
   previewCloseBtn: {
     background: "#F1F5F9",
     border: "none",
@@ -1534,6 +2063,36 @@ const styles = {
     lineHeight: "1.8",
     maxWidth: "900px",
     margin: "0 auto",
+  },
+
+  imagePreviewBox: {
+    flex: 1,
+    overflow: "auto",
+    padding: "20px",
+    background: "#F1F5F9",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  previewImage: {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain",
+    borderRadius: "10px",
+  },
+
+  unsupportedPreviewBox: {
+    flex: 1,
+    padding: "40px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    color: "#64748B",
+    fontSize: "15px",
+    fontWeight: "700",
+    background: "#F8FAFC",
   },
   resumeBadge: {
     background: "#25343F",

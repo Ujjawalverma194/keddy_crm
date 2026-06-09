@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { apiRequest } from "../../services/api";
+import { apiRequest, API_BASE } from "../../services/api";
 import BaseLayout from "../components/emp_base";
 
 function UpdateCandidate() {
@@ -13,6 +13,18 @@ function UpdateCandidate() {
   const [loading, setLoading] = useState(true);
   const [vendors, setVendors] = useState([]);
   const [vendorSearch, setVendorSearch] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getFileUrl = (filePath) => {
+    if (!filePath) return "";
+    return filePath.startsWith("http") ? filePath : `${API_BASE}${filePath}`;
+  };
+
+  const getFileName = (filePath) => {
+    if (!filePath) return "No resume uploaded";
+    return decodeURIComponent(filePath.split("/").pop() || "Current Resume");
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -89,6 +101,9 @@ function UpdateCandidate() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     const fd = new FormData();
 
     const editableFields = [
@@ -129,14 +144,21 @@ function UpdateCandidate() {
 
     try {
       const res = await apiRequest(
-        `/employee-portal/candidates/${id}/update/`,
+        `/employee-portal/api/candidates/${id}/update/`,
         "PUT",
         fd,
       );
-      alert(res.message || "Candidate updated successfully");
+      alert(res?.message || "Candidate updated successfully");
       navigate(`/employee/candidate/view/${id}`);
     } catch (err) {
-      alert("Update failed!");
+      console.error("Candidate update error", err);
+      alert(
+        err?.message ||
+          err?.detail ||
+          "Update failed! Please check backend update API and try again."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -450,12 +472,37 @@ function UpdateCandidate() {
         <div style={styles.section}>
           <h3 style={styles.secTitle}>3. Documents & Remarks</h3>
           <div style={styles.inputGroup}>
+            <label style={styles.label}>Current Resume</label>
+            {form.resume ? (
+              <div style={styles.currentResumeBox}>
+                <span style={styles.resumeName}>{getFileName(form.resume)}</span>
+                <a
+                  href={getFileUrl(form.resume)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={styles.resumeViewBtn}
+                >
+                  View Current Resume
+                </a>
+              </div>
+            ) : (
+              <div style={styles.noResumeBox}>No resume uploaded</div>
+            )}
+          </div>
+
+          <div style={styles.inputGroup}>
             <label style={styles.label}>Replace Resume (Optional)</label>
             <input
               type="file"
+              accept=".pdf,.doc,.docx"
               style={styles.input}
-              onChange={(e) => setResumeFile(e.target.files[0])}
+              onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
             />
+            {resumeFile && (
+              <span style={styles.selectedFileText}>
+                New selected resume: {resumeFile.name}
+              </span>
+            )}
           </div>
           <div style={{ ...styles.grid, marginTop: "15px" }}>
             <div style={styles.inputGroup}>
@@ -479,8 +526,8 @@ function UpdateCandidate() {
           </div>
         </div>
 
-        <button type="submit" style={styles.submitBtn}>
-          Update Candidate Details
+        <button type="submit" style={styles.submitBtn} disabled={isSubmitting}>
+          {isSubmitting ? "Updating..." : "Update Candidate Details"}
         </button>
       </form>
     </BaseLayout>
@@ -534,6 +581,46 @@ const styles = {
     border: "1px solid #ccc",
     minHeight: "80px",
     outline: "none",
+  },
+  currentResumeBox: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    padding: "12px",
+    border: "1px solid #E2E8F0",
+    borderRadius: "8px",
+    background: "#F8FAFC",
+    flexWrap: "wrap",
+  },
+  resumeName: {
+    color: "#25343F",
+    fontSize: "13px",
+    fontWeight: "700",
+    wordBreak: "break-word",
+  },
+  resumeViewBtn: {
+    background: "#25343F",
+    color: "#fff",
+    textDecoration: "none",
+    padding: "7px 12px",
+    borderRadius: "7px",
+    fontSize: "12px",
+    fontWeight: "700",
+  },
+  noResumeBox: {
+    padding: "12px",
+    border: "1px dashed #CBD5E1",
+    borderRadius: "8px",
+    background: "#F8FAFC",
+    color: "#94A3B8",
+    fontSize: "13px",
+    fontWeight: "600",
+  },
+  selectedFileText: {
+    color: "#16A34A",
+    fontSize: "12px",
+    fontWeight: "700",
   },
   submitBtn: {
     padding: "15px",
