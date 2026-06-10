@@ -258,10 +258,10 @@ export default function CreateInvoice() {
   const [selectedClient, setSelectedClient] = useState(null);
   const [loadingClients, setLoadingClients] = useState(false);
   const [candidateList, setCandidateList] = useState([]);
-  const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [, setLoadingCandidates] = useState(false);
   const [banks, setBanks] = useState([]);
   const [selectedBank, setSelectedBank] = useState("");
-  const [loadingBanks, setLoadingBanks] = useState(false);
+ const [, setLoadingBanks] = useState(false);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [isUpdateClientModalOpen, setIsUpdateClientModalOpen] = useState(false);
 

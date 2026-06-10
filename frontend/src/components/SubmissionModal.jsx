@@ -6,7 +6,7 @@ const SubmissionModal = ({ isOpen, onClose, selectedCand, notify, refreshData, i
     const [searchTerm, setSearchTerm] = useState("");
     const [jdSearchTerm, setJdSearchTerm] = useState("");
     const [jdFilter, setJdFilter] = useState('both'); // 'both', 'today', 'yesterday', 'all'
-    const [isSearching, setIsSearching] = useState(false);
+    
     const [employees, setEmployees] = useState([]);
     const [clientsList, setClientsList] = useState([]);
     const [jdList, setJdList] = useState([]);

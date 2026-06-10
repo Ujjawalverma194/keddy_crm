@@ -122,12 +122,47 @@ const Icons = {
 
 function CandidateList() {
   const navigate = useNavigate();
+
+  const getInitialParams = () => new URLSearchParams(window.location.search);
+  const getInitialNumberParam = (key, fallback) => {
+    const value = Number(getInitialParams().get(key));
+    return Number.isFinite(value) && value > 0 ? value : fallback;
+  };
+
   const [candidates, setCandidates] = useState([]);
-  const [count, setCount] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() =>
+    getInitialNumberParam("page", 1)
+  );
+  const [pageSize, setPageSize] = useState(() =>
+    getInitialNumberParam("page_size", 10)
+  );
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [techFilter, setTechFilter] = useState("");
+  const [searchTerm, setSearchTerm] = useState(() =>
+    getInitialParams().get("search") || ""
+  );
+
+  const getInitialFilters = () => {
+    const params = getInitialParams();
+    return {
+      candidate_name: params.get("candidate_name") || "",
+      technology: params.get("technology") || "",
+      client: params.get("client") || "",
+      vendor: params.get("vendor") || "",
+      status: params.get("status") || "",
+      rate_type: params.get("rate_type") || "",
+      exp_from: params.get("exp_from") || "",
+      exp_to: params.get("exp_to") || "",
+    };
+  };
+
+  const [appliedFilters, setAppliedFilters] = useState(() => getInitialFilters());
+  const [draftFilters, setDraftFilters] = useState(() => getInitialFilters());
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [activeFilterMenu, setActiveFilterMenu] = useState(null);
+  const [sortConfig, setSortConfig] = useState(() => ({
+    field: getInitialParams().get("sort_field") || "",
+    order: getInitialParams().get("sort_order") || "",
+  }));
 
   //   const [previewUrl, setPreviewUrl] = useState("");
 
@@ -151,15 +186,46 @@ function CandidateList() {
     setTimeout(() => setToast({ show: false, msg: "", type: "" }), 3000);
   };
 
-  const fetchCandidates = async (page, search, tech) => {
+  const syncListStateToUrl = () => {
+    const params = new URLSearchParams();
+
+    if (currentPage && currentPage !== 1) params.set("page", String(currentPage));
+    if (pageSize && pageSize !== 10) params.set("page_size", String(pageSize));
+    if (searchTerm.trim()) params.set("search", searchTerm.trim());
+
+    Object.entries(appliedFilters).forEach(([key, value]) => {
+      if (String(value || "").trim()) {
+        params.set(key, String(value).trim());
+      }
+    });
+
+    if (sortConfig.field) params.set("sort_field", sortConfig.field);
+    if (sortConfig.order) params.set("sort_order", sortConfig.order);
+
+    const query = params.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+
+    window.history.replaceState(null, "", nextUrl);
+  };
+
+  const fetchCandidates = async () => {
     setLoading(true);
     try {
-      let url = `/sub-admin/api/admin-candidates/?page=${page}`;
-      if (search) url += `&search=${search}`;
-      if (tech) url += `&technology=${tech}`;
-      const res = await apiRequest(url, "GET");
-      setCandidates(res.results || []);
-      setCount(res.count || 0);
+      const fetchPageSize = 100;
+      const buildUrl = (page) =>
+        `/sub-admin/api/admin-candidates/?page=${page}&page_size=${fetchPageSize}`;
+
+      const firstRes = await apiRequest(buildUrl(1), "GET");
+      const totalRecords = firstRes.count || 0;
+      const totalPages = Math.ceil(totalRecords / fetchPageSize) || 1;
+      let allCandidates = firstRes.results || [];
+
+      for (let page = 2; page <= totalPages; page += 1) {
+        const pageRes = await apiRequest(buildUrl(page), "GET");
+        allCandidates = [...allCandidates, ...(pageRes.results || [])];
+      }
+
+      setCandidates(allCandidates);
     } catch (err) {
       console.error(err);
     } finally {
@@ -168,8 +234,19 @@ function CandidateList() {
   };
 
   useEffect(() => {
-    fetchCandidates(currentPage, searchTerm, techFilter);
-  }, [currentPage, searchTerm, techFilter]);
+    syncListStateToUrl();
+  }, [currentPage, pageSize, searchTerm, appliedFilters, sortConfig]);
+
+  useEffect(() => {
+    fetchCandidates();
+  }, []);
+
+  useEffect(() => {
+    const totalPages = Math.ceil(getVisibleCandidates().length / pageSize) || 1;
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [candidates, searchTerm, appliedFilters, sortConfig, pageSize, currentPage]);
 
   const handleUpdateSubmit = async () => {
     try {
@@ -180,7 +257,7 @@ function CandidateList() {
       );
       notify("Status Updated");
       setShowStatusModal(false);
-      fetchCandidates(currentPage, searchTerm, techFilter);
+      fetchCandidates();
     } catch (err) {
       notify("Failed to update", "error");
     }
@@ -198,7 +275,7 @@ function CandidateList() {
         "success",
       );
       setShowDeletePopup(false);
-      fetchCandidates(currentPage, searchTerm, techFilter);
+      fetchCandidates();
     } catch (err) {
       notify("Delete failed", "error");
     }
@@ -272,9 +349,269 @@ const handlePreviewPDF = async (e, resume) => {
     notify("PDF preview failed. Please download the resume.", "error");
   }
 };
+
+  const parseExperienceValue = (value) => {
+    if (value === null || value === undefined || value === "") return 0;
+    const match = String(value).match(/[\d.]+/);
+    return match ? parseFloat(match[0]) : 0;
+  };
+
+  const getSortValue = (candidate, field) => {
+    switch (field) {
+      case "candidate_name":
+        return (candidate.candidate_name || "").toLowerCase();
+      case "technology":
+        return (candidate.technology || "").toLowerCase();
+      case "experience":
+        return parseExperienceValue(candidate.years_of_experience_manual);
+      case "vendor":
+        return (
+          candidate.vendor_company_name ||
+          candidate.vendor_name ||
+          candidate.vendor ||
+          ""
+        ).toLowerCase();
+      case "client":
+        return (
+          candidate.client_name ||
+          candidate.client ||
+          ""
+        ).toLowerCase();
+      case "rate_type":
+        {
+          const rateType = String(candidate.vendor_rate_type || "").toUpperCase().trim();
+          const rateRank = {
+            KPM: 1,
+            LPM: 2,
+            LPA: 3,
+          };
+          return rateRank[rateType] || 999;
+        }
+      default:
+        return "";
+    }
+  };
+
+  const matchesTextFilter = (source, filterValue) => {
+    if (!filterValue) return true;
+    return String(source || "")
+      .toLowerCase()
+      .includes(String(filterValue).toLowerCase().trim());
+  };
+
+  const getSearchText = (candidate) =>
+    [
+      candidate.candidate_name,
+      candidate.email,
+      candidate.candidate_email,
+      candidate.phone,
+      candidate.mobile,
+      candidate.technology,
+      candidate.client_name,
+      candidate.client,
+      candidate.vendor_company_name,
+      candidate.vendor_name,
+      candidate.vendor,
+      candidate.main_status,
+      candidate.sub_status,
+      candidate.vendor_rate_type,
+      candidate.years_of_experience_manual,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+  const getSearchScore = (candidate, search) => {
+    const term = String(search || "").toLowerCase().trim();
+    if (!term) return 0;
+
+    const candidateName = String(candidate.candidate_name || "").toLowerCase();
+    const technology = String(candidate.technology || "").toLowerCase();
+    const email = String(candidate.email || candidate.candidate_email || "").toLowerCase();
+    const client = String(candidate.client_name || candidate.client || "").toLowerCase();
+    const vendor = String(
+      candidate.vendor_company_name || candidate.vendor_name || candidate.vendor || ""
+    ).toLowerCase();
+    const fullText = getSearchText(candidate);
+
+    if (candidateName === term) return 100;
+    if (candidateName.startsWith(term)) return 90;
+    if (candidateName.includes(term)) return 80;
+    if (technology.startsWith(term)) return 70;
+    if (technology.includes(term)) return 60;
+    if (email.includes(term)) return 55;
+    if (client.includes(term)) return 45;
+    if (vendor.includes(term)) return 40;
+    if (fullText.includes(term)) return 30;
+
+    return 0;
+  };
+
+  const matchesSearchFilter = (candidate) => {
+    const term = String(searchTerm || "").toLowerCase().trim();
+    if (!term) return true;
+    return getSearchScore(candidate, term) > 0;
+  };
+
+  const getVisibleCandidates = () => {
+    const filtered = candidates.filter((candidate) => {
+      const expValue = parseExperienceValue(candidate.years_of_experience_manual);
+      const expFrom = appliedFilters.exp_from !== "" ? Number(appliedFilters.exp_from) : null;
+
+      return (
+        matchesSearchFilter(candidate) &&
+        matchesTextFilter(candidate.candidate_name, appliedFilters.candidate_name) &&
+        matchesTextFilter(candidate.technology, appliedFilters.technology) &&
+        matchesTextFilter(candidate.client_name || candidate.client, appliedFilters.client) &&
+        matchesTextFilter(
+          candidate.vendor_company_name || candidate.vendor_name || candidate.vendor,
+          appliedFilters.vendor
+        ) &&
+        matchesTextFilter(candidate.main_status, appliedFilters.status) &&
+        matchesTextFilter(candidate.vendor_rate_type, appliedFilters.rate_type) &&
+        (expFrom === null || expValue >= expFrom)
+      );
+    });
+
+    const sorted = [...filtered];
+    const hasSearch = String(searchTerm || "").trim();
+
+    sorted.sort((a, b) => {
+      if (hasSearch) {
+        const scoreDiff = getSearchScore(b, searchTerm) - getSearchScore(a, searchTerm);
+        if (scoreDiff !== 0) return scoreDiff;
+      }
+
+      if (!sortConfig.field || !sortConfig.order) return 0;
+
+      const aValue = getSortValue(a, sortConfig.field);
+      const bValue = getSortValue(b, sortConfig.field);
+
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortConfig.order === "asc" ? aValue - bValue : bValue - aValue;
+      }
+
+      return sortConfig.order === "asc"
+        ? String(aValue).localeCompare(String(bValue))
+        : String(bValue).localeCompare(String(aValue));
+    });
+
+    return sorted;
+  };
+
+  const visibleCandidates = getVisibleCandidates();
+  const totalProfiles = visibleCandidates.length;
+  const totalPages = Math.ceil(totalProfiles / pageSize) || 1;
+  const paginatedCandidates = visibleCandidates.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const applyHeaderFilter = (field, order) => {
+    setSortConfig({ field, order });
+    setActiveFilterMenu(null);
+    setCurrentPage(1);
+  };
+
+  const clearHeaderFilter = () => {
+    setSortConfig({ field: "", order: "" });
+    setActiveFilterMenu(null);
+    setCurrentPage(1);
+  };
+
+  const updateDraftFilter = (key, value) => {
+    setDraftFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const applyCategoryFilters = () => {
+    setAppliedFilters({ ...draftFilters });
+    setCurrentPage(1);
+    setShowFilterPanel(false);
+  };
+
+  const clearCategoryFilters = () => {
+    const emptyFilters = {
+      candidate_name: "",
+      technology: "",
+      client: "",
+      vendor: "",
+      status: "",
+      rate_type: "",
+      exp_from: "",
+      exp_to: "",
+    };
+
+    setDraftFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    setCurrentPage(1);
+    setShowFilterPanel(false);
+  };
+
+  const getActiveFilterCount = () =>
+    Object.values(appliedFilters).filter((value) => String(value || "").trim()).length;
+
+  const renderFilterHeader = (label, field, options) => {    const isActive = sortConfig.field === field;
+    const activeOption = options.find((option) => option.order === sortConfig.order);
+
+    return (
+      <div style={styles.filterHeaderWrap}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveFilterMenu(activeFilterMenu === field ? null : field);
+          }}
+          style={{
+            ...styles.headerFilterBtn,
+            ...(isActive ? styles.headerFilterBtnActive : {}),
+          }}
+        >
+          <span>{label}</span>
+          {isActive && activeOption ? (
+            <span style={styles.activeFilterText}>{activeOption.shortLabel}</span>
+          ) : null}
+          <span style={styles.filterCaret}>▾</span>
+        </button>
+
+        {activeFilterMenu === field && (
+          <div style={styles.filterDropdown} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.filterDropdownTitle}>Sort {label}</div>
+
+            {options.map((option) => (
+              <button
+                key={`${field}-${option.order}`}
+                type="button"
+                onClick={() => applyHeaderFilter(field, option.order)}
+                style={{
+                  ...styles.filterOption,
+                  ...(isActive && sortConfig.order === option.order
+                    ? styles.filterOptionActive
+                    : {}),
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={clearHeaderFilter}
+              style={styles.clearFilterOption}
+            >
+              Clear filter
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderGroupedRows = () => {
     let lastDate = "";
-    return candidates.map((c, i) => {
+    return paginatedCandidates.map((c, i) => {
       const currentDate = new Date(c.created_at).toLocaleDateString("en-GB", {
         day: "numeric",
         month: "short",
@@ -295,7 +632,9 @@ const handlePreviewPDF = async (e, resume) => {
           {dateSeparator}
           <tr
             style={{ ...styles.tableRow, backgroundColor: statusStyle.bg }}
-            onClick={() => navigate(`/sub-admin/candidate/view/${c.id}`)}
+            onClick={() =>
+              navigate(`/sub-admin/candidate/view/${c.id}${window.location.search || ""}`)
+            }
           >
             {/* 1. Submitted To/By */}
             <td style={styles.td}>
@@ -453,7 +792,7 @@ const handlePreviewPDF = async (e, resume) => {
       </div>
       <div style={styles.header}>
         <div>
-          <h2 style={styles.welcome}>Total Profiles ({count})</h2>
+          <h2 style={styles.welcome}>Total Profiles ({totalProfiles})</h2>
           <p style={styles.subText}>
             Management dashboard for tracking recruitment progress.
           </p>
@@ -465,15 +804,162 @@ const handlePreviewPDF = async (e, resume) => {
           placeholder="Search name/email..."
           style={styles.searchInput}
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1);
+          }}
         />
-        <input
-          placeholder="Tech Filter..."
-          style={styles.filterInput}
-          value={techFilter}
-          onChange={(e) => setTechFilter(e.target.value)}
-        />
+
+        <button
+          type="button"
+          style={{
+            ...styles.linkedInFilterToggle,
+            ...(getActiveFilterCount() ? styles.linkedInFilterToggleActive : {}),
+          }}
+          onClick={() => setShowFilterPanel((prev) => !prev)}
+        >
+          Filters
+          {getActiveFilterCount() ? (
+            <span style={styles.filterCountBadge}>{getActiveFilterCount()}</span>
+          ) : null}
+          <span style={styles.filterCaret}>▾</span>
+        </button>
       </div>
+
+      {showFilterPanel && (
+        <div style={styles.linkedInFilterPanel}>
+          <div style={styles.filterPanelHeader}>
+            <div>
+              <h3 style={styles.filterPanelTitle}>Search Filters</h3>
+              <p style={styles.filterPanelSubText}>
+                Select multiple categories and click Apply Filters.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              style={styles.filterPanelClose}
+              onClick={() => setShowFilterPanel(false)}
+            >
+              ×
+            </button>
+          </div>
+
+          <div style={styles.categoryFilterGrid}>
+            <div style={styles.categoryFilterGroup}>
+              <label style={styles.categoryFilterLabel}>Candidate Name</label>
+              <input
+                placeholder="Search candidate..."
+                style={styles.categoryFilterInput}
+                value={draftFilters.candidate_name}
+                onChange={(e) => updateDraftFilter("candidate_name", e.target.value)}
+              />
+            </div>
+
+            <div style={styles.categoryFilterGroup}>
+              <label style={styles.categoryFilterLabel}>Technology</label>
+              <input
+                placeholder="React, Java, Node..."
+                style={styles.categoryFilterInput}
+                value={draftFilters.technology}
+                onChange={(e) => updateDraftFilter("technology", e.target.value)}
+              />
+            </div>
+
+            <div style={styles.categoryFilterGroup}>
+              <label style={styles.categoryFilterLabel}>Client</label>
+              <input
+                placeholder="Client name..."
+                style={styles.categoryFilterInput}
+                value={draftFilters.client}
+                onChange={(e) => updateDraftFilter("client", e.target.value)}
+              />
+            </div>
+
+            <div style={styles.categoryFilterGroup}>
+              <label style={styles.categoryFilterLabel}>Vendor</label>
+              <input
+                placeholder="Vendor name..."
+                style={styles.categoryFilterInput}
+                value={draftFilters.vendor}
+                onChange={(e) => updateDraftFilter("vendor", e.target.value)}
+              />
+            </div>
+
+            <div style={styles.categoryFilterGroup}>
+              <label style={styles.categoryFilterLabel}>Status</label>
+              <select
+                style={styles.categoryFilterInput}
+                value={draftFilters.status}
+                onChange={(e) => updateDraftFilter("status", e.target.value)}
+              >
+                <option value="">All Status</option>
+                <option value="SUBMITTED">Submitted</option>
+                <option value="ONBORD">Onboard</option>
+                <option value="ONBOARD">Onboard</option>
+                <option value="OFFBOARDED">Offboarded</option>
+                <option value="REJECTED">Rejected</option>
+                <option value="HOLD">Hold</option>
+              </select>
+            </div>
+
+            <div style={styles.categoryFilterGroup}>
+              <label style={styles.categoryFilterLabel}>Rate Type</label>
+              <select
+                style={styles.categoryFilterInput}
+                value={draftFilters.rate_type}
+                onChange={(e) => updateDraftFilter("rate_type", e.target.value)}
+              >
+                <option value="">All Rate Types</option>
+                <option value="KPM">KPM</option>
+                <option value="LPM">LPM</option>
+                <option value="LPA">LPA</option>
+                <option value="PHR">PHR</option>
+                <option value="USD">USD</option>
+                <option value="USD_PH">USD/hr</option>
+              </select>
+            </div>
+
+            <div style={styles.categoryFilterGroup}>
+              <label style={styles.categoryFilterLabel}>Experience</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="Min experience e.g. 3 or 3.5"
+                style={styles.categoryFilterInput}
+                value={draftFilters.exp_from}
+                onChange={(e) => {
+                  const value = e.target.value;
+
+                  // Allow only numbers and float values like 3 or 3.5
+                  if (/^\d*\.?\d*$/.test(value)) {
+                    updateDraftFilter("exp_from", value);
+                    updateDraftFilter("exp_to", "");
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={styles.filterPanelActions}>
+            <button
+              type="button"
+              style={styles.clearFiltersBtn}
+              onClick={clearCategoryFilters}
+            >
+              Clear Filters
+            </button>
+
+            <button
+              type="button"
+              style={styles.applyFiltersBtn}
+              onClick={applyCategoryFilters}
+            >
+              Apply Filters
+            </button>
+          </div>
+        </div>
+      )}
 
       <div style={styles.sectionContainer}>
         <div style={styles.tableWrapper}>
@@ -482,12 +968,42 @@ const handlePreviewPDF = async (e, resume) => {
               <thead style={styles.tableHeader}>
                 <tr>
                   <th style={styles.th}>Submitted To/By</th>
-                  <th style={styles.th}>Candidate</th>
-                  <th style={styles.th}>Tech</th>
-                  <th style={styles.th}>Exp</th>
-                  <th style={styles.th}>Client</th>
-                  <th style={styles.th}>Vendor</th>
-                  <th style={styles.th}>Rate</th>
+                  <th style={styles.th}>
+                    {renderFilterHeader("Candidate", "candidate_name", [
+                      { label: "Candidate: A to Z", shortLabel: "A-Z", order: "asc" },
+                      { label: "Candidate: Z to A", shortLabel: "Z-A", order: "desc" },
+                    ])}
+                  </th>
+                  <th style={styles.th}>
+                    {renderFilterHeader("Tech", "technology", [
+                      { label: "Technology: A to Z", shortLabel: "A-Z", order: "asc" },
+                      { label: "Technology: Z to A", shortLabel: "Z-A", order: "desc" },
+                    ])}
+                  </th>
+                  <th style={styles.th}>
+                    {renderFilterHeader("Exp", "experience", [
+                      { label: "Experience: Low to High", shortLabel: "Low-High", order: "asc" },
+                      { label: "Experience: High to Low", shortLabel: "High-Low", order: "desc" },
+                    ])}
+                  </th>
+                  <th style={styles.th}>
+                    {renderFilterHeader("Client", "client", [
+                      { label: "Client: A to Z", shortLabel: "A-Z", order: "asc" },
+                      { label: "Client: Z to A", shortLabel: "Z-A", order: "desc" },
+                    ])}
+                  </th>
+                  <th style={styles.th}>
+                    {renderFilterHeader("Vendor", "vendor", [
+                      { label: "Vendor: A to Z", shortLabel: "A-Z", order: "asc" },
+                      { label: "Vendor: Z to A", shortLabel: "Z-A", order: "desc" },
+                    ])}
+                  </th>
+                  <th style={styles.th}>
+                    {renderFilterHeader("Rate", "rate_type", [
+                      { label: "Rate Type: KPM → LPM → LPA", shortLabel: "K-L-L", order: "asc" },
+                      { label: "Rate Type: LPA → LPM → KPM", shortLabel: "L-L-K", order: "desc" },
+                    ])}
+                  </th>
                   <th style={styles.th}>Status</th>
                   <th style={styles.th}>CV</th>
                   <th style={styles.th}>Action</th>
@@ -500,6 +1016,12 @@ const handlePreviewPDF = async (e, resume) => {
                       Loading...
                     </td>
                   </tr>
+                ) : totalProfiles === 0 ? (
+                  <tr>
+                    <td colSpan="10" style={styles.loadingTd}>
+                      No profiles found
+                    </td>
+                  </tr>
                 ) : (
                   renderGroupedRows()
                 )}
@@ -510,24 +1032,42 @@ const handlePreviewPDF = async (e, resume) => {
       </div>
 
       <div style={styles.pagination}>
+        <div style={styles.pageSizeControl}>
+          <span style={styles.pageSizeLabel}>Profiles per page</span>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            style={styles.pageSizeSelect}
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={30}>30</option>
+            <option value={40}>40</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
         <button
           disabled={currentPage === 1}
           onClick={() => setCurrentPage((p) => p - 1)}
           style={currentPage === 1 ? styles.pageBtnDisabled : styles.pageBtn}
         >
-          Prev
+          &#11013; Prev
         </button>
         <span style={styles.pageInfo}>
-          {currentPage} / {Math.ceil(count / 10) || 1}
+          {currentPage} / {totalPages}
         </span>
         <button
-          disabled={currentPage * 10 >= count}
+          disabled={currentPage >= totalPages}
           onClick={() => setCurrentPage((p) => p + 1)}
           style={
-            currentPage * 10 >= count ? styles.pageBtnDisabled : styles.pageBtn
+            currentPage >= totalPages ? styles.pageBtnDisabled : styles.pageBtn
           }
         >
-          Next
+          Next &#10140;
         </button>
       </div>
 
@@ -717,6 +1257,133 @@ const styles = {
     outline: "none",
     fontSize: "13px",
   },
+  linkedInFilterToggle: {
+    background: "#fff",
+    color: "#25343F",
+    border: "1px solid #E2E8F0",
+    padding: "11px 16px",
+    borderRadius: "999px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "900",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    boxShadow: "0 3px 10px rgba(15, 23, 42, 0.04)",
+  },
+  linkedInFilterToggleActive: {
+    background: "#FFF5EB",
+    border: "1px solid #FFB777",
+    color: "#FF7A1A",
+  },
+  filterCountBadge: {
+    background: "#FF9B51",
+    color: "#fff",
+    minWidth: "20px",
+    height: "20px",
+    borderRadius: "999px",
+    fontSize: "11px",
+    fontWeight: "900",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0 6px",
+  },
+  linkedInFilterPanel: {
+    background: "#fff",
+    border: "1px solid #E2E8F0",
+    borderRadius: "16px",
+    padding: "18px",
+    marginBottom: "20px",
+    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
+  },
+  filterPanelHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "15px",
+    marginBottom: "16px",
+  },
+  filterPanelTitle: {
+    margin: 0,
+    color: "#25343F",
+    fontSize: "16px",
+    fontWeight: "900",
+  },
+  filterPanelSubText: {
+    margin: "4px 0 0",
+    color: "#64748B",
+    fontSize: "12px",
+    fontWeight: "600",
+  },
+  filterPanelClose: {
+    width: "30px",
+    height: "30px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#F1F5F9",
+    color: "#25343F",
+    cursor: "pointer",
+    fontSize: "20px",
+    fontWeight: "900",
+    lineHeight: 1,
+  },
+  categoryFilterGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: "14px",
+  },
+  categoryFilterGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+  },
+  categoryFilterLabel: {
+    fontSize: "11px",
+    color: "#64748B",
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  categoryFilterInput: {
+    width: "100%",
+    padding: "11px 12px",
+    borderRadius: "10px",
+    border: "1px solid #E2E8F0",
+    outline: "none",
+    fontSize: "13px",
+    color: "#25343F",
+    background: "#fff",
+    boxSizing: "border-box",
+  },
+  filterPanelActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: "12px",
+    marginTop: "18px",
+    flexWrap: "wrap",
+  },
+  clearFiltersBtn: {
+    background: "#F8FAFC",
+    color: "#64748B",
+    border: "1px solid #E2E8F0",
+    padding: "10px 16px",
+    borderRadius: "10px",
+    fontWeight: "900",
+    cursor: "pointer",
+    fontSize: "13px",
+  },
+  applyFiltersBtn: {
+    background: "#FF9B51",
+    color: "#fff",
+    border: "none",
+    padding: "10px 18px",
+    borderRadius: "10px",
+    fontWeight: "900",
+    cursor: "pointer",
+    fontSize: "13px",
+    boxShadow: "0 5px 14px rgba(255,155,81,0.25)",
+  },
   sectionContainer: { marginBottom: "35px" },
   tableWrapper: {
     background: "#fff",
@@ -733,6 +1400,93 @@ const styles = {
     color: "#94A3B8",
     fontWeight: "800",
     textTransform: "uppercase",
+    position: "relative",
+  },
+  filterHeaderWrap: {
+    position: "relative",
+    display: "inline-flex",
+    alignItems: "center",
+  },
+  headerFilterBtn: {
+    border: "1px solid transparent",
+    background: "transparent",
+    color: "#64748B",
+    padding: "6px 8px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "11px",
+    fontWeight: "900",
+    textTransform: "uppercase",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  headerFilterBtnActive: {
+    background: "#FFF5EB",
+    border: "1px solid #FFD9BA",
+    color: "#FF7A1A",
+  },
+  activeFilterText: {
+    background: "#FF9B51",
+    color: "#fff",
+    padding: "2px 5px",
+    borderRadius: "999px",
+    fontSize: "9px",
+    lineHeight: 1,
+  },
+  filterCaret: {
+    fontSize: "12px",
+    color: "inherit",
+  },
+  filterDropdown: {
+    position: "absolute",
+    top: "32px",
+    left: 0,
+    minWidth: "190px",
+    background: "#fff",
+    border: "1px solid #E2E8F0",
+    borderRadius: "12px",
+    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.14)",
+    padding: "8px",
+    zIndex: 30,
+    textTransform: "none",
+  },
+  filterDropdownTitle: {
+    fontSize: "11px",
+    color: "#94A3B8",
+    fontWeight: "900",
+    padding: "7px 8px",
+    borderBottom: "1px solid #F1F5F9",
+    marginBottom: "5px",
+  },
+  filterOption: {
+    width: "100%",
+    border: "none",
+    background: "transparent",
+    color: "#334155",
+    textAlign: "left",
+    padding: "9px 10px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "700",
+  },
+  filterOptionActive: {
+    background: "#FFF5EB",
+    color: "#FF7A1A",
+  },
+  clearFilterOption: {
+    width: "100%",
+    border: "none",
+    background: "#F8FAFC",
+    color: "#64748B",
+    textAlign: "left",
+    padding: "9px 10px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "800",
+    marginTop: "5px",
   },
   tableRow: {
     borderBottom: "1px solid #F1F5F9",
@@ -822,6 +1576,30 @@ const styles = {
     border: "none",
     borderRadius: "8px",
     cursor: "not-allowed",
+  },
+  pageSizeControl: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    background: "#fff",
+    border: "1px solid #E2E8F0",
+    padding: "6px 10px",
+    borderRadius: "8px",
+  },
+  pageSizeLabel: {
+    fontSize: "12px",
+    color: "#64748B",
+    fontWeight: "800",
+  },
+  pageSizeSelect: {
+    border: "none",
+    outline: "none",
+    background: "#F8FAFC",
+    borderRadius: "6px",
+    padding: "6px 8px",
+    fontWeight: "800",
+    color: "#25343F",
+    cursor: "pointer",
   },
   pageInfo: { fontWeight: "800", color: "#25343F", fontSize: "14px" },
   loadingTd: {
@@ -975,676 +1753,3 @@ const styles = {
 };
 
 export default CandidateList;
-
-// import React, { useEffect, useState } from "react";
-// import { useNavigate } from "react-router-dom";
-// import { apiRequest } from "../../services/api";
-// import SubAdminLayout from "../components/SubAdminLayout";
-
-// // External Imports
-// import StatusUpdateModal from "../../components/StatusUpdateModal";
-// import { getStatusStyles } from "../../utils/statusHelper";
-
-// const Icons = {
-//     Edit: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-//     TrashIcon: ({ color }) => (
-//         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-//             <polyline points="3 6 5 6 21 6"></polyline>
-//             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-//             <line x1="10" y1="11" x2="10" y2="17"></line>
-//             <line x1="14" y1="11" x2="14" y2="17"></line>
-//         </svg>
-//     ),
-//     File: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>,
-//     Remark: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF9B51" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>,
-//     Alert: () => <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E74C3C" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-// };
-
-// function CandidateList() {
-//     const navigate = useNavigate();
-//     const [candidates, setCandidates] = useState([]);
-//     const [count, setCount] = useState(0);
-//     const [currentPage, setCurrentPage] = useState(1);
-//     const [loading, setLoading] = useState(true);
-//     const [searchTerm, setSearchTerm] = useState("");
-//     const [techFilter, setTechFilter] = useState("");
-
-//     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
-//     const [showStatusModal, setShowStatusModal] = useState(false);
-//     const [showDeletePopup, setShowDeletePopup] = useState(false);
-//     const [selectedCand, setSelectedCand] = useState(null);
-//     const [editForm, setEditForm] = useState({ main_status: "", sub_status: "", remark: "" });
-
-//     const notify = (msg, type = "success") => {
-//         setToast({ show: true, msg, type });
-//         setTimeout(() => setToast({ show: false, msg: "", type: "" }), 3000);
-//     };
-
-//     const fetchCandidates = async (page, search, tech) => {
-//         setLoading(true);
-//         try {
-//             let url = `/sub-admin/api/admin-candidates/?page=${page}`;
-//             if (search) url += `&search=${search}`;
-//             if (tech) url += `&technology=${tech}`;
-//             const res = await apiRequest(url, "GET");
-//             setCandidates(res.results || []);
-//             setCount(res.count || 0);
-//         } catch (err) { console.error(err); }
-//         finally { setLoading(false); }
-//     };
-
-//     useEffect(() => {
-//         fetchCandidates(currentPage, searchTerm, techFilter);
-//     }, [currentPage, searchTerm, techFilter]);
-
-//     const handleUpdateSubmit = async () => {
-//         try {
-//             await apiRequest(`/employee-portal/candidates/${selectedCand.id}/update/`, "PUT", editForm);
-//             notify("Status Updated");
-//             setShowStatusModal(false);
-//             fetchCandidates(currentPage, searchTerm, techFilter);
-//         } catch (err) { notify("Failed to update", "error"); }
-//     };
-
-//     // --- Delete Logic Fixed ---
-
-//     const handleDeleteAction = async (deleteType) => {
-//         if (!selectedCand || !selectedCand.id) {
-//             notify("Candidate ID missing", "error");
-//             return;
-//         }
-
-//         const actionUrl = deleteType === 'soft'
-//             ? `/sub-admin/candidates/${selectedCand.id}/soft-delete/`
-//             : `/sub-admin/candidates/${selectedCand.id}/hard-delete/`;
-
-//         try {
-//             // Hum directly check kar rahe hain ki kya request complete hui
-//             const response = await apiRequest(actionUrl, "DELETE");
-
-//             // Yahan hum ensure kar rahe hain ki data delete hua hai
-//             notify(deleteType === 'soft' ? "Moved to Trash Successfully" : "Permanently Deleted", "success");
-//             setShowDeletePopup(false);
-
-//             // Refreshing the list immediately
-//             setTimeout(() => {
-//                 fetchCandidates(currentPage, searchTerm, techFilter);
-//             }, 500);
-
-//         } catch (err) {
-//             console.error("Delete API Error:", err);
-//             notify("API Error: Delete not processed on server", "error");
-//         }
-//     };
-
-//     const openDeletePopup = (e, candidate) => {
-//         e.stopPropagation(); // Stop row click
-//         setSelectedCand(candidate);
-//         setShowDeletePopup(true);
-//     };
-
-//     const openStatusModal = (e, candidate) => {
-//         e.stopPropagation(); // Stop row click
-//         setSelectedCand(candidate);
-//         setEditForm({
-//             main_status: candidate.main_status || "SUBMITTED",
-//             sub_status: candidate.sub_status || "NONE",
-//             remark: candidate.remark || ""
-//         });
-//         setShowStatusModal(true);
-//     };
-
-//     const handleCVView = (e, resumeUrl) => {
-//         e.stopPropagation(); // Stop row click
-//         if (resumeUrl) window.open(resumeUrl, '_blank');
-//         else notify("No Resume Found", "error");
-//     };
-
-//     const truncate = (text, limit) => (text?.length > limit ? text.substring(0, limit) + "..." : text);
-
-//     const renderGroupedRows = () => {
-//         let lastDate = "";
-//         return candidates.map((can, i) => {
-//             const currentDate = new Date(can.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-//             let dateSeparator = currentDate !== lastDate ? (
-//                 <tr key={`sep-${i}`}><td colSpan="10" style={styles.dateSeparator}>{currentDate}</td></tr>
-//             ) : null;
-//             lastDate = currentDate;
-
-//             const statusStyle = getStatusStyles(can.main_status || "SUBMITTED");
-//             return (
-//                 <React.Fragment key={can.id}>
-//                     {dateSeparator}
-//                     <tr style={{ ...styles.tr, backgroundColor: statusStyle.bg }} onClick={() => navigate(`/sub-admin/candidate/view/${can.id}`)}>
-//                         <td style={styles.td}>
-//                             <div style={{fontWeight: "700", color: "#1E293B"}}>{can.candidate_name}</div>
-//                             <small style={{color: "#64748B"}}>{can.candidate_email}</small>
-//                         </td>
-//                         <td style={styles.td}><span style={{...styles.techBadge, color: statusStyle.text}}>{can.technology || "N/A"}</span></td>
-//                         <td style={styles.td}><b>{can.years_of_experience_manual} Yrs</b></td>
-//                         <td style={styles.td}>
-//                             <div style={{fontSize: "12px"}}>To: <b>{can.submitted_to_name || "N/A"}</b></div>
-//                             <div style={{fontSize: "11px", color: "#27AE60"}}>By: {can.created_by_name || "N/A"}</div>
-//                         </td>
-//                         <td style={styles.td}><b>{can.client_name || can.client || "N/A"}</b></td>
-//                         <td style={styles.td}><b>{truncate(can.vendor_company_name || can.vendor, 15)}</b></td>
-//                         <td style={styles.td}>₹{can.vendor_rate}</td>
-//                         <td style={styles.td}>
-//                             <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-//                                 <span style={{...styles.badge, color: statusStyle.text, fontWeight: '800'}}>{can.main_status}</span>
-//                                 {can.remark && <div style={styles.remarkIcon} title={can.remark}><Icons.Remark /></div>}
-//                             </div>
-//                             <small style={{ ...styles.subStatusText, color: statusStyle.text, fontWeight: '700' }}>{can.sub_status}</small>
-//                         </td>
-//                         <td style={styles.td}>
-//                             <button onClick={(e) => handleCVView(e, can.resume)} style={styles.cvBtn}>
-//                                 <Icons.File /> CV
-//                             </button>
-//                         </td>
-//                         <td style={styles.td}>
-//                             <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
-//                                 <button onClick={(e) => openStatusModal(e, can)} style={styles.editBtn} title="Update Status"><Icons.Edit /></button>
-//                                 <button onClick={(e) => openDeletePopup(e, can)} style={styles.trashBtn} title="Delete Options"><Icons.TrashIcon color="#E74C3C" /></button>
-//                             </div>
-//                         </td>
-//                     </tr>
-//                 </React.Fragment>
-//             );
-//         });
-//     };
-
-//     return (
-//         <SubAdminLayout>
-//             {toast.show && <div style={{...styles.toast, backgroundColor: toast.type === 'error' ? '#E74C3C' : '#27AE60'}}>{toast.msg}</div>}
-
-//             <div style={styles.header}>
-//                 <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-//                     <button onClick={() => navigate(-1)} style={styles.backBtn}>← Back</button>
-//                     <h2 style={styles.title}>Candidate Pool ({count})</h2>
-//                 </div>
-//                 <button onClick={() => navigate("/sub-admin/add-candidate")} style={styles.addBtn}>+ Add New</button>
-//             </div>
-
-//             <div style={styles.filterBar}>
-//                 <input placeholder="Search name/email..." style={styles.searchInput} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-//                 <input placeholder="Tech Filter..." style={styles.filterInput} value={techFilter} onChange={e => setTechFilter(e.target.value)} />
-//             </div>
-
-//             <div style={styles.tableCard}>
-//                 <table style={styles.table}>
-//                     <thead>
-//                         <tr style={styles.tableHeader}>
-//                             <th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th>
-//                             <th style={styles.th}>To/By</th><th style={styles.th}>Client</th><th style={styles.th}>Vendor</th>
-//                             <th style={styles.th}>Rate</th><th style={styles.th}>Status</th><th style={styles.th}>CV</th><th style={styles.th}>Action</th>
-//                         </tr>
-//                     </thead>
-//                     <tbody>{loading ? <tr><td colSpan="10" style={{textAlign:'center', padding:'40px'}}>Loading...</td></tr> : renderGroupedRows()}</tbody>
-//                 </table>
-//             </div>
-
-//             <div style={styles.pagination}>
-//                 <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} style={currentPage === 1 ? styles.pageBtnDisabled : styles.pageBtn}>Prev</button>
-//                 <span style={styles.pageInfo}>{currentPage} / {Math.ceil(count / 10) || 1}</span>
-//                 <button disabled={currentPage * 10 >= count} onClick={() => setCurrentPage(p => p + 1)} style={currentPage * 10 >= count ? styles.pageBtnDisabled : styles.pageBtn}>Next</button>
-//             </div>
-
-//             {/* Custom Delete Popup */}
-//             {showDeletePopup && (
-//                 <div style={styles.modalOverlay} onClick={() => setShowDeletePopup(false)}>
-//                     <div style={styles.deleteContent} onClick={e => e.stopPropagation()}>
-//                         <Icons.Alert />
-//                         <h3 style={{margin:'15px 0 5px'}}>Delete Candidate?</h3>
-//                         <p style={{fontSize:'13px', color:'#64748B', marginBottom:'20px'}}>Remove <b>{selectedCand?.candidate_name}</b></p>
-//                         <div style={{display:'flex', flexDirection:'column', gap:'10px', width:'100%'}}>
-//                             <button style={styles.softBtn} onClick={() => handleDeleteAction('soft')}>Move to Trash (Soft Delete)</button>
-//                             <button style={styles.hardBtn} onClick={() => handleDeleteAction('hard')}>Delete Permanently (Hard Delete)</button>
-//                             <button style={styles.cancelBtn} onClick={() => setShowDeletePopup(false)}>Cancel</button>
-//                         </div>
-//                     </div>
-//                 </div>
-//             )}
-
-//             <StatusUpdateModal isOpen={showStatusModal} onClose={() => setShowStatusModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit} />
-//         </SubAdminLayout>
-//     );
-// }
-
-// const styles = {
-//     toast: { position: 'fixed', top: '85px', right: '20px', color: '#fff', padding: '12px 25px', borderRadius: '8px', zIndex: 10001, fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
-//     header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" },
-//     backBtn: { background: "#1E293B", color: "#fff", border: "none", padding: "8px 15px", borderRadius: "8px", cursor: "pointer", fontSize: "13px" },
-//     title: { margin: 0, color: "#1E293B", fontWeight: "800", fontSize: "22px" },
-//     addBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" },
-//     filterBar: { display: "flex", gap: "15px", marginBottom: "20px" },
-//     searchInput: { flex: 2, padding: "12px", borderRadius: "10px", border: "1px solid #E2E8F0", outline: "none" },
-//     filterInput: { flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #E2E8F0", outline: "none" },
-//     tableCard: { background: "#fff", borderRadius: "15px", overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.05)", border: "1px solid #F1F5F9" },
-//     table: { width: "100%", borderCollapse: "collapse", textAlign: "left" },
-//     tableHeader: { background: "#F8FAFC", borderBottom: "2px solid #E2E8F0" },
-//     th: { padding: "15px", fontSize: "11px", color: "#64748B", textTransform: "uppercase", fontWeight: "800" },
-//     tr: { borderBottom: "1px solid #F1F5F9", transition: "0.2s", cursor: "pointer" },
-//     td: { padding: "15px", fontSize: "13px", color: "#334155" },
-//     dateSeparator: { padding: "10px 20px", background: "#F1F5F9", color: "#475569", fontWeight: "800", fontSize: "11px", textTransform: "uppercase" },
-//     techBadge: { background: "rgba(255, 155, 81, 0.1)", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "800" },
-//     badge: { background: "rgba(255, 155, 81, 0.12)", color: "#FF9B51", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "700" },
-//     cvBtn: { background: "#F1F5F9", border: "1px solid #E2E8F0", color: "#1E293B", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "11px", fontWeight: "700", display: "flex", alignItems: "center", gap: "5px" },
-//     editBtn: { border: 'none', background: '#F1F5F9', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
-//     trashBtn: { border: 'none', background: '#FFF5F5', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
-//     resumeLink: { color: "#1E293B", fontWeight: "800", fontSize: "11px" },
-//     subStatusText: { fontSize: '11px', color: '#7f8c8d', display: 'block', marginTop: "2px" },
-//     remarkIcon: { display: 'flex', cursor: 'help', padding: '4px', borderRadius: '4px', background: '#FFF5EB' },
-//     pagination: { display: "flex", justifyContent: "center", alignItems: "center", gap: "20px", marginTop: "30px" },
-//     pageBtn: { padding: "8px 25px", background: "#1E293B", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" },
-//     pageBtnDisabled: { padding: "8px 25px", background: "#CBD5E1", color: "#fff", border: "none", borderRadius: "8px", cursor: "not-allowed" },
-//     pageInfo: { fontWeight: "bold", color: "#1E293B", fontSize: "14px" },
-
-//     // Modal Styles
-//     modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(15, 23, 42, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000, backdropFilter: 'blur(4px)' },
-//     deleteContent: { background: '#fff', padding: '30px', borderRadius: '20px', width: '350px', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' },
-//     softBtn: { background: '#FFF5F5', color: '#E74C3C', border: '1px solid #FED7D7', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', width: '100%' },
-//     hardBtn: { background: '#E74C3C', color: '#fff', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', width: '100%' },
-//     cancelBtn: { background: 'transparent', color: '#64748B', border: 'none', padding: '10px', fontWeight: '600', cursor: 'pointer' }
-// };
-
-// export default CandidateList;
-
-// import React, { useEffect, useState } from "react";
-// import { useNavigate } from "react-router-dom";
-// import { apiRequest } from "../../services/api";
-// import SubAdminLayout from "../components/SubAdminLayout";
-
-// // External Imports
-// import StatusUpdateModal from "../../components/StatusUpdateModal";
-// import { getStatusStyles } from "../../utils/statusHelper";
-
-// const Icons = {
-//     Edit: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-//     Remark: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF9B51" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-// };
-
-// function CandidateList() {
-//     const navigate = useNavigate();
-//     const [candidates, setCandidates] = useState([]);
-//     const [count, setCount] = useState(0);
-//     const [currentPage, setCurrentPage] = useState(1);
-//     const [loading, setLoading] = useState(true);
-
-//     // Search & Filter States
-//     const [searchTerm, setSearchTerm] = useState("");
-//     const [techFilter, setTechFilter] = useState("");
-
-//     // Modal & Edit States
-//     const [showModal, setShowModal] = useState(false);
-//     const [selectedCand, setSelectedCand] = useState(null);
-//     const [editForm, setEditForm] = useState({ main_status: "", sub_status: "", remark: "" });
-
-//     useEffect(() => {
-//         fetchCandidates(currentPage, searchTerm, techFilter);
-//     }, [currentPage, searchTerm, techFilter]);
-
-//     const fetchCandidates = async (page, search, tech) => {
-//         setLoading(true);
-//         try {
-//             let url = `/sub-admin/api/admin-candidates/?page=${page}`;
-//             if (search) url += `&search=${search}`;
-//             if (tech) url += `&technology=${tech}`;
-
-//             const res = await apiRequest(url, "GET");
-//             setCandidates(res.results || []);
-//             setCount(res.count || 0);
-//         } catch (err) {
-//             console.error("Error fetching candidates:", err);
-//         } finally {
-//             setLoading(false);
-//         }
-//     };
-
-//     const handleEditClick = (e, candidate) => {
-//         e.stopPropagation();
-//         setSelectedCand(candidate);
-//         setEditForm({
-//             main_status: candidate.main_status || "SUBMITTED",
-//             sub_status: candidate.sub_status || "NONE",
-//             remark: candidate.remark || ""
-//         });
-//         setShowModal(true);
-//     };
-
-//     const handleUpdateSubmit = async () => {
-//         try {
-//             await apiRequest(`/employee-portal/candidates/${selectedCand.id}/update/`, "PUT", editForm);
-//             setShowModal(false);
-//             fetchCandidates(currentPage, searchTerm, techFilter);
-//         } catch (err) {
-//             console.error("Update failed", err);
-//         }
-//     };
-
-//     const truncate = (text, limit) => (text?.length > limit ? text.substring(0, limit) + "..." : text);
-
-//     // Date Grouping logic (Dashboard Style)
-//     const renderGroupedRows = () => {
-//         let lastDate = "";
-//         return candidates.map((can, i) => {
-//             const currentDate = new Date(can.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-//             let dateSeparator = null;
-//             if (currentDate !== lastDate) {
-//                 lastDate = currentDate;
-//                 dateSeparator = (
-//                     <tr key={`date-sep-${can.id || i}`}>
-//                         <td colSpan="10" style={styles.dateSeparator}>{currentDate}</td>
-//                     </tr>
-//                 );
-//             }
-
-//             const statusStyle = getStatusStyles(can.main_status || "SUBMITTED");
-
-//             return (
-//                 <React.Fragment key={can.id || i}>
-//                     {dateSeparator}
-//                     <tr style={{ ...styles.tr, backgroundColor: statusStyle.bg }} onClick={() => navigate(`/sub-admin/candidate/view/${can.id}`)}>
-//                         <td style={styles.td}>
-//                             <div style={{fontWeight: "bold", color: "#25343F"}}>{can.candidate_name}</div>
-//                             <div style={{fontSize: "11px", color: "#666"}}>{can.candidate_email || "No Email"}</div>
-//                         </td>
-//                         <td style={styles.td}>
-//                             <span style={{...styles.techBadge, color: statusStyle.text}}>{can.technology || "N/A"}</span>
-//                         </td>
-//                         <td style={styles.td}>
-//                             <div style={{fontWeight: "600"}}>{can.years_of_experience_manual} Yrs</div>
-//                         </td>
-//                         <td style={styles.td}>
-//                             <div style={{fontSize: "12px"}}>To: <b>{can.submitted_to_name || "N/A"}</b></div>
-//                             <div style={{fontSize: "11px", color: "#27AE60"}}>By: {can.created_by_name || "N/A"}</div>
-//                         </td>
-//                         <td style={styles.td}>
-//                             <b>{can.client_name || can.client || "N/A"}</b>
-//                         </td>
-//                         <td style={styles.td}>
-//                             <b>{truncate(can.vendor_company_name || can.vendor, 15)}</b><br/>
-//                             <small style={{fontSize: "11px", color: "#7F8C8D"}}>{can.vendor_number || "N/A"}</small>
-//                         </td>
-//                         <td style={styles.td}>₹{can.vendor_rate} {can.vendor_rate_type}</td>
-//                         <td style={styles.td}>
-//                             <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-//                                 <span style={{...styles.badge, color: statusStyle.text, fontWeight: '800'}}>{can.main_status}</span>
-//                                 {can.remark && <div style={styles.remarkIcon} title={can.remark}><Icons.Remark /></div>}
-//                             </div>
-//                             <small style={{ ...styles.subStatusText, color: statusStyle.text, fontWeight: '700' }}>{can.sub_status}</small>
-//                         </td>
-//                         <td style={styles.td}>
-//                             <a href={can.resume} target="_blank" rel="noreferrer" style={styles.resumeLink} onClick={(e) => e.stopPropagation()}>View CV</a>
-//                         </td>
-//                         <td style={styles.td}>
-//                             <div style={{display:'flex', gap:'5px'}}>
-//                                 <button onClick={(e) => handleEditClick(e, can)} style={styles.editBtn}><Icons.Edit /></button>
-//                             </div>
-//                         </td>
-//                     </tr>
-//                 </React.Fragment>
-//             );
-//         });
-//     };
-
-//     return (
-//         <SubAdminLayout>
-//             <div style={styles.header}>
-//                 <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-//                     <button onClick={() => navigate(-1)} style={styles.backBtn}>← Back</button>
-//                     <h2 style={styles.title}>All Candidates Pool ({count})</h2>
-//                 </div>
-//                 <button onClick={() => navigate("/sub-admin/add-candidate")} style={styles.addBtn}>+ Add New</button>
-//             </div>
-
-//             <div style={styles.filterBar}>
-//                 <input
-//                     placeholder="Search name or email..."
-//                     style={styles.searchInput}
-//                     value={searchTerm}
-//                     onChange={(e) => {setSearchTerm(e.target.value); setCurrentPage(1);}}
-//                 />
-//                 <input
-//                     placeholder="Tech Filter..."
-//                     style={styles.filterInput}
-//                     value={techFilter}
-//                     onChange={(e) => {setTechFilter(e.target.value); setCurrentPage(1);}}
-//                 />
-//             </div>
-
-//             <div style={styles.tableCard}>
-//                 <table style={styles.table}>
-//                     <thead>
-//                         <tr style={styles.tableHeader}>
-//                             <th style={styles.th}>Candidate</th>
-//                             <th style={styles.th}>Tech</th>
-//                             <th style={styles.th}>Exp</th>
-//                             <th style={styles.th}>Submitted To/By</th>
-//                             <th style={styles.th}>Client</th>
-//                             <th style={styles.th}>Vendor</th>
-//                             <th style={styles.th}>Rate</th>
-//                             <th style={styles.th}>Status</th>
-//                             <th style={styles.th}>Resume</th>
-//                             <th style={styles.th}>Action</th>
-//                         </tr>
-//                     </thead>
-//                     <tbody>
-//                         {loading ? (
-//                             <tr><td colSpan="10" style={{ textAlign: "center", padding: "40px" }}>Loading Candidate Pool...</td></tr>
-//                         ) : renderGroupedRows()}
-//                     </tbody>
-//                 </table>
-//             </div>
-
-//             <div style={styles.pagination}>
-//                 <button
-//                     disabled={currentPage === 1}
-//                     onClick={() => setCurrentPage(p => p - 1)}
-//                     style={currentPage === 1 ? styles.pageBtnDisabled : styles.pageBtn}
-//                 >Prev</button>
-//                 <span style={styles.pageInfo}>Page {currentPage} of {Math.ceil(count / 10) || 1}</span>
-//                 <button
-//                     disabled={currentPage * 10 >= count}
-//                     onClick={() => setCurrentPage(p => p + 1)}
-//                     style={currentPage * 10 >= count ? styles.pageBtnDisabled : styles.pageBtn}
-//                 >Next</button>
-//             </div>
-
-//             <StatusUpdateModal
-//                 isOpen={showModal}
-//                 onClose={() => setShowModal(false)}
-//                 formData={editForm}
-//                 setFormData={setEditForm}
-//                 onSave={handleUpdateSubmit}
-//             />
-//         </SubAdminLayout>
-//     );
-// }
-
-// const styles = {
-//     header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" },
-//     backBtn: { background: "#25343F", color: "#fff", border: "none", padding: "8px 15px", borderRadius: "8px", cursor: "pointer", fontSize: "13px" },
-//     title: { margin: 0, color: "#25343F", fontWeight: "800", fontSize: "22px" },
-//     addBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 10px rgba(255,155,81,0.2)" },
-//     filterBar: { display: "flex", gap: "15px", marginBottom: "20px" },
-//     searchInput: { flex: 2, padding: "12px", borderRadius: "10px", border: "1px solid #BFC9D1", outline: "none", fontSize: "14px" },
-//     filterInput: { flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #BFC9D1", outline: "none", fontSize: "14px" },
-//     tableCard: { background: "#fff", borderRadius: "15px", overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.05)", border: "1px solid #F0F2F4" },
-//     table: { width: "100%", borderCollapse: "collapse", textAlign: "left" },
-//     tableHeader: { background: "#F9FAFB", borderBottom: "2px solid #EDF2F7" },
-//     th: { padding: "15px", fontSize: "11px", color: "#94A3B8", textTransform: "uppercase", fontWeight: "800" },
-//     tr: { borderBottom: "1px solid #F1F5F9", transition: "0.2s", cursor: "pointer" },
-//     td: { padding: "15px", fontSize: "13px", color: "#334155" },
-//     dateSeparator: { padding: "12px 20px", background: "#F8FAFC", color: "#475569", fontWeight: "800", fontSize: "12px", textTransform: "uppercase", borderBottom: '1px solid #E2E8F0' },
-//     techBadge: { background: "rgba(255, 155, 81, 0.1)", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "800" },
-//     badge: { background: "rgba(255, 155, 81, 0.12)", padding: "4px 10px", borderRadius: "6px", fontSize: "11px" },
-//     subStatusText: { fontSize: '11px', color: '#7f8c8d', display: 'block', marginTop: "2px" },
-//     remarkIcon: { display: 'flex', cursor: 'help', padding: '4px', borderRadius: '4px', background: '#FFF5EB' },
-//     resumeLink: { color: "#25343F", fontWeight: "800", textDecoration: "underline", fontSize: "11px" },
-//     editBtn: { border: 'none', background: '#F1F5F9', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
-//     pagination: { display: "flex", justifyContent: "center", alignItems: "center", gap: "20px", marginTop: "30px" },
-//     pageBtn: { padding: "8px 25px", background: "#25343F", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700" },
-//     pageBtnDisabled: { padding: "8px 25px", background: "#BFC9D1", color: "#fff", border: "none", borderRadius: "8px", cursor: "not-allowed" },
-//     pageInfo: { fontWeight: "bold", color: "#25343F", fontSize: "14px" }
-// };
-
-// export default CandidateList;
-
-// import React, { useEffect, useState } from "react";
-// import { useNavigate } from "react-router-dom";
-// import { apiRequest } from "../../services/api";
-// import BaseLayout from "../components/SubAdminLayout";
-
-// function CandidateList() {
-//     const navigate = useNavigate();
-//     const [candidates, setCandidates] = useState([]);
-//     const [count, setCount] = useState(0);
-//     const [currentPage, setCurrentPage] = useState(1);
-//     const [loading, setLoading] = useState(true);
-
-//     // Search aur Filter States
-//     const [searchTerm, setSearchTerm] = useState("");
-//     const [techFilter, setTechFilter] = useState("");
-
-//     useEffect(() => {
-//         fetchCandidates(currentPage, searchTerm, techFilter);
-//     }, [currentPage, searchTerm, techFilter]);
-
-//     const fetchCandidates = async (page, search, tech) => {
-//         setLoading(true);
-//         try {
-//             // API call with params
-//             let url = `/sub-admin/api/admin-candidates/?page=${page}`;
-//             if (search) url += `&search=${search}`;
-//             if (tech) url += `&technology=${tech}`;
-
-//             const res = await apiRequest(url, "GET");
-//             setCandidates(res.results || []);
-//             setCount(res.count || 0);
-//         } catch (err) {
-//             console.error("Error fetching candidates:", err);
-//         } finally {
-//             setLoading(false);
-//         }
-//     };
-
-//     return (
-//         <BaseLayout>
-//             {/* Header Section */}
-//             <div style={styles.header}>
-//                 <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-//                     <button onClick={() => navigate(-1)} style={styles.backBtn}>← Back</button>
-//                     <h2 style={styles.title}>Candidate Pool ({count})</h2>
-//                 </div>
-//                 <button onClick={() => navigate("/sub-admin/add-candidate")} style={styles.addBtn}>+ Add Candidate</button>
-//             </div>
-
-//             {/* Filter Bar */}
-//             <div style={styles.filterBar}>
-//                 <input
-//                     placeholder="Search by name or email..."
-//                     style={styles.searchInput}
-//                     value={searchTerm}
-//                     onChange={(e) => setSearchTerm(e.target.value)}
-//                 />
-//                 <input
-//                     placeholder="Filter by Tech (AI, ML, React...)"
-//                     style={styles.filterInput}
-//                     value={techFilter}
-//                     onChange={(e) => setTechFilter(e.target.value)}
-//                 />
-//             </div>
-
-//             {/* Candidates Table */}
-//             <div style={styles.tableCard}>
-//                 <table style={styles.table}>
-//                     <thead>
-//                         <tr style={styles.tableHeader}>
-//                             <th style={styles.th}>Candidate</th>
-//                             <th style={styles.th}>Tech / Skills</th>
-//                             <th style={styles.th}>Experience</th>
-//                             <th style={styles.th}>Vendor</th>
-//                             <th style={styles.th}>Submitted To</th>
-//                             <th style={styles.th}>Resume</th>
-//                             <th style={styles.th}>Action</th>
-//                         </tr>
-//                     </thead>
-//                     <tbody>
-//                         {loading ? (
-//                             <tr><td colSpan="7" style={{ textAlign: "center", padding: "20px" }}>Loading candidates...</td></tr>
-//                         ) : candidates.map(can => (
-//                             <tr key={can.id} style={styles.tr}>
-//                                 <td style={styles.td}>
-//                                     <div style={{ fontWeight: "bold", color: "#25343F" }}>{can.candidate_name}</div>
-//                                     <div style={{ fontSize: "11px", color: "#666" }}>{can.candidate_email || "No Email"}</div>
-//                                 </td>
-//                                 <td style={styles.td}>
-//                                     <span style={styles.techBadge}>{can.technology || "N/A"}</span>
-//                                     <div style={styles.skillText}>{can.skills?.substring(0, 30)}...</div>
-//                                 </td>
-//                                 <td style={styles.td}>
-//                                     <div>Manual: {can.years_of_experience_manual}</div>
-//                                     <div style={{ fontSize: "11px", color: "#FF9B51" }}>System: {can.years_of_experience_calculated} yrs</div>
-//                                 </td>
-//                                 <td style={styles.td}>
-//                                     <div style={{fontWeight: "600"}}>{can.vendor_company_name}</div>
-//                                     <div style={{fontSize: "11px"}}>{can.vendor_name}</div>
-//                                 </td>
-//                                 <td style={styles.td}>{can.submitted_to_name}</td>
-//                                 <td style={styles.td}>
-//                                     <a href={can.resume} target="_blank" rel="noreferrer" style={styles.resumeLink}>View PDF</a>
-//                                 </td>
-//                                 <td style={styles.td}>
-//                                     <button onClick={() => navigate(`/sub-admin/candidate/view/${can.id}`)} style={styles.viewBtn}>View</button>
-//                                 </td>
-//                             </tr>
-//                         ))}
-//                     </tbody>
-//                 </table>
-//             </div>
-
-//             {/* Pagination */}
-//             <div style={styles.pagination}>
-//                 <button
-//                     disabled={currentPage === 1}
-//                     onClick={() => setCurrentPage(p => p - 1)}
-//                     style={currentPage === 1 ? styles.pageBtnDisabled : styles.pageBtn}
-//                 >Previous</button>
-
-//                 <span style={styles.pageInfo}>Page {currentPage} of {Math.ceil(count / 10)}</span>
-
-//                 <button
-//                     disabled={candidates.length < 10 && currentPage * 10 >= count}
-//                     onClick={() => setCurrentPage(p => p + 1)}
-//                     style={candidates.length < 10 ? styles.pageBtnDisabled : styles.pageBtn}
-//                 >Next</button>
-//             </div>
-//         </BaseLayout>
-//     );
-// }
-
-// const styles = {
-//     header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" },
-//     backBtn: { background: "#25343F", color: "#fff", border: "none", padding: "8px 15px", borderRadius: "8px", cursor: "pointer" },
-//     title: { margin: 0, color: "#25343F", fontWeight: "800" },
-//     addBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" },
-//     filterBar: { display: "flex", gap: "15px", marginBottom: "20px" },
-//     searchInput: { flex: 2, padding: "12px", borderRadius: "10px", border: "1px solid #BFC9D1", outline: "none" },
-//     filterInput: { flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #BFC9D1", outline: "none" },
-//     tableCard: { background: "#fff", borderRadius: "15px", overflow: "hidden", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" },
-//     table: { width: "100%", borderCollapse: "collapse", textAlign: "left" },
-//     tableHeader: { background: "#F5F7F9", borderBottom: "2px solid #EAEFEF" },
-//     th: { padding: "15px", fontSize: "13px", color: "#25343F", textTransform: "uppercase", fontWeight: "800" },
-//     tr: { borderBottom: "1px solid #F0F0F0", transition: "0.2s" },
-//     td: { padding: "15px", fontSize: "14px", verticalAlign: "top" },
-//     techBadge: { background: "#FFFBF8", color: "#FF9B51", padding: "2px 8px", borderRadius: "5px", fontSize: "11px", fontWeight: "bold", border: "1px solid #FFE6D5" },
-//     skillText: { fontSize: "11px", color: "#888", marginTop: "5px" },
-//     resumeLink: { color: "#25343F", fontWeight: "bold", textDecoration: "underline", fontSize: "12px" },
-//     viewBtn: { background: "#EAEFEF", border: "none", padding: "5px 12px", borderRadius: "5px", cursor: "pointer", fontSize: "12px" },
-//     pagination: { display: "flex", justifyContent: "center", alignItems: "center", gap: "20px", marginTop: "25px" },
-//     pageBtn: { padding: "8px 20px", background: "#25343F", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" },
-//     pageBtnDisabled: { padding: "8px 20px", background: "#BFC9D1", color: "#fff", border: "none", borderRadius: "8px", cursor: "not-allowed" },
-//     pageInfo: { fontWeight: "bold", color: "#25343F" }
-// };
-
-// export default CandidateList;
