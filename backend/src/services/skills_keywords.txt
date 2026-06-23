@@ -1,0 +1,14 @@
+Python
+Java
+Django
+React
+Node
+SQL
+AWS
+Docker
+JavaScript
+Go
+Angular
+Flask
+Spring
+Kubernetes

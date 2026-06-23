@@ -1,0 +1,18 @@
+# Dependencies
+backend/node_modules/
+frontend/node_modules/
+
+# Environment files
+backend/.env
+frontend/.env
+
+# Uploads
+backend/media/*
+!backend/media/.gitkeep
+
+# Logs
+*.log
+
+# OS / Editor
+.vscode/
+.DS_Store
