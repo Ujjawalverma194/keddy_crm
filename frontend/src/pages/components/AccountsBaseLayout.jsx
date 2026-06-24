@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { apiRequest } from "../../services/api";
+// import { apiRequest } from "../../services/api";
 import { clearAuthData } from "./authSession";
 
 const AccountsBaseLayout = ({ children }) => {
     const navigate = useNavigate();
     const location = useLocation();
-    const [userName, setUserName] = useState("Accountant");
+    const [userName] = useState("Accountant");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     // useEffect(() => {

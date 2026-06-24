@@ -294,7 +294,7 @@ const visibleRequirements = requirements.filter((req) => {
 const styles = {
     topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", gap: "15px", flexWrap: "wrap" },
     leftActions: { display: "flex", alignItems: "center", gap: "15px" },
-    backBtn: { background: "#1e293b", color: "white", border: "none", fontWeight: "600", cursor: "pointer", padding: "0" ,padding:"10px", borderRadius:"10px"},
+    backBtn: { background: "#1e293b", color: "white", border: "none", fontWeight: "600", cursor: "pointer" ,padding:"10px", borderRadius:"10px"},
     filterGroup: { display: "flex", gap: "10px", background: "#F1F5F9", padding: "4px", borderRadius: "8px",marginBottom:"20px" },
     filterBtn: { background: "transparent", border: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "13px", fontWeight: "600", color: "#475569", cursor: "pointer", transition: "0.2s" },
     activeFilterBtn: { background: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "13px", fontWeight: "700", color: "#1E293B", cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.05)", transition: "0.2s" },

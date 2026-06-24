@@ -516,11 +516,16 @@ async function clientCandidates(req, res) {
   });
   if (!client) return res.status(404).json({ results: [], count: 0 });
 
-  const filter = {
-    clientId,
-    mainStatus: 'ONBORD',
-    isDeleted: false,
-  };
+ const filter = {
+  clientId,
+  isDeleted: false,
+};
+
+filter.$or = [
+  { mainStatus: { $in: ['ONBORD', 'ONBOARD', 'ONBOARDED', 'OFFBORD', 'OFFBOARD', 'OFFBOARDED'] } },
+  { mainStatus: null },
+  { mainStatus: '' },
+];
   if (search) {
     filter.$or = [
       { candidateName: new RegExp(search, 'i') },

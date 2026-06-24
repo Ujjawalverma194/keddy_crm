@@ -676,7 +676,7 @@ function AddCandidate() {
                 ...(isSubmitting ? styles.submitBtnDisabled : {}),
               }}
             >
-              {isSubmitting ? "Submitting..." : "Submit candidate"}
+              {isSubmitting ? "Adding..." : "Add candidate"}
             </button>
           </div>
         </div>

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "../../services/api";
 import { asList } from "../../utils/apiHelpers";
-import BaseLayout from "../components/emp_base";
+import BaseLayout from "../components/SubAdminLayout";
 
 const QUICK_RATE_TYPES = ["LPM", "KPM", "PHR", "USD_PH", "USD", "LPA"];
 const EXTRA_RATE_TYPES = [
@@ -681,7 +681,7 @@ function AddCandidate() {
                 disabled={isSubmitting}
                 style={{ ...styles.submitBtn, ...(isSubmitting ? styles.submitBtnDisabled : {}) }}
               >
-                {isSubmitting ? "Submitting..." : "Submit candidate"}
+                {isSubmitting ? "Adding..." : "Add candidate"}
               </button>
             </div>
           </form>
