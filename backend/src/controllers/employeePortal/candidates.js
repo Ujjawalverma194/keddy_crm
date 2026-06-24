@@ -331,7 +331,6 @@ async function submittedProfiles(req, res) {
   const filter = {
     isDeleted: false,
     verificationStatus: true,
-    clientId: { $ne: null },
     $or: [{ createdById: req.user.id }, { submittedToId: req.user.id }],
   };
   const [items, total] = await Promise.all([

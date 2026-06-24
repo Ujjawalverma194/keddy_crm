@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { apiRequest } from "../../../services/api";
 import BaseLayout from "../../components/SubAdminLayout";
+import StatusTimer from "../../../components/StatusTimer";
 
 function useQuery() {
     return new URLSearchParams(useLocation().search);
@@ -16,13 +17,16 @@ function MyRequirements() {
     const [stats, setStats] = useState({ total: 0, created_by_me: 0, assigned_to_me: 0 });
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState("");
     const [selectedJd, setSelectedJd] = useState(null);
     const [copySuccess, setCopySuccess] = useState(false);
 
-    const fetchMyRequirements = async (type, search) => {
+    const fetchMyRequirements = async (type, search, status = "") => {
         setLoading(true);
         try {
-            const response = await apiRequest(`/jd-mapping/company-jds/?type=${type}&search=${search}`, "GET");
+            let url = `/jd-mapping/company-jds/?type=${type}&search=${encodeURIComponent(search)}`;
+            if (status) url += `&status=${encodeURIComponent(status)}`;
+            const response = await apiRequest(url, "GET");
             if (response && response.success) {
                 setRequirements(response.results || []);
                 setStats(response.stats || { total: 0, created_by_me: 0, assigned_to_me: 0 });
@@ -36,14 +40,40 @@ function MyRequirements() {
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
-            fetchMyRequirements(typeParam, searchQuery);
+            fetchMyRequirements(typeParam, searchQuery, statusFilter);
         }, 500);
         return () => clearTimeout(delayDebounceFn);
-    }, [searchQuery, typeParam]);
+    }, [searchQuery, typeParam, statusFilter]);
 
     const truncateText = (text, maxLength) => {
         if (!text) return "—";
         return text.length > maxLength ? text.substring(0, maxLength).trim() + "..." : text;
+    };
+
+    const getStatusBadgeStyle = (status) => {
+        switch ((status || "").toUpperCase()) {
+            case "HOT":
+                return styles.hotStatusBadge;
+            case "WARM":
+                return styles.warmStatusBadge;
+            case "COLD":
+                return styles.coldStatusBadge;
+            default:
+                return styles.defaultStatusBadge;
+        }
+    };
+
+    const getRequirementRowBg = (req) => {
+        switch ((req.status || "").toUpperCase()) {
+            case "HOT":
+                return "#FFF4ED";
+            case "WARM":
+                return "#FFFBEB";
+            case "COLD":
+                return "#F8FAFC";
+            default:
+                return "transparent";
+        }
     };
 
     const handleOpenJdModal = (req) => {
@@ -100,7 +130,10 @@ function MyRequirements() {
         if (typeParam === 'yesterday') return "Yesterday's Requirements";
         return "Today & Yesterday Requirements";
     };
-
+const visibleRequirements = requirements.filter((req) => {
+    if (!statusFilter) return true;
+    return String(req.status || "").toUpperCase() === statusFilter;
+});
     return (
         <BaseLayout>
             <div style={styles.topBar}>
@@ -111,6 +144,8 @@ function MyRequirements() {
                          <button onClick={() => navigate("/sub-admin/requirements/my?type=yesterday")} style={typeParam === 'yesterday' ? styles.activeFilterBtn : styles.filterBtn}>Yesterday</button>
                          <button onClick={() => navigate("/sub-admin/requirements")} style={typeParam === 'All' ? styles.activeFilterBtn : styles.filterBtn}>All</button>
                      </div>
+
+                  
                 </div>
 
                 <div style={styles.searchContainer}>
@@ -123,7 +158,36 @@ function MyRequirements() {
                     />
                 </div>
             </div>
-
+   <div style={styles.filterGroup}>
+                         <button
+                            type="button"
+                            onClick={() => { setStatusFilter(""); fetchMyRequirements(typeParam, searchQuery, ""); }}
+                            style={!statusFilter ? styles.activeFilterBtn : styles.filterBtn}
+                         >
+                            All Status
+                         </button>
+                         <button
+                            type="button"
+                            onClick={() => { setStatusFilter("HOT"); fetchMyRequirements(typeParam, searchQuery, "HOT"); }}
+                            style={statusFilter === "HOT" ? styles.hotFilterBtnActive : styles.filterBtn}
+                         >
+                            HOT
+                         </button>
+                         <button
+                            type="button"
+                            onClick={() => { setStatusFilter("WARM"); fetchMyRequirements(typeParam, searchQuery, "WARM"); }}
+                            style={statusFilter === "WARM" ? styles.warmFilterBtnActive : styles.filterBtn}
+                         >
+                            WARM
+                         </button>
+                         <button
+                            type="button"
+                            onClick={() => { setStatusFilter("COLD"); fetchMyRequirements(typeParam, searchQuery, "COLD"); }}
+                            style={statusFilter === "COLD" ? styles.coldFilterBtnActive : styles.filterBtn}
+                         >
+                            COLD
+                         </button>
+                     </div>
             <div style={styles.statsContainer}>
                 <div style={styles.statCard}>Total: <strong>{stats.total}</strong></div>
                 <div style={styles.statCard}>Created By Me: <strong style={{color: '#27AE60'}}>{stats.created_by_me}</strong></div>
@@ -140,6 +204,7 @@ function MyRequirements() {
                                 <th style={{ ...styles.th, width: "130px" }}>ID & Date</th>
                                 <th style={{ ...styles.th, width: "220px" }}>Title & Client</th>
                                 <th style={{ ...styles.th, width: "140px" }}>Exp / Rate</th>
+                                <th style={{ ...styles.th, width: "100px" }}>Status</th>
                                 <th style={{ ...styles.th, width: "240px" }}>JD Description</th>
                                 <th style={{ ...styles.th, width: "140px" }}>Stats / Team</th>
                                 <th style={{ ...styles.th, textAlign: "center", width: "160px" }}>Actions</th>
@@ -147,10 +212,10 @@ function MyRequirements() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan="6" style={styles.loadingTd}>Loading requirements...</td></tr>
-                            ) : requirements.length > 0 ? (
-                                requirements.map((req) => (
-                                    <tr key={req.id} style={styles.tableRow}>
+                                <tr><td colSpan="7" style={styles.loadingTd}>Loading requirements...</td></tr>
+                            ) : visibleRequirements.length > 0 ? (
+                               visibleRequirements.map((req) => (
+                                    <tr key={req.id} style={{ ...styles.tableRow, background: getRequirementRowBg(req) }}>
                                         <td style={styles.td}>
                                             <div style={styles.reqIdBadge}>{req.requirement_id}</div>
                                             <div style={styles.dateText}>
@@ -164,6 +229,15 @@ function MyRequirements() {
                                         <td style={styles.td}>
                                             <div style={styles.infoText} title={req.experience_required}>{truncateText(req.experience_required, 15)}</div>
                                             <div style={styles.rateText} title={req.rate}>{truncateText(req.rate, 15)}</div>
+                                        </td>
+                                        <td style={styles.td}>
+                                            <span style={getStatusBadgeStyle(req.status)}>{req.status || "—"}</span>
+                                            <StatusTimer
+                                                createdAt={req.created_at}
+                                                status={req.status}
+                                                manual_status={req.manual_status}
+                                                manual_status_updated_at={req.manual_status_updated_at}
+                                            />
                                         </td>
                                         <td style={styles.td}>
                                             <div 
@@ -186,7 +260,7 @@ function MyRequirements() {
                                     </tr>
                                 ))
                             ) : (
-                                <tr><td colSpan="6" style={styles.loadingTd}>No requirements found.</td></tr>
+                                <tr><td colSpan="7" style={styles.loadingTd}>No requirements found.</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -221,16 +295,19 @@ const styles = {
     topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", gap: "15px", flexWrap: "wrap" },
     leftActions: { display: "flex", alignItems: "center", gap: "15px" },
     backBtn: { background: "#1e293b", color: "white", border: "none", fontWeight: "600", cursor: "pointer", padding: "0" ,padding:"10px", borderRadius:"10px"},
-    filterGroup: { display: "flex", gap: "10px", background: "#F1F5F9", padding: "4px", borderRadius: "8px" },
+    filterGroup: { display: "flex", gap: "10px", background: "#F1F5F9", padding: "4px", borderRadius: "8px",marginBottom:"20px" },
     filterBtn: { background: "transparent", border: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "13px", fontWeight: "600", color: "#475569", cursor: "pointer", transition: "0.2s" },
     activeFilterBtn: { background: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "13px", fontWeight: "700", color: "#1E293B", cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.05)", transition: "0.2s" },
+    hotFilterBtnActive: { background: "#FEF2F2", color: "#DC2626", border: "1px solid #FCA5A5", padding: "6px 12px", borderRadius: "6px", fontSize: "13px", fontWeight: "900", cursor: "pointer", transition: "0.2s" },
+    warmFilterBtnActive: { background: "#FFFBEB", color: "#F59E0B", border: "1px solid #FCD34D", padding: "6px 12px", borderRadius: "6px", fontSize: "13px", fontWeight: "900", cursor: "pointer", transition: "0.2s" },
+    coldFilterBtnActive: { background: "#F1F5F9", color: "#64748B", border: "1px solid #CBD5E1", padding: "6px 12px", borderRadius: "6px", fontSize: "13px", fontWeight: "900", cursor: "pointer", transition: "0.2s" },
     searchContainer: { flex: "1 1 250px", maxWidth: "400px" },
     searchInput: { width: "100%", padding: "10px 15px", borderRadius: "10px", border: "1px solid #E2E8F0", outline: "none", boxSizing: "border-box" },
     statsContainer: { display: "flex", gap: "15px", marginBottom: "25px", flexWrap: "wrap" },
     statCard: { background: "#fff", padding: "12px 20px", borderRadius: "10px", boxShadow: "0 2px 10px rgba(0,0,0,0.03)", fontSize: "14px", color: "#475569", border: "1px solid #E2E8F0" },
     pageTitle: { fontSize: "20px", color: "#1E293B", marginBottom: "15px", fontWeight: "800" },
     tableWrapper: { background: "#fff", borderRadius: "12px", overflowX: "auto", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" },
-    table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: "1000px" },
+    table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: "1100px" },
     tableHeader: { background: "#F8FAFC", borderBottom: "1px solid #EDF2F7" },
     th: { padding: "15px", textAlign: "left", color: "#64748B", fontSize: "12px", fontWeight: "700", textTransform: "uppercase" },
     tableRow: { borderBottom: "1px solid #F1F5F9" },
@@ -241,6 +318,10 @@ const styles = {
     subText: { fontSize: "12px", color: "#64748B", marginTop: "2px" },
     infoText: { fontSize: "13px", fontWeight: "600" },
     rateText: { fontSize: "12px", color: "#10B981", fontWeight: "700" },
+    hotStatusBadge: { background: "#FEF2F2", color: "#DC2626", border: "1px solid #FCA5A5", padding: "4px 9px", borderRadius: "999px", fontSize: "11px", fontWeight: "900", display: "inline-block" },
+    warmStatusBadge: { background: "#FFFBEB", color: "#F59E0B", border: "1px solid #FCD34D", padding: "4px 9px", borderRadius: "999px", fontSize: "11px", fontWeight: "900", display: "inline-block" },
+    coldStatusBadge: { background: "#F1F5F9", color: "#64748B", border: "1px solid #CBD5E1", padding: "4px 9px", borderRadius: "999px", fontSize: "11px", fontWeight: "900", display: "inline-block" },
+    defaultStatusBadge: { background: "#F8FAFC", color: "#64748B", border: "1px solid #E2E8F0", padding: "4px 9px", borderRadius: "999px", fontSize: "11px", fontWeight: "800", display: "inline-block" },
     jdTruncate: { fontSize: "13px", color: "#475569", lineHeight: "1.5", cursor: "pointer", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", borderBottom: "1px dashed #E2E8F0", paddingBottom: "6px" },
     statLine: { fontSize: "12px", color: "#334155", marginBottom: "6px" },
     assignWrapper: { display: "flex", alignItems: "center", gap: "5px" },

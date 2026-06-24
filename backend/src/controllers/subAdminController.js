@@ -16,6 +16,18 @@ const { relPath } = require('../middleware/upload');
 
 const PIPELINE = ['SCREENING', 'L1', 'L2', 'L3', 'OTHER'];
 
+// A profile should be considered "submitted" only after the explicit
+// Submission Modal flow marks it verified. Newly sourced/created profiles may
+// still have mainStatus=SUBMITTED/submittedToId because of legacy Django parity,
+// so submitted sections must not rely on mainStatus alone.
+function submittedProfileBaseFilter(extra = {}) {
+  return {
+    isDeleted: false,
+    verificationStatus: true,
+    ...extra,
+  };
+}
+
 async function companyFilter(user) {
   const ids = await getCompanyUserIds(user);
   return { $in: ids };
@@ -59,7 +71,7 @@ async function dashboardStats(req, res) {
         createdAt: todayRange,
         ...teamOr,
       }),
-      Candidate.countDocuments({ ...base, mainStatus: 'SUBMITTED' }),
+      Candidate.countDocuments(submittedProfileBaseFilter({ createdById: { $in: ids } })),
       Candidate.countDocuments({ ...base, mainStatus: 'ONBORD' }),
       Vendor.countDocuments({ isDeleted: false, createdById: { $in: ids } }),
       Client.countDocuments({ isDeleted: false, createdById: { $in: ids } }),
@@ -404,10 +416,13 @@ function filterByStatus(status) {
   return async (req, res) => {
     const ids = await getCompanyUserIds(req.user);
     const { page, pageSize, skip, limit } = drfPaginate(req.query);
-    const filter = applyCandidateListFilters(
-      { isDeleted: false, createdById: { $in: ids }, mainStatus: status },
-      req.query
-    );
+
+    const baseFilter =
+      status === 'SUBMITTED'
+        ? submittedProfileBaseFilter({ createdById: { $in: ids } })
+        : { isDeleted: false, createdById: { $in: ids }, mainStatus: status };
+
+    const filter = applyCandidateListFilters(baseFilter, req.query);
     const [items, total] = await Promise.all([
       Candidate.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
       Candidate.countDocuments(filter),

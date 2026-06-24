@@ -41,7 +41,6 @@ async function stats(req, res) {
       Candidate.countDocuments({
         isDeleted: false,
         verificationStatus: true,
-        clientId: { $ne: null },
         createdAt: { $gte: start, $lt: end },
         $or: [{ createdById: userId }, { submittedToId: userId }],
       }),
