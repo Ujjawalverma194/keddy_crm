@@ -4,7 +4,10 @@
 // export const API_BASE = "https://crm.keddycrm.in";
 
 // ✅ Use it on LOCAL
-export const API_BASE = "http://localhost:8000"
+// services/api.js
+
+export const API_BASE =
+  process.env.REACT_APP_API_BASE_URL || "http://localhost:8000";
 
 export async function apiRequest(url, method = "GET", data = null) {
     const token = localStorage.getItem("access");

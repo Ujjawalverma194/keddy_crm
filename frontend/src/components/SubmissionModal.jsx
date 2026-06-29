@@ -35,9 +35,13 @@ const OTHER_SUBMISSION_RATE_TYPES = [
 ];
 
 const JD_FILTERS = [
-  { value: "today_yesterday", apiValue: "today_yesterday", label: "Today & Yesterday" },
   { value: "today", apiValue: "today", label: "Today" },
   { value: "yesterday", apiValue: "yesterday", label: "Yesterday" },
+  { value: "all", apiValue: "all", label: "All" },
+];
+
+const DIRECT_CLIENT_JD_FILTERS = [
+  { value: "today", apiValue: "today", label: "Today" },
   { value: "all", apiValue: "all", label: "All" },
 ];
 
@@ -46,6 +50,79 @@ const normalizeResults = (data) => {
   if (Array.isArray(data?.results)) return data.results;
   if (Array.isArray(data?.data)) return data.data;
   return [];
+};
+
+const getCurrentUserId = () => {
+  try {
+    const token = localStorage.getItem("access") || localStorage.getItem("access_token") || localStorage.getItem("token");
+    if (!token || !token.includes(".")) return null;
+
+    const payloadPart = token.split(".")[1];
+    const normalizedPayload = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4), "=");
+    const payload = JSON.parse(atob(paddedPayload));
+
+    return payload.user_id || payload.userId || payload.id || payload.pk || null;
+  } catch (error) {
+    return null;
+  }
+};
+
+
+const getCandidateAssignedJdId = (candidate) =>
+  candidate?.jd_mapping ||
+  candidate?.jd_mapping_id ||
+  candidate?.requirement_id ||
+  candidate?.requirement?.id ||
+  candidate?.jd?.id ||
+  candidate?.Requirement?.id ||
+  candidate?.jdMapping?.id ||
+  candidate?.requirementId ||
+  "";
+
+const buildCandidateAssignedJdOption = (candidate) => {
+  const assignedId = getCandidateAssignedJdId(candidate);
+  if (!assignedId) return null;
+
+  const source =
+    candidate?.requirement ||
+    candidate?.jd ||
+    candidate?.Requirement ||
+    candidate?.jdMapping ||
+    {};
+
+  return {
+    ...source,
+    id: assignedId,
+    requirement_id:
+      source?.requirement_id ||
+      candidate?.requirement_code ||
+      candidate?.requirement_id_display ||
+      candidate?.jd_requirement_id ||
+      candidate?.jd_code ||
+      candidate?.requirement_id ||
+      `JD-${assignedId}`,
+    title:
+      source?.title ||
+      candidate?.jd_title ||
+      candidate?.requirement_title ||
+      candidate?.jd_mapping_title ||
+      candidate?.title ||
+      "Assigned requirement",
+    client_details:
+      source?.client_details ||
+      candidate?.client_details ||
+      (candidate?.jd_company_name || candidate?.company_name || candidate?.client_company_name || candidate?.client_name
+        ? { company_name: candidate?.jd_company_name || candidate?.company_name || candidate?.client_company_name || candidate?.client_name }
+        : source?.client_details),
+    client_name:
+      source?.client_name ||
+      candidate?.jd_company_name ||
+      candidate?.company_name ||
+      candidate?.client_company_name ||
+      candidate?.client_name,
+    created_at: source?.created_at || candidate?.jd_created_at || candidate?.requirement_created_at || candidate?.created_at,
+  };
 };
 
 const getEmployeeName = (emp) =>
@@ -69,6 +146,15 @@ const getJdCompanyName = (jd) =>
   jd?.company_name ||
   jd?.client_name ||
   "No company";
+
+const getJdClientId = (jd) =>
+  jd?.client_id ||
+  jd?.clientId ||
+  jd?.client_details?.id ||
+  jd?.clientDetails?.id ||
+  jd?.client?.id ||
+  jd?.Client?.id ||
+  "";
 
 const getJdDisplayLabel = (jd) => {
   const title = getJdTitle(jd);
@@ -109,6 +195,7 @@ function SubmissionModal({
   refreshData,
   initialSubmitType = "INTERNAL",
   hideInternalOption = false,
+  restrictToAssignedJdUntilEdit = false,
 }) {
   const [submitType, setSubmitType] = useState(initialSubmitType || "INTERNAL");
   const [employees, setEmployees] = useState([]);
@@ -118,6 +205,8 @@ function SubmissionModal({
   const [clientSearch, setClientSearch] = useState("");
   const [jdSearch, setJdSearch] = useState("");
   const [jdFilter, setJdFilter] = useState("today_yesterday");
+  const [allowAllJdsForClientSubmit, setAllowAllJdsForClientSubmit] = useState(false);
+  const [showAssignedClientSelector, setShowAssignedClientSelector] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -130,23 +219,37 @@ function SubmissionModal({
     remark: "",
   });
 
+  const isClientMode = submitType === "CLIENT";
+
+  const isAssignedTeamClientFlow = Boolean(
+    restrictToAssignedJdUntilEdit &&
+    hideInternalOption &&
+    (initialSubmitType || "CLIENT") === "CLIENT" &&
+    getCandidateAssignedJdId(selectedCand)
+  );
+
   useEffect(() => {
     if (!isOpen) return;
 
     const nextType = initialSubmitType || (hideInternalOption ? "CLIENT" : "INTERNAL");
+    const assignedJdOption = buildCandidateAssignedJdOption(selectedCand);
+    const assignedJdClientId = getJdClientId(assignedJdOption);
+
     setSubmitType(nextType);
     setEmployeeSearch("");
     setClientSearch("");
     setJdSearch("");
-    setJdFilter("today_yesterday");
+    setJdFilter(nextType === "CLIENT" ? "all" : "today");
+    setAllowAllJdsForClientSubmit(false);
+    setShowAssignedClientSelector(false);
     setShowErrors(false);
     setSubmitting(false);
     setForm({
       submitted_to: selectedCand?.submitted_to || selectedCand?.submitted_to_id || "",
-      client: selectedCand?.client || selectedCand?.client_id || "",
+      client: selectedCand?.client || selectedCand?.client_id || assignedJdClientId || "",
       client_rate: selectedCand?.client_rate || "",
       client_rate_type: selectedCand?.client_rate_type || selectedCand?.vendor_rate_type || "",
-      jd_mapping: selectedCand?.jd_mapping || selectedCand?.jd_mapping_id || selectedCand?.requirement_id || "",
+      jd_mapping: getCandidateAssignedJdId(selectedCand),
       remark: selectedCand?.remark || "",
     });
   }, [isOpen, initialSubmitType, hideInternalOption, selectedCand]);
@@ -158,21 +261,77 @@ function SubmissionModal({
     const loadOptions = async () => {
       setLoadingOptions(true);
       try {
-        const selectedFilter = JD_FILTERS.find((f) => f.value === jdFilter);
-        const jdType = selectedFilter?.apiValue || jdFilter;
+        const assignedJdId = getCandidateAssignedJdId(selectedCand);
+        const assignedJdOption = buildCandidateAssignedJdOption(selectedCand);
+        const lockedToAssignedJd = Boolean(
+          isAssignedTeamClientFlow &&
+          assignedJdId &&
+          !allowAllJdsForClientSubmit
+        );
+        const activeJdFilters = isClientMode ? (isAssignedTeamClientFlow ? JD_FILTERS : DIRECT_CLIENT_JD_FILTERS) : JD_FILTERS;
+        const selectedFilter = activeJdFilters.find((f) => f.value === jdFilter) || activeJdFilters[0];
+        const jdType = selectedFilter?.apiValue || "all";
+        const shouldLoadJds = !isClientMode || Boolean(form.client) || lockedToAssignedJd;
+
+        const jdRequest = (() => {
+          if (lockedToAssignedJd) {
+            return Promise.resolve({ results: assignedJdOption ? [assignedJdOption] : [] });
+          }
+          if (!shouldLoadJds) {
+            return Promise.resolve({ results: [] });
+          }
+          if (isClientMode) {
+            return apiRequest(`/jd-mapping/company-jds/?type=${encodeURIComponent(jdType)}&search=${encodeURIComponent(jdSearch)}`, "GET");
+          }
+          return jdType === "all"
+            ? apiRequest(`/jd-mapping/api/requirements/list/?search=${encodeURIComponent(jdSearch)}`, "GET")
+            : apiRequest(`/jd-mapping/my-jds/?type=${encodeURIComponent(jdType)}&search=${encodeURIComponent(jdSearch)}`, "GET");
+        })();
 
         const [empRes, clientRes, jdRes] = await Promise.all([
           apiRequest(`/employee-portal/api/employees/?search=${encodeURIComponent(employeeSearch)}`, "GET"),
           apiRequest(`/employee-portal/clients/list/?page=1&search=${encodeURIComponent(clientSearch)}`, "GET"),
-          jdType === "all"
-            ? apiRequest(`/jd-mapping/api/requirements/list/?search=${encodeURIComponent(jdSearch)}`, "GET")
-            : apiRequest(`/jd-mapping/my-jds/?type=${encodeURIComponent(jdType)}&search=${encodeURIComponent(jdSearch)}`, "GET"),
+          jdRequest,
         ]);
 
         if (!mounted) return;
-        setEmployees(normalizeResults(empRes));
-        setClients(normalizeResults(clientRes));
-        setJds(normalizeResults(jdRes));
+        const currentUserId = getCurrentUserId();
+        const employeeOptions = normalizeResults(empRes).filter(
+          (emp) => !currentUserId || String(emp.id) !== String(currentUserId)
+        );
+        setEmployees(employeeOptions);
+        setForm((prev) => (
+          currentUserId && String(prev.submitted_to) === String(currentUserId)
+            ? { ...prev, submitted_to: "" }
+            : prev
+        ));
+        const clientOptions = normalizeResults(clientRes);
+        const assignedClientIdForOptions = getJdClientId(assignedJdOption);
+        const assignedClientNameForOptions = getJdCompanyName(assignedJdOption);
+        const clientsWithAssigned = assignedClientIdForOptions && !clientOptions.some((client) => String(client.id) === String(assignedClientIdForOptions))
+          ? [{ id: assignedClientIdForOptions, company_name: assignedClientNameForOptions }, ...clientOptions]
+          : clientOptions;
+        setClients(clientsWithAssigned);
+        const assignedJdIdForSelection = getCandidateAssignedJdId(selectedCand);
+        const clientFilteredJds = normalizeResults(jdRes).filter((jd) => {
+          if (!isClientMode || lockedToAssignedJd || !form.client) return true;
+          const jdClientId = getJdClientId(jd);
+          return jdClientId && String(jdClientId) === String(form.client);
+        });
+        setJds(clientFilteredJds);
+        if (lockedToAssignedJd && assignedJdIdForSelection) {
+          const assignedClientId = getJdClientId(assignedJdOption);
+          setForm((prev) => ({
+            ...prev,
+            jd_mapping: assignedJdIdForSelection,
+            client: prev.client || assignedClientId || "",
+          }));
+        } else if (isClientMode && form.jd_mapping) {
+          const selectedStillVisible = clientFilteredJds.some((jd) => String(jd.id) === String(form.jd_mapping));
+          if (!selectedStillVisible) {
+            setForm((prev) => ({ ...prev, jd_mapping: "" }));
+          }
+        }
       } catch (err) {
         console.error("Submission modal options load failed:", err);
       } finally {
@@ -185,16 +344,54 @@ function SubmissionModal({
       mounted = false;
       clearTimeout(timer);
     };
-  }, [isOpen, employeeSearch, clientSearch, jdSearch, jdFilter]);
+  }, [isOpen, employeeSearch, clientSearch, jdSearch, jdFilter, selectedCand, initialSubmitType, hideInternalOption, restrictToAssignedJdUntilEdit, allowAllJdsForClientSubmit, isAssignedTeamClientFlow, isClientMode, form.client]);
 
   if (!isOpen) return null;
 
-  const updateForm = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const updateForm = (key, value) => {
+    if (key === "client") {
+      setForm((prev) => ({ ...prev, client: value, jd_mapping: String(prev.client) === String(value) ? prev.jd_mapping : "" }));
+      if (isAssignedTeamClientFlow && String(form.client) !== String(value)) {
+        setAllowAllJdsForClientSubmit(true);
+        setShowAssignedClientSelector(false);
+        setJdFilter("all");
+        setJdSearch("");
+      }
+      return;
+    }
 
-  const isClientMode = submitType === "CLIENT";
+    if (key === "jd_mapping") {
+      const nextJd = jds.find((jd) => String(jd.id) === String(value));
+      const nextClientId = getJdClientId(nextJd);
+      setForm((prev) => ({ ...prev, jd_mapping: value, client: nextClientId || prev.client }));
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
   const selectedEmployee = employees.find((emp) => String(emp.id) === String(form.submitted_to));
-  const selectedClient = clients.find((client) => String(client.id) === String(form.client));
+  const assignedJdOptionForDisplay = buildCandidateAssignedJdOption(selectedCand);
+  const selectedClient = clients.find((client) => String(client.id) === String(form.client)) || (
+    isAssignedTeamClientFlow && form.client && String(getJdClientId(assignedJdOptionForDisplay)) === String(form.client)
+      ? { id: form.client, company_name: getJdCompanyName(assignedJdOptionForDisplay) }
+      : null
+  );
   const selectedJd = jds.find((jd) => String(jd.id) === String(form.jd_mapping));
+  const assignedJdId = getCandidateAssignedJdId(selectedCand);
+  const isAssignedJdLocked = Boolean(
+    isAssignedTeamClientFlow &&
+    isClientMode &&
+    assignedJdId &&
+    !allowAllJdsForClientSubmit
+  );
+  const activeJdFilters = isClientMode ? (isAssignedTeamClientFlow ? JD_FILTERS : DIRECT_CLIENT_JD_FILTERS) : JD_FILTERS;
+
+  const handleEditAssignedJd = () => {
+    setAllowAllJdsForClientSubmit(true);
+    setJdFilter("all");
+    setJdSearch("");
+  };
 
   const candidateName = selectedCand?.candidate_name || selectedCand?.name || "Selected candidate";
   const initials =
@@ -205,6 +402,49 @@ function SubmissionModal({
       .map((word) => word[0])
       .join("")
       .toUpperCase() || "C";
+  const candidateExperience =
+    selectedCand?.years_of_experience_manual ||
+    selectedCand?.years_of_experience_calculated ||
+    selectedCand?.experience ||
+    selectedCand?.total_experience ||
+    "0";
+  const candidateTechnology =
+    selectedCand?.technology ||
+    selectedCand?.skills ||
+    selectedCand?.primary_skill ||
+    selectedCand?.tech_stack ||
+    "Not added";
+  const candidateVendorRate = selectedCand?.vendor_rate
+    ? `${selectedCand.vendor_rate} ${selectedCand?.vendor_rate_type || ""}`.trim()
+    : "Not set";
+  const candidateVendorName =
+    selectedCand?.vendor?.name ||
+    selectedCand?.vendor?.vendor_name ||
+    selectedCand?.vendor_details?.name ||
+    selectedCand?.vendor_details?.vendor_name ||
+    selectedCand?.Vendor?.name ||
+    selectedCand?.Vendor?.vendor_name ||
+    selectedCand?.vendor_name ||
+    selectedCand?.vendor_contact_name ||
+    selectedCand?.vendor ||
+    "Not set";
+  const candidateVendorCompany =
+    selectedCand?.vendor?.company_name ||
+    selectedCand?.vendor?.companyName ||
+    selectedCand?.vendor?.vendor_company_name ||
+    selectedCand?.vendor_details?.company_name ||
+    selectedCand?.vendor_details?.companyName ||
+    selectedCand?.vendor_details?.vendor_company_name ||
+    selectedCand?.Vendor?.company_name ||
+    selectedCand?.Vendor?.companyName ||
+    selectedCand?.Vendor?.vendor_company_name ||
+    selectedCand?.vendor_company_name ||
+    selectedCand?.company_name ||
+    "Not set";
+  const compactText = (text, limit = 34) => {
+    const value = text || "";
+    return value.length > limit ? `${value.substring(0, limit).trim()}...` : value;
+  };
 
   const quickRateSelected = QUICK_SUBMISSION_RATE_TYPES.some((type) => type.value === form.client_rate_type);
   const otherRateSelected = !quickRateSelected ? form.client_rate_type : "";
@@ -304,7 +544,7 @@ function SubmissionModal({
         <div style={styles.header}>
           <div>
             <h2 style={styles.title}>Complete submission</h2>
-            <p style={styles.subtitle}>Choose where this profile goes, then pick the JD.</p>
+            <p style={styles.subtitle}>Choose client/member, select the matching JD, then add rate details.</p>
           </div>
           <button type="button" style={styles.closeBtn} onClick={onClose}>×</button>
         </div>
@@ -324,90 +564,68 @@ function SubmissionModal({
                     style={submitType === "INTERNAL" ? styles.switchActive : styles.switchBtn}
                     onClick={() => switchMode("INTERNAL")}
                   >
-                    <span style={styles.switchIcon}>👥</span> Internal team
+                    <span style={styles.switchIcon}>Team</span> Internal team
                   </button>
                   <button
                     type="button"
                     style={submitType === "CLIENT" ? styles.switchActive : styles.switchBtn}
                     onClick={() => switchMode("CLIENT")}
                   >
-                    <span style={styles.switchIcon}>🏢</span> Client
+                    <span style={styles.switchIcon}>Client</span> Client
                   </button>
                 </div>
               )}
 
               {isClientMode ? (
                 <>
-                  <label style={styles.label}>Select client <span style={styles.required}>*</span></label>
-                  <input
-                    style={{ ...styles.searchInput, ...(showErrors && !form.client ? styles.inputError : {}) }}
-                    placeholder="🔍  Search client..."
-                    value={clientSearch}
-                    onChange={(e) => setClientSearch(e.target.value)}
-                  />
-                  <div style={{ ...styles.listBox, ...(showErrors && !form.client ? styles.listError : {}) }}>
-                    {clients.length ? clients.map((client) => {
-                      const active = String(form.client) === String(client.id);
-                      return (
-                        <button
-                          type="button"
-                          key={client.id}
-                          style={active ? styles.listRowActive : styles.listRow}
-                          onClick={() => updateForm("client", client.id)}
-                        >
-                          <span style={active ? styles.checkActive : styles.check}>{active ? "✓" : ""}</span>
-                          <span>{getClientName(client)}</span>
-                        </button>
-                      );
-                    }) : <div style={styles.emptyText}>{loadingOptions ? "Loading clients..." : "No clients found"}</div>}
-                  </div>
-
-                  <div style={styles.rateGrid}>
-                    <div>
-                      <label style={styles.label}>Rate <span style={styles.required}>*</span></label>
-                      <input
-                        style={{ ...styles.input, ...(showErrors && !form.client_rate ? styles.inputError : {}) }}
-                        placeholder="Enter rate"
-                        value={form.client_rate}
-                        onChange={(e) => updateForm("client_rate", e.target.value)}
-                        inputMode="decimal"
-                      />
-                    </div>
-                    <div>
-                      <label style={styles.label}>Other rate type</label>
-                      <select
-                        style={styles.select}
-                        value={otherRateSelected}
-                        onChange={(e) => updateForm("client_rate_type", e.target.value)}
-                      >
-                        {OTHER_SUBMISSION_RATE_TYPES.map((type) => (
-                          <option key={type.value || "empty"} value={type.value}>{type.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <label style={styles.label}>Rate type <span style={styles.required}>*</span></label>
-                  <div style={styles.chipsGrid}>
-                    {QUICK_SUBMISSION_RATE_TYPES.map((type) => (
+                  {isAssignedTeamClientFlow && form.client && !showAssignedClientSelector ? (
+                    <div style={{ ...(showErrors && !form.client ? styles.clientSummaryError : styles.clientSummary) }}>
+                      <div>
+                        <div style={styles.clientSummaryLabel}>Selected client from assigned JD</div>
+                        <div style={styles.clientSummaryName}>{selectedClient ? getClientName(selectedClient) : "Selected client"}</div>
+                      </div>
                       <button
                         type="button"
-                        key={type.value}
-                        style={form.client_rate_type === type.value ? styles.chipActive : styles.chip}
-                        onClick={() => updateForm("client_rate_type", type.value)}
+                        style={styles.changeClientBtn}
+                        onClick={() => setShowAssignedClientSelector(true)}
                       >
-                        {type.label}
+                        Change client
                       </button>
-                    ))}
-                  </div>
-                  {showErrors && !form.client_rate_type && <div style={styles.errorHint}>Pick a rate type.</div>}
+                    </div>
+                  ) : (
+                    <>
+                      <label style={styles.label}>Select client <span style={styles.required}>*</span></label>
+                      <input
+                        style={{ ...styles.searchInput, ...(showErrors && !form.client ? styles.inputError : {}) }}
+                        placeholder="Search client..."
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                      />
+                      <div style={{ ...styles.listBox, ...(showErrors && !form.client ? styles.listError : {}) }}>
+                        {clients.length ? clients.map((client) => {
+                          const active = String(form.client) === String(client.id);
+                          return (
+                            <button
+                              type="button"
+                              key={client.id}
+                              style={active ? styles.listRowActive : styles.listRow}
+                              onClick={() => updateForm("client", client.id)}
+                            >
+                              <span style={active ? styles.checkActive : styles.check}>{active ? "✓" : ""}</span>
+                              <span>{getClientName(client)}</span>
+                            </button>
+                          );
+                        }) : <div style={styles.emptyText}>{loadingOptions ? "Loading clients..." : "No clients found"}</div>}
+                      </div>
+                    </>
+                  )}
                 </>
               ) : (
                 <>
                   <label style={styles.label}>Select team member <span style={styles.required}>*</span></label>
                   <input
                     style={{ ...styles.searchInput, ...(showErrors && !form.submitted_to ? styles.inputError : {}) }}
-                    placeholder="🔍  Search team member..."
+                    placeholder="Search team member..."
                     value={employeeSearch}
                     onChange={(e) => setEmployeeSearch(e.target.value)}
                   />
@@ -431,73 +649,167 @@ function SubmissionModal({
               )}
             </section>
 
-            <section style={styles.stepBlock}>
-              <div style={styles.stepHeader}>
-                <span style={styles.stepNo}>2</span>
-                <h3 style={styles.stepTitle}>Choose JD <span style={styles.required}>*</span></h3>
-              </div>
+            {(!isClientMode || form.client) ? (
+              <section style={styles.stepBlock}>
+                <div style={styles.stepHeader}>
+                  <span style={styles.stepNo}>2</span>
+                  <h3 style={styles.stepTitle}>Choose JD <span style={styles.required}>*</span></h3>
+                </div>
 
-              <div style={styles.filterTabs}>
-                {JD_FILTERS.map((filter) => (
-                  <button
-                    type="button"
-                    key={filter.value}
-                    style={jdFilter === filter.value ? styles.filterActive : styles.filterBtn}
-                    onClick={() => setJdFilter(filter.value)}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
+                {isAssignedJdLocked ? (
+                  <div style={styles.lockedJdNotice}>
+                    <div>
+                      <div style={styles.lockedJdTitle}>Assigned JD from team submission</div>
+                      <div style={styles.lockedJdSub}>Only the JD received with this profile is shown. Use Choose another JD to select a different JD.</div>
+                    </div>
+                    <button type="button" style={styles.editJdBtn} onClick={handleEditAssignedJd}>Choose another JD</button>
+                  </div>
+                ) : (
+                  <>
+                    <div style={styles.filterTabs}>
+                      {activeJdFilters.map((filter) => (
+                        <button
+                          type="button"
+                          key={filter.value}
+                          style={jdFilter === filter.value ? styles.filterActive : styles.filterBtn}
+                          onClick={() => setJdFilter(filter.value)}
+                        >
+                          {filter.label}
+                        </button>
+                      ))}
+                    </div>
 
-              <input
-                style={{ ...styles.searchInput, ...(showErrors && !form.jd_mapping ? styles.inputError : {}) }}
-                placeholder="🔍  Search JD / Requirement ID / Company..."
-                value={jdSearch}
-                onChange={(e) => setJdSearch(e.target.value)}
-              />
+                    <input
+                      style={{ ...styles.searchInput, ...(showErrors && !form.jd_mapping ? styles.inputError : {}) }}
+                      placeholder="Search JD / Requirement ID / Company..."
+                      value={jdSearch}
+                      onChange={(e) => setJdSearch(e.target.value)}
+                    />
+                  </>
+                )}
 
-              <div style={{ ...styles.jdListBox, ...(showErrors && !form.jd_mapping ? styles.listError : {}) }}>
-                {jds.length ? jds.map((jd) => {
-                  const active = String(form.jd_mapping) === String(jd.id);
-                  return (
+                <div style={{ ...styles.jdListBox, ...(showErrors && !form.jd_mapping ? styles.listError : {}) }}>
+                  {jds.length ? jds.map((jd) => {
+                    const active = String(form.jd_mapping) === String(jd.id);
+                    return (
+                      <button
+                        type="button"
+                        key={jd.id}
+                        style={active ? styles.jdRowActive : styles.jdRow}
+                        onClick={() => updateForm("jd_mapping", jd.id)}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={styles.jdTopLine}>
+                            <span style={styles.jdId}>{getJdId(jd)}</span>
+                            <span style={styles.jdDate}>{getJdBadge(jd)}</span>
+                          </div>
+                          <div style={styles.jdTitle}>{getJdDisplayLabel(jd)}</div>
+                          <div style={styles.jdCompany}>{getJdCompanyName(jd)}</div>
+                        </div>
+                        <span style={active ? styles.checkActive : styles.check}>{active ? "✓" : ""}</span>
+                      </button>
+                    );
+                  }) : <div style={styles.emptyText}>{loadingOptions ? "Loading JDs..." : "No JD found for selected client"}</div>}
+                </div>
+              </section>
+            ) : (
+              <section style={styles.stepBlockMuted}>
+                <div style={styles.stepHeader}>
+                  <span style={styles.stepNoMuted}>2</span>
+                  <h3 style={styles.stepTitleMuted}>Choose JD</h3>
+                </div>
+                <div style={styles.emptyText}>Select a client first to see matching JDs.</div>
+              </section>
+            )}
+
+            {isClientMode && (
+              <section style={styles.stepBlock}>
+                <div style={styles.stepHeader}>
+                  <span style={styles.stepNo}>3</span>
+                  <h3 style={styles.stepTitle}>Rate details <span style={styles.required}>*</span></h3>
+                </div>
+
+                <div style={styles.rateGrid}>
+                  <div>
+                    <label style={styles.label}>Rate <span style={styles.required}>*</span></label>
+                    <input
+                      style={{ ...styles.input, ...(showErrors && !form.client_rate ? styles.inputError : {}) }}
+                      placeholder="Enter client rate"
+                      value={form.client_rate}
+                      onChange={(e) => updateForm("client_rate", e.target.value)}
+                      inputMode="decimal"
+                    />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Other rate type</label>
+                    <select
+                      style={styles.select}
+                      value={otherRateSelected}
+                      onChange={(e) => updateForm("client_rate_type", e.target.value)}
+                    >
+                      {OTHER_SUBMISSION_RATE_TYPES.map((type) => (
+                        <option key={type.value || "empty"} value={type.value}>{type.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <label style={styles.label}>Rate type <span style={styles.required}>*</span></label>
+                <div style={styles.chipsGrid}>
+                  {QUICK_SUBMISSION_RATE_TYPES.map((type) => (
                     <button
                       type="button"
-                      key={jd.id}
-                      style={active ? styles.jdRowActive : styles.jdRow}
-                      onClick={() => updateForm("jd_mapping", jd.id)}
+                      key={type.value}
+                      style={form.client_rate_type === type.value ? styles.chipActive : styles.chip}
+                      onClick={() => updateForm("client_rate_type", type.value)}
                     >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={styles.jdTopLine}>
-                          <span style={styles.jdId}>{getJdId(jd)}</span>
-                          <span style={styles.jdDate}>{getJdBadge(jd)}</span>
-                        </div>
-                        <div style={styles.jdTitle}>{getJdDisplayLabel(jd)}</div>
-                        <div style={styles.jdCompany}>{getJdCompanyName(jd)}</div>
-                      </div>
-                      <span style={active ? styles.checkActive : styles.check}>{active ? "✓" : ""}</span>
+                      {type.label}
                     </button>
-                  );
-                }) : <div style={styles.emptyText}>{loadingOptions ? "Loading JDs..." : "No JD found"}</div>}
-              </div>
-            </section>
+                  ))}
+                </div>
+                {showErrors && !form.client_rate_type && <div style={styles.errorHint}>Pick a rate type.</div>}
+              </section>
+            )}
           </div>
 
           <aside style={styles.aside}>
-            <div style={styles.liveTopBar} />
-            <div style={styles.liveBody}>
-              <div style={styles.liveHeader}>Live details</div>
-              <div style={styles.candidateMini}>
+            <div style={styles.developerCard}>
+              <div style={styles.developerCardHeader}>
                 <div style={styles.avatar}>{initials}</div>
                 <div style={{ minWidth: 0 }}>
                   <div style={styles.miniName}>{candidateName}</div>
-                  <div style={styles.miniSub}>{isClientMode ? "🏢 Client submission" : "👥 Internal submission"}</div>
+                  <div style={styles.miniSub}>Developer profile</div>
                 </div>
               </div>
+              <div style={styles.developerInfoGrid}>
+                <div style={styles.developerInfoItem}>
+                  <span style={styles.developerInfoLabel}>Experience</span>
+                  <b style={styles.developerInfoValue}>{candidateExperience ? `${candidateExperience} Yrs` : "0 Yrs"}</b>
+                </div>
+                <div style={styles.developerInfoItem}>
+                  <span style={styles.developerInfoLabel}>Vendor rate</span>
+                  <b style={styles.developerInfoValue}>{candidateVendorRate}</b>
+                </div>
+                <div style={styles.developerInfoItem}>
+                  <span style={styles.developerInfoLabel}>Vendor name</span>
+                  <b style={styles.developerInfoValue} title={candidateVendorName}>{compactText(candidateVendorName, 18)}</b>
+                </div>
+                <div style={styles.developerInfoItem}>
+                  <span style={styles.developerInfoLabel}>Vendor company</span>
+                  <b style={styles.developerInfoValue} title={candidateVendorCompany}>{compactText(candidateVendorCompany, 18)}</b>
+                </div>
+              </div>
+              <div style={styles.techPill} title={candidateTechnology}>{compactText(candidateTechnology, 44)}</div>
+            </div>
+
+            <div style={styles.livePanel}>
+              <div style={styles.liveTopBar} />
+              <div style={styles.liveBody}>
+                <div style={styles.liveHeader}>Live details</div>
 
               <div style={styles.liveRows}>
                 <div style={styles.liveRow}>
-                  <span>{isClientMode ? "🏢 Client" : "👥 Member"}</span>
+                  <span>{isClientMode ? "Client" : "Member"}</span>
                   <b>{isClientMode ? (selectedClient ? getClientName(selectedClient) : "Not selected") : (selectedEmployee ? getEmployeeName(selectedEmployee) : "Not selected")}</b>
                 </div>
                 {isClientMode && (
@@ -507,7 +819,7 @@ function SubmissionModal({
                   </div>
                 )}
                 <div style={styles.liveRow}>
-                  <span>📋 JD</span>
+                  <span>JD</span>
                   <b>{selectedJd ? getJdId(selectedJd) : "Not selected"}</b>
                 </div>
                 {selectedJd && (
@@ -530,6 +842,7 @@ function SubmissionModal({
               >
                 {submitting ? "Submitting..." : canSubmit ? "✓ Confirm submission" : "• Complete both steps"}
               </button>
+              </div>
             </div>
           </aside>
         </div>
@@ -550,6 +863,78 @@ function SubmissionModal({
 }
 
 const styles = {
+  clientSummary: {
+    background: "#FFF7ED",
+    border: "1.5px solid #FED7AA",
+    borderRadius: "14px",
+    padding: "13px 14px",
+    marginBottom: "16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+  },
+  clientSummaryError: {
+    background: "#FFF7ED",
+    border: "1.5px solid #FF453A",
+    borderRadius: "14px",
+    padding: "13px 14px",
+    marginBottom: "16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+  },
+  clientSummaryLabel: {
+    color: "#9A3412",
+    fontSize: "11px",
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: "0.4px",
+    marginBottom: "4px",
+  },
+  clientSummaryName: {
+    color: "#1D1D1F",
+    fontSize: "15px",
+    fontWeight: "900",
+  },
+  changeClientBtn: {
+    border: "none",
+    background: "#FF6433",
+    color: "#fff",
+    borderRadius: "10px",
+    padding: "9px 13px",
+    fontSize: "12px",
+    fontWeight: "900",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(255,100,51,0.22)",
+  },
+  stepBlockMuted: {
+    background: "#F8FAFC",
+    border: "1px dashed #CBD5E1",
+    borderRadius: "18px",
+    padding: "18px",
+    opacity: 0.85,
+  },
+  stepNoMuted: {
+    width: "28px",
+    height: "28px",
+    borderRadius: "999px",
+    background: "#E2E8F0",
+    color: "#64748B",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "13px",
+    fontWeight: "900",
+  },
+  stepTitleMuted: {
+    margin: 0,
+    color: "#64748B",
+    fontSize: "15px",
+    fontWeight: "900",
+  },
   overlay: {
     position: "fixed",
     inset: 0,
@@ -563,7 +948,7 @@ const styles = {
     boxSizing: "border-box",
   },
   modal: {
-    width: "min(880px, 100%)",
+    width: "min(900px, 100%)",
     maxHeight: "92vh",
     background: "#FFFFFF",
     borderRadius: "26px",
@@ -575,7 +960,7 @@ const styles = {
     fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   header: {
-    padding: "22px 26px 16px",
+    padding: "20px 26px 14px",
     borderBottom: "1px solid #EBEBF0",
     position: "relative",
     flex: "0 0 auto",
@@ -612,8 +997,8 @@ const styles = {
   content: {
     display: "grid",
     gridTemplateColumns: "minmax(0, 1fr) 270px",
-    gap: "24px",
-    padding: "22px 26px",
+    gap: "20px",
+    padding: "18px 26px",
     overflowY: "auto",
     alignItems: "start",
     boxSizing: "border-box",
@@ -621,7 +1006,7 @@ const styles = {
   mainCol: {
     display: "flex",
     flexDirection: "column",
-    gap: "24px",
+    gap: "18px",
     minWidth: 0,
   },
   stepBlock: {
@@ -631,7 +1016,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "11px",
-    marginBottom: "14px",
+    marginBottom: "11px",
   },
   stepNo: {
     width: "26px",
@@ -851,6 +1236,40 @@ const styles = {
     marginTop: "8px",
     fontWeight: 500,
   },
+  lockedJdNotice: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    padding: "12px 14px",
+    border: "1.5px solid #FFE0CC",
+    background: "#FFF7F1",
+    borderRadius: "14px",
+    marginBottom: "11px",
+  },
+  lockedJdTitle: {
+    fontSize: "13px",
+    fontWeight: 800,
+    color: "#1D1D1F",
+  },
+  lockedJdSub: {
+    marginTop: "3px",
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "#86868B",
+    lineHeight: 1.35,
+  },
+  editJdBtn: {
+    border: "none",
+    background: "#FF6A2B",
+    color: "#fff",
+    cursor: "pointer",
+    fontSize: "12.5px",
+    fontWeight: 800,
+    padding: "8px 13px",
+    borderRadius: "10px",
+    flexShrink: 0,
+  },
   filterTabs: {
     display: "flex",
     flexWrap: "wrap",
@@ -956,18 +1375,82 @@ const styles = {
   aside: {
     position: "sticky",
     top: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: "14px",
+    alignSelf: "flex-start",
+  },
+  liveTopBar: {
+    height: "5px",
+    background: "linear-gradient(90deg, #FF6A2B, #FF8A3D)",
+  },
+  developerCard: {
+    padding: "14px",
+    background: "linear-gradient(180deg, #FFF7F1 0%, #FFFFFF 100%)",
+    border: "1px solid #FFE0CC",
+    borderRadius: "18px",
+    boxShadow: "0 10px 30px -20px rgba(255,106,43,0.45)",
+    overflow: "hidden",
+  },
+  developerCardHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "12px",
+  },
+  developerInfoGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "8px",
+    marginBottom: "9px",
+  },
+  developerInfoItem: {
+    background: "#FFFFFF",
+    border: "1px solid #FFE0CC",
+    borderRadius: "12px",
+    padding: "9px 10px",
+    minWidth: 0,
+  },
+  developerInfoLabel: {
+    display: "block",
+    color: "#86868B",
+    fontSize: "10px",
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.35px",
+    marginBottom: "4px",
+  },
+  developerInfoValue: {
+    display: "block",
+    color: "#1D1D1F",
+    fontSize: "13px",
+    fontWeight: 900,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  techPill: {
+    border: "1px solid #EBEBF0",
+    background: "#FFFFFF",
+    color: "#475569",
+    borderRadius: "12px",
+    padding: "9px 10px",
+    fontSize: "12px",
+    fontWeight: 800,
+    lineHeight: 1.35,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  livePanel: {
     border: "1px solid #EBEBF0",
     borderRadius: "18px",
     overflow: "hidden",
     background: "#FFFFFF",
     boxShadow: "0 10px 30px -18px rgba(0,0,0,0.2)",
   },
-  liveTopBar: {
-    height: "5px",
-    background: "linear-gradient(90deg, #FF6A2B, #FF8A3D)",
-  },
   liveBody: {
-    padding: "18px",
+    padding: "12px",
   },
   liveHeader: {
     fontSize: "10.5px",
@@ -975,9 +1458,9 @@ const styles = {
     letterSpacing: "1.1px",
     textTransform: "uppercase",
     color: "#86868B",
-    marginBottom: "15px",
+    marginBottom: "10px",
     borderBottom: "1px solid #EBEBF0",
-    paddingBottom: "10px",
+    paddingBottom: "8px",
   },
   candidateMini: {
     display: "flex",
@@ -1023,13 +1506,13 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: "10px",
-    padding: "11px 13px",
-    fontSize: "13.5px",
+    padding: "8px 11px",
+    fontSize: "12.5px",
     borderBottom: "1px solid #EBEBF0",
     color: "#86868B",
   },
   jdPreview: {
-    padding: "11px 13px",
+    padding: "9px 11px",
     fontSize: "12px",
     color: "#1D1D1F",
     lineHeight: 1.4,
@@ -1048,25 +1531,25 @@ const styles = {
     fontWeight: 700,
   },
   waitStatus: {
-    marginTop: "14px",
+    marginTop: "10px",
     display: "flex",
     alignItems: "center",
     gap: "9px",
-    padding: "11px 13px",
-    borderRadius: "12px",
-    fontSize: "13px",
+    padding: "9px 11px",
+    borderRadius: "11px",
+    fontSize: "12.5px",
     fontWeight: 600,
     background: "#F5F5F7",
     color: "#86868B",
   },
   readyStatus: {
-    marginTop: "14px",
+    marginTop: "10px",
     display: "flex",
     alignItems: "center",
     gap: "9px",
-    padding: "11px 13px",
-    borderRadius: "12px",
-    fontSize: "13px",
+    padding: "9px 11px",
+    borderRadius: "11px",
+    fontSize: "12.5px",
     fontWeight: 600,
     background: "#E8FBEE",
     color: "#1E9E47",
@@ -1094,10 +1577,10 @@ const styles = {
   },
   sideBtn: {
     width: "100%",
-    marginTop: "14px",
+    marginTop: "10px",
     border: "none",
-    borderRadius: "14px",
-    padding: "14px",
+    borderRadius: "12px",
+    padding: "12px",
     fontWeight: 800,
     background: "#E7E7EC",
     color: "#B4B4BD",
@@ -1105,10 +1588,10 @@ const styles = {
   },
   sideBtnActive: {
     width: "100%",
-    marginTop: "14px",
+    marginTop: "10px",
     border: "none",
-    borderRadius: "14px",
-    padding: "14px",
+    borderRadius: "12px",
+    padding: "12px",
     fontWeight: 800,
     background: "linear-gradient(135deg, #FF6A2B, #E8502E)",
     color: "#fff",
@@ -1116,7 +1599,7 @@ const styles = {
     boxShadow: "0 10px 24px -10px rgba(232,80,46,0.7)",
   },
   footer: {
-    padding: "16px 26px",
+    padding: "14px 26px",
     borderTop: "1px solid #EBEBF0",
     display: "grid",
     gridTemplateColumns: "1fr 1.6fr",
@@ -1129,8 +1612,8 @@ const styles = {
     cursor: "pointer",
     fontWeight: 700,
     fontSize: "15px",
-    padding: "15px",
-    borderRadius: "14px",
+    padding: "13px",
+    borderRadius: "13px",
     background: "#F5F5F7",
     color: "#1D1D1F",
   },
@@ -1139,8 +1622,8 @@ const styles = {
     cursor: "pointer",
     fontWeight: 700,
     fontSize: "15px",
-    padding: "15px",
-    borderRadius: "14px",
+    padding: "13px",
+    borderRadius: "13px",
     color: "#fff",
     background: "linear-gradient(135deg, #FF6A2B, #E8502E)",
     boxShadow: "0 10px 24px -10px rgba(232,80,46,0.7)",
@@ -1150,8 +1633,8 @@ const styles = {
     cursor: "not-allowed",
     fontWeight: 700,
     fontSize: "15px",
-    padding: "15px",
-    borderRadius: "14px",
+    padding: "13px",
+    borderRadius: "13px",
     background: "#E7E7EC",
     color: "#B4B4BD",
     boxShadow: "none",

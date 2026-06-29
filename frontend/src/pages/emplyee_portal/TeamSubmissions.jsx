@@ -40,6 +40,29 @@ const Icons = {
   ),
 };
 
+const getCurrentUserId = () => {
+  try {
+    const token =
+      localStorage.getItem("access") ||
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token");
+
+    if (!token || !token.includes(".")) return null;
+
+    const payloadPart = token.split(".")[1];
+    const normalizedPayload = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
+      "=",
+    );
+    const payload = JSON.parse(atob(paddedPayload));
+
+    return payload.user_id || payload.userId || payload.id || payload.pk || null;
+  } catch (error) {
+    return null;
+  }
+};
+
 function TeamSubmissions() {
   const navigate = useNavigate();
   const [submissions, setSubmissions] = useState([]);
@@ -114,6 +137,7 @@ function TeamSubmissions() {
     setSubmissionModalProps({
       initialSubmitType: "CLIENT",
       hideInternalOption: true,
+      restrictToAssignedJdUntilEdit: true,
     });
     setShowSubmitModal(true);
   };
@@ -150,6 +174,16 @@ const currentDate = new Date(dateValue).toLocaleDateString('en-GB', {
         if (currentDate !== lastDate) lastDate = currentDate;
 
         const statusStyle = getStatusStyles(s.main_status || "SUBMITTED");
+        const currentUserId = getCurrentUserId();
+        const isIncomingTeamSubmission =
+          currentUserId &&
+          String(
+            s.submitted_to ||
+              s.submitted_to_id ||
+              s.submittedToId ||
+              s.submittedTo?.id ||
+              "",
+          ) === String(currentUserId);
 
         return (
           <React.Fragment key={s.id}>
@@ -241,16 +275,17 @@ const currentDate = new Date(dateValue).toLocaleDateString('en-GB', {
                   >
                     <Icons.Edit />
                   </button>
-                  {!(s.client_name || s.client) ? (
-                    <button
-                      style={styles.submitBtn}
-                      onClick={(e) => handleOpenSubmitModal(e, s)}
-                    >
-                      Submit to Client
-                    </button>
-                  ) : (
-                    <span style={styles.submittedTag}>✓ Submitted</span>
-                  )}
+                  {isIncomingTeamSubmission &&
+                    (!(s.client_name || s.client) ? (
+                      <button
+                        style={styles.submitBtn}
+                        onClick={(e) => handleOpenSubmitModal(e, s)}
+                      >
+                        Submit to Client
+                      </button>
+                    ) : (
+                      <span style={styles.submittedTag}>✓ Submitted</span>
+                    ))}
                 </div>
               </td>
             </tr>
@@ -271,8 +306,13 @@ const currentDate = new Date(dateValue).toLocaleDateString('en-GB', {
           {toast.msg}
         </div>
       )}
-
+<div>
+   <button onClick={() => navigate("/employee/")} style={styles.backBtn} title="Back to Dashboard">
+            ← Back
+          </button>
+</div>
       <div style={styles.header}>
+        
         <div>
           <h2 style={styles.welcome}>Team Submissions</h2>
           <p style={styles.subText}>
@@ -515,6 +555,7 @@ const styles = {
     fontWeight: "800",
     color: "#25343F",
   },
+   backBtn: { background: "#25343F", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", fontSize: "13px", marginTop: "3px", whiteSpace: "nowrap" },
 };
 
 export default TeamSubmissions;

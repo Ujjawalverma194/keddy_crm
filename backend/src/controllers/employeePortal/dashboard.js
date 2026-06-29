@@ -15,6 +15,73 @@ function todayRange() {
   return { start, end };
 }
 
+async function attachSubmissionRequirementDetails(formattedCandidates, submissions) {
+  if (!formattedCandidates?.length || !submissions?.length) return formattedCandidates || [];
+
+  const submissionMap = new Map();
+  submissions.forEach((submission) => {
+    if (!submission?.candidateId) return;
+    const existing = submissionMap.get(submission.candidateId);
+    if (!existing || new Date(submission.createdAt) > new Date(existing.createdAt)) {
+      submissionMap.set(submission.candidateId, submission);
+    }
+  });
+
+  const requirementIds = [...new Set(
+    [...submissionMap.values()].map((submission) => submission.requirementId).filter(Boolean)
+  )];
+  const requirements = requirementIds.length
+    ? await Requirement.find({ id: { $in: requirementIds }, isDeleted: false })
+    : [];
+  const requirementMap = new Map(requirements.map((requirement) => [requirement.id, requirement]));
+
+  const clientIds = [...new Set(requirements.map((requirement) => requirement.clientId).filter(Boolean))];
+  const clients = clientIds.length ? await Client.find({ id: { $in: clientIds } }) : [];
+  const clientMap = new Map(clients.map((client) => [client.id, client]));
+
+  return formattedCandidates.map((candidate) => {
+    const submission = submissionMap.get(candidate.id);
+    const requirement = submission?.requirementId ? requirementMap.get(submission.requirementId) : null;
+    const client = requirement?.clientId ? clientMap.get(requirement.clientId) : null;
+
+    return {
+      ...candidate,
+      submission_id: submission?.id,
+      requirementId: submission?.requirementId,
+      jd_mapping: submission?.requirementId,
+      jd_mapping_id: submission?.requirementId,
+      submittedById: submission?.submittedById,
+      submission_created_at: submission?.createdAt,
+      requirement: requirement ? {
+        id: requirement.id,
+        requirement_id: requirement.requirementId,
+        title: requirement.title,
+        client_details: client ? {
+          id: client.id,
+          name: client.clientName,
+          company_name: client.companyName,
+        } : null,
+        client_name: client?.companyName || client?.clientName || null,
+        created_at: requirement.createdAt,
+      } : null,
+      jd_title: requirement?.title || candidate.jd_title,
+      requirement_title: requirement?.title || candidate.requirement_title,
+      requirement_code: requirement?.requirementId || candidate.requirement_code,
+      jd_company_name: client?.companyName || client?.clientName || candidate.jd_company_name,
+      jd_created_at: requirement?.createdAt || candidate.jd_created_at,
+    };
+  });
+}
+
+function clientSubmittedFilter(extra = {}) {
+  return {
+    isDeleted: false,
+    verificationStatus: true,
+    clientId: { $ne: null },
+    ...extra,
+  };
+}
+
 async function stats(req, res) {
   if (req.user.role !== 'EMPLOYEE') {
     return res.status(403).json({ detail: 'Only employees allowed.' });
@@ -38,12 +105,10 @@ async function stats(req, res) {
         isDeleted: false,
         createdAt: { $gte: start, $lt: end },
       }),
-      Candidate.countDocuments({
-        isDeleted: false,
-        verificationStatus: true,
+      Candidate.countDocuments(clientSubmittedFilter({
         createdAt: { $gte: start, $lt: end },
         $or: [{ createdById: userId }, { submittedToId: userId }],
-      }),
+      })),
       Candidate.countDocuments({
         isDeleted: false,
         verificationStatus: true,
@@ -91,12 +156,10 @@ async function todayCandidates(req, res) {
 
 async function todayVerified(req, res) {
   const { start, end } = todayRange();
-  const items = await Candidate.find({
-    isDeleted: false,
-    verificationStatus: true,
+  const items = await Candidate.find(clientSubmittedFilter({
     createdAt: { $gte: start, $lt: end },
     $or: [{ createdById: req.user.id }, { submittedToId: req.user.id }],
-  });
+  }));
   return res.json(await candidatesToJSON(items));
 }
 
@@ -118,25 +181,48 @@ async function todayTeamSubmissions(req, res) {
   const { start, end } = todayRange();
   const userId = req.user.id;
 
-  // Candidates submitted TO this user today, not created by them (matches Django)
-  const items = await Candidate.find({
-    submittedToId: userId,
-    createdById: { $ne: userId },
+  const candidateFilter = {
     isDeleted: false,
+    clientId: null,
+    verificationStatus: true,
+    $or: [{ createdById: userId }, { submittedToId: userId }],
+  };
+
+  const relatedCandidates = await Candidate.find(candidateFilter);
+  const candidateIds = relatedCandidates.map((candidate) => candidate.id);
+  if (!candidateIds.length) return res.json([]);
+
+  const submissions = await CandidateJDSubmission.find({
+    candidateId: { $in: candidateIds },
     createdAt: { $gte: start, $lt: end },
   }).sort({ createdAt: -1 });
 
-  return res.json(await candidatesToJSON(items));
+  const latestSubmissionByCandidate = new Map();
+  submissions.forEach((submission) => {
+    if (!latestSubmissionByCandidate.has(submission.candidateId)) {
+      latestSubmissionByCandidate.set(submission.candidateId, submission);
+    }
+  });
+
+  const submittedCandidateIds = [...latestSubmissionByCandidate.keys()];
+  const items = relatedCandidates
+    .filter((candidate) => submittedCandidateIds.includes(candidate.id))
+    .sort((a, b) => {
+      const aSubmission = latestSubmissionByCandidate.get(a.id);
+      const bSubmission = latestSubmissionByCandidate.get(b.id);
+      return new Date(bSubmission?.createdAt || b.createdAt) - new Date(aSubmission?.createdAt || a.createdAt);
+    });
+
+  const formatted = await candidatesToJSON(items);
+  return res.json(await attachSubmissionRequirementDetails(formatted, submissions));
 }
 
 async function last7DaysVerified(req, res) {
   const since = subDays(new Date(), 7);
-  const items = await Candidate.find({
-    isDeleted: false,
-    verificationStatus: true,
+  const items = await Candidate.find(clientSubmittedFilter({
     createdAt: { $gte: since },
     $or: [{ createdById: req.user.id }, { submittedToId: req.user.id }],
-  }).sort({ createdAt: -1 });
+  })).sort({ createdAt: -1 });
   return res.json(await candidatesToJSON(items));
 }
 
@@ -164,17 +250,7 @@ async function allTeamSubmissions(req, res) {
     submissions.map((s) => [s.candidateId, s])
   );
 
-  const results = formattedCandidates.map((candidate) => {
-    const submission = submissionMap.get(candidate.id);
-
-    return {
-      ...candidate,
-      submission_id: submission?.id,
-      requirementId: submission?.requirementId,
-      submittedById: submission?.submittedById,
-      submission_created_at: submission?.createdAt,
-    };
-  });
+  const results = await attachSubmissionRequirementDetails(formattedCandidates, submissions);
 
   return res.json({ results });
 }

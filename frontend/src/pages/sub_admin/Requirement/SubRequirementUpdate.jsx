@@ -135,7 +135,7 @@ function RequirementUpdate() {
             const response = await apiRequest(`/jd-mapping/api/requirements/${id}/update/`, "PUT", payload);
             if (response && (response.success || response.id || response.requirement_id)) {
                 notify(response.message || "Requirement updated successfully", "success");
-                setTimeout(() => navigate("/sub-admin/requirements"), 1500);
+                setTimeout(() => navigate("/sub-admin/requirements/my?type"), 1500);
             } else {
                 notify("Update failed.", "error");
             }

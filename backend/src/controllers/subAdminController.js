@@ -24,6 +24,7 @@ function submittedProfileBaseFilter(extra = {}) {
   return {
     isDeleted: false,
     verificationStatus: true,
+    clientId: { $ne: null },
     ...extra,
   };
 }
@@ -118,6 +119,7 @@ async function todayVerified(req, res) {
       createdById: { $in: ids },
       isDeleted: false,
       verificationStatus: true,
+      clientId: { $ne: null },
       createdAt: { $gte: today, $lt: tomorrow },
     });
     return res.json(await candidatesToJSON(items));

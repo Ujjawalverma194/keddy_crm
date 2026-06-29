@@ -35,6 +35,23 @@ const getRequirementStatusStyle = (status) => {
     }
 };
 
+
+const getCurrentUserId = () => {
+    try {
+        const token = localStorage.getItem("access") || localStorage.getItem("access_token") || localStorage.getItem("token");
+        if (!token || !token.includes(".")) return null;
+
+        const payloadPart = token.split(".")[1];
+        const normalizedPayload = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+        const paddedPayload = normalizedPayload.padEnd(normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4), "=");
+        const payload = JSON.parse(atob(paddedPayload));
+
+        return payload.user_id || payload.userId || payload.id || payload.pk || null;
+    } catch (error) {
+        return null;
+    }
+};
+
 const StatusTimer = ({ createdAt, status, manual_status, manual_status_updated_at }) => {
     const [timeLeft, setTimeLeft] = useState("");
 
@@ -108,6 +125,7 @@ function EmployeeDashboard() {
     const [verifiedCandidates, setVerifiedCandidates] = useState([]);
     const [pipelineCandidates, setPipelineCandidates] = useState([]);
     const [teamSubmissions, setTeamSubmissions] = useState([]);
+    const [teamSubmissionsCount, setTeamSubmissionsCount] = useState(0);
     const [last7Verified, setLast7Verified] = useState([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
@@ -126,20 +144,37 @@ function EmployeeDashboard() {
 
     const fetchAllData = async () => {
         try {
-            const [sData, tData, vData, pData, teamData, last7Data] = await Promise.all([
+            const [sData, tData, vData, pData, teamData, allTeamData, last7Data] = await Promise.all([
                 apiRequest("/employee-portal/dashboard/stats/"),
                 apiRequest("/employee-portal/dashboard/today-candidates/"),
                 apiRequest("/employee-portal/dashboard/today-verified-candidates/"),
                 apiRequest("/employee-portal/dashboard/active-pipeline-candidates/"),
                 apiRequest("/employee-portal/dashboard/team/today-submissions/"),
+                apiRequest("/employee-portal/team/all-submissions/"),
                 apiRequest("/employee-portal/dashboard/last-7-days-verified/")
             ]);
-            const asArray = (d) => (Array.isArray(d) ? d : []);
+            const asArray = (d) => (Array.isArray(d) ? d : (Array.isArray(d?.results) ? d.results : []));
+            const hasClientSubmission = (candidate) => Boolean(
+                candidate?.client ||
+                candidate?.client_id ||
+                candidate?.clientId ||
+                candidate?.client_name ||
+                candidate?.client_company_name
+            );
+            const getCount = (d) => {
+                if (typeof d?.count === "number") return d.count;
+                if (typeof d?.total === "number") return d.total;
+                if (typeof d?.total_count === "number") return d.total_count;
+                if (typeof d?.total_items === "number") return d.total_items;
+                if (typeof d?.pagination?.total_items === "number") return d.pagination.total_items;
+                return asArray(d).length;
+            };
             setStats(sData || {});
             setTodayCandidates(asArray(tData));
-            setVerifiedCandidates(asArray(vData));
+            setVerifiedCandidates(asArray(vData).filter(hasClientSubmission));
             setPipelineCandidates(asArray(pData));
             setTeamSubmissions(asArray(teamData));
+            setTeamSubmissionsCount(getCount(allTeamData));
             setLast7Verified(asArray(last7Data));
         } catch (err) { notify("Failed to load dashboard data", "error"); }
         finally { setLoading(false); }
@@ -252,7 +287,7 @@ function EmployeeDashboard() {
         e.stopPropagation();
         setSelectedCand(candidate);
         if (isTeamSubmission) {
-            setSubmissionModalProps({ initialSubmitType: "CLIENT", hideInternalOption: true });
+            setSubmissionModalProps({ initialSubmitType: "CLIENT", hideInternalOption: true, restrictToAssignedJdUntilEdit: true });
         } else {
             setSubmissionModalProps({});
         }
@@ -315,6 +350,9 @@ function EmployeeDashboard() {
 
     const renderRow = (c, i, showSubmitBtn = false, showSubmitToClientBtn = false) => {
         const statusStyle = getStatusStyles(c.main_status || 'SUBMITTED');
+        const currentUserId = getCurrentUserId();
+        const isIncomingTeamSubmission = currentUserId && String(c.submitted_to || c.submitted_to_id || c.submittedToId || c.submittedTo?.id || "") === String(currentUserId);
+        const canSubmitTeamProfileToClient = showSubmitToClientBtn && isIncomingTeamSubmission;
         
         return (
             <tr key={c.id || i} style={{ ...styles.tableRow, backgroundColor: statusStyle.bg }} onClick={() => navigate(`/employee/candidate/view/${c.id}`)}>
@@ -360,7 +398,7 @@ function EmployeeDashboard() {
                             )
                         )}
 
-                        {showSubmitToClientBtn && (
+                        {canSubmitTeamProfileToClient && (
                             c.client_name || c.client ? (
                                 <span style={{color:'#27AE60', fontWeight:'700', fontSize:'11px', whiteSpace:'nowrap'}}>✓ Client Submitted</span>
                             ) : (
@@ -411,6 +449,7 @@ function EmployeeDashboard() {
                     { label: "Total Clients", val: stats.total_clients, icon: <Icons.Client />, col: "#25343F", url: "/employee/clients" },
                     { label: "Total Profiles", val: stats.total_profiles, icon: <Icons.Users />, col: "#25343F", url: "/employee/user-candidates" },
                     { label: "Attendance", val: stats.attendance, icon: <Icons.Users />, col: "#25343F", url: "/employee/attendance" },
+                    { label: "Team Submissions", val: teamSubmissionsCount, icon: <Icons.Send />, col: "#FF9B51", url: "/employee/TeamSubmissions" },
                 ].map((s, i) => (
                     <div key={i} style={styles.statCard} onClick={() => navigate(s.url)}>
                         <div style={{overflow:'hidden'}}><p style={styles.statLabel}>{s.label}</p><h3 style={{...styles.statValue, color: s.col}}>{s.val || 0}</h3></div>
@@ -766,7 +805,7 @@ export default EmployeeDashboard;
 //         e.stopPropagation();
 //         setSelectedCand(candidate);
 //         if (isTeamSubmission) {
-//             setSubmissionModalProps({ initialSubmitType: "CLIENT", hideInternalOption: true });
+//             setSubmissionModalProps({ initialSubmitType: "CLIENT", hideInternalOption: true, restrictToAssignedJdUntilEdit: true });
 //         } else {
 //             setSubmissionModalProps({});
 //         }
@@ -1183,7 +1222,7 @@ export default EmployeeDashboard;
 //         e.stopPropagation();
 //         setSelectedCand(candidate);
 //         if (isTeamSubmission) {
-//             setSubmissionModalProps({ initialSubmitType: "CLIENT", hideInternalOption: true });
+//             setSubmissionModalProps({ initialSubmitType: "CLIENT", hideInternalOption: true, restrictToAssignedJdUntilEdit: true });
 //         } else {
 //             setSubmissionModalProps({});
 //         }

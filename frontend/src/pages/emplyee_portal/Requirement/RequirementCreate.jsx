@@ -101,7 +101,7 @@ function RequirementCreate() {
             const response = await apiRequest("/jd-mapping/api/requirements/", "POST", payload);
             if (response) {
                 notify("Requirement created successfully", "success");
-                setTimeout(() => navigate("/employee/requirements"), 2000);
+                setTimeout(() => navigate("/employee/requirements/my?type"), 2000);
             }
         } catch (error) {
             notify("Error: Requirement could not be created.", "error");

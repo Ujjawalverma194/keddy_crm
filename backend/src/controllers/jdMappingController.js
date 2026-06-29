@@ -1,5 +1,7 @@
 const Client = require('../models/Client');
 const User = require('../models/User');
+const Candidate = require('../models/Candidate');
+const Vendor = require('../models/Vendor');
 const { Requirement, generateRequirementId } = require('../models/Requirement');
 const { RequirementAssignment, CandidateJDSubmission } = require('../models/JdMapping');
 const { getCompanyUserIds, resolveCompanyId } = require('../utils/company');
@@ -165,9 +167,19 @@ async function list(req, res) {
   const companyId = resolveCompanyId(req.user) || req.user.id;
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const search = (req.query.search || '').trim();
-  const statusFilter = (req.query.status || '').trim();
+  const statusFilter = (req.query.status || '').trim().toUpperCase();
+  const queryType = req.query.type || 'all';
 
   const filter = { isDeleted: false, companyId };
+  const today = startOfDay(new Date());
+  const yesterday = startOfDay(subDays(new Date(), 1));
+
+  if (queryType === 'today') {
+    filter.createdAt = { $gte: today, $lte: endOfDay(today) };
+  } else if (queryType === 'yesterday') {
+    filter.createdAt = { $gte: yesterday, $lte: endOfDay(yesterday) };
+  }
+
   if (search) {
     filter.$or = [
       { title: new RegExp(search, 'i') },
@@ -176,25 +188,167 @@ async function list(req, res) {
     ];
   }
 
-  let items = await Requirement.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
-  const total = await Requirement.countDocuments(filter);
+  let allItems = await Requirement.find(filter).sort({ createdAt: -1 });
 
-  if (statusFilter) {
-    items = items.filter((r) => computeRequirementStatus(r) === statusFilter);
+  if (statusFilter && ['HOT', 'WARM', 'COLD'].includes(statusFilter)) {
+    allItems = allItems.filter((r) => computeRequirementStatus(r) === statusFilter);
   }
 
+  const total = allItems.length;
+  const items = allItems.slice(skip, skip + limit);
   const clients = await Client.find({ id: { $in: items.map((i) => i.clientId) } });
   const clientMap = new Map(clients.map((c) => [c.id, c]));
-  const results = items.map((r) => requirementJSON(r, clientMap.get(r.clientId)));
+  const creatorIds = [...new Set(items.map((i) => i.createdById).filter(Boolean))];
+  const creators = creatorIds.length ? await User.find({ id: { $in: creatorIds } }) : [];
+  const creatorMap = new Map(creators.map((u) => [u.id, u]));
+
+  const results = items.map((r) => {
+    const creator = creatorMap.get(r.createdById);
+    return {
+      ...requirementJSON(r, clientMap.get(r.clientId)),
+      created_by_details: creator
+        ? {
+            id: creator.id,
+            name: `${creator.firstName || ''} ${creator.lastName || ''}`.trim(),
+            email: creator.email,
+          }
+        : null,
+    };
+  });
 
   return res.json(customPaginateResponse(results, total, page, pageSize));
 }
 
+function safeName(u) {
+  if (!u) return null;
+  return `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || null;
+}
+
 async function detail(req, res) {
-  const r = await Requirement.findOne({ id: parseInt(req.params.pk, 10), isDeleted: false });
+  const requirementId = parseInt(req.params.pk, 10);
+  const r = await Requirement.findOne({ id: requirementId, isDeleted: false });
   if (!r) return res.status(404).json({ success: false });
-  const client = await Client.findOne({ id: r.clientId });
-  return res.json({ success: true, data: requirementJSON(r, client) });
+
+  const [client, assignments, submissions] = await Promise.all([
+    Client.findOne({ id: r.clientId }),
+    RequirementAssignment.find({ requirementId: r.id }),
+    CandidateJDSubmission.find({ requirementId: r.id }).sort({ createdAt: -1 }),
+  ]);
+
+  const fallbackCreatorId =
+    r.createdById ||
+    assignments.find((a) => a.assignedById)?.assignedById ||
+    client?.createdById ||
+    r.companyId ||
+    null;
+
+  const userIds = [
+    fallbackCreatorId,
+    r.companyId,
+    ...assignments.map((a) => a.assignedToId),
+    ...assignments.map((a) => a.assignedById),
+    ...submissions.map((s) => s.submittedById),
+  ].filter(Boolean);
+  const users = userIds.length ? await User.find({ id: { $in: [...new Set(userIds)] } }) : [];
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
+  const candidateIds = [...new Set(submissions.map((s) => s.candidateId).filter(Boolean))];
+  const candidates = candidateIds.length ? await Candidate.find({ id: { $in: candidateIds }, isDeleted: false }) : [];
+  const candidateMap = new Map(candidates.map((c) => [c.id, c]));
+
+  const vendorIds = [...new Set(candidates.map((c) => c.vendorId).filter(Boolean))];
+  const vendors = vendorIds.length ? await Vendor.find({ id: { $in: vendorIds } }) : [];
+  const vendorMap = new Map(vendors.map((v) => [v.id, v]));
+
+  // The optional JD submission table can also receive internal/team submissions.
+  // Requirement View counts should match actual client submissions for this JD.
+  const clientSubmissions = submissions.filter((s) => {
+    const candidate = candidateMap.get(s.candidateId);
+    return candidate && String(candidate.clientId || '') === String(r.clientId || '');
+  });
+
+  const creator = userMap.get(fallbackCreatorId);
+  const companyOwner = userMap.get(r.companyId);
+  const base = requirementJSON(r, client);
+
+  return res.json({
+    success: true,
+    data: {
+      ...base,
+      client_details: client
+        ? {
+            id: client.id,
+            name: client.clientName,
+            company_name: client.companyName,
+            email: client.email || client.officialEmail || null,
+            phone: client.phoneNumber || null,
+          }
+        : null,
+      created_by_details: creator
+        ? {
+            id: creator.id,
+            name: safeName(creator),
+            email: creator.email,
+            role: creator.role,
+          }
+        : null,
+      company_details: companyOwner
+        ? {
+            id: companyOwner.id,
+            name: safeName(companyOwner),
+            email: companyOwner.email,
+            company_name: safeName(companyOwner),
+          }
+        : null,
+      assignments: assignments.map((a) => {
+        const assignedTo = userMap.get(a.assignedToId);
+        const assignedBy = userMap.get(a.assignedById);
+        return {
+          id: a.id,
+          name: safeName(assignedTo),
+          email: assignedTo?.email || null,
+          assigned_to: a.assignedToId,
+          assigned_by: a.assignedById,
+          assigned_by_name: safeName(assignedBy),
+          assigned_date: a.createdAt,
+        };
+      }),
+      total_submissions: clientSubmissions.length,
+      unique_candidates: new Set(clientSubmissions.map((s) => s.candidateId)).size,
+      submissions: clientSubmissions.map((s) => {
+        const candidate = candidateMap.get(s.candidateId);
+        const vendor = candidate?.vendorId ? vendorMap.get(candidate.vendorId) : null;
+        const submittedBy = userMap.get(s.submittedById);
+        return {
+          id: s.id,
+          submission_date: s.createdAt,
+          submitted_by: submittedBy
+            ? { id: submittedBy.id, name: safeName(submittedBy), email: submittedBy.email }
+            : null,
+          candidate: candidate
+            ? {
+                id: candidate.id,
+                name: candidate.candidateName,
+                technology: candidate.technology,
+                experience_calculated: candidate.yearsOfExperienceCalculated ?? candidate.yearsOfExperienceManual,
+                vendor_rate: candidate.vendorRate,
+                vendor_rate_type: candidate.vendorRateType,
+                client_rate: candidate.clientRate,
+                client_rate_type: candidate.clientRateType,
+                main_status: candidate.mainStatus,
+                vendor: vendor
+                  ? {
+                      id: vendor.id,
+                      name: vendor.name,
+                      company_name: vendor.companyName,
+                    }
+                  : null,
+              }
+            : null,
+        };
+      }),
+    },
+  });
 }
 
 async function update(req, res) {
@@ -220,7 +374,16 @@ async function update(req, res) {
 }
 
 async function softDelete(req, res) {
-  await Requirement.updateOne({ id: parseInt(req.params.pk, 10) }, { isDeleted: true });
+  const requirementId = parseInt(req.params.pk, 10);
+  const r = await Requirement.findOne({ id: requirementId, isDeleted: false });
+
+  if (!r) return res.status(404).json({ detail: 'Not found' });
+
+  if (String(r.createdById) !== String(req.user.id)) {
+    return res.status(403).json({ detail: 'You can delete only requirements created by you.' });
+  }
+
+  await Requirement.updateOne({ id: requirementId }, { isDeleted: true });
   return res.json({ message: 'Deleted' });
 }
 
@@ -355,33 +518,33 @@ async function myJds(req, res) {
   const today = startOfDay(new Date());
   const yesterday = startOfDay(subDays(new Date(), 1));
 
-  let rangeStart;
-  let rangeEnd;
+  const createdFilter = { createdById: userId, isDeleted: false };
+  const assignmentFilter = { assignedToId: userId };
+  const assignedRequirementFilter = { isDeleted: false };
+
   if (queryType === 'today') {
-    rangeStart = today;
-    rangeEnd = endOfDay(today);
+    const dateRange = { $gte: today, $lte: endOfDay(today) };
+    createdFilter.createdAt = dateRange;
+    assignedRequirementFilter.createdAt = dateRange;
   } else if (queryType === 'yesterday') {
-    rangeStart = yesterday;
-    rangeEnd = endOfDay(yesterday);
-  } else {
-    rangeStart = yesterday;
-    rangeEnd = endOfDay(today);
+    const dateRange = { $gte: yesterday, $lte: endOfDay(yesterday) };
+    createdFilter.createdAt = dateRange;
+    assignedRequirementFilter.createdAt = dateRange;
+  } else if (queryType === 'both' || queryType === 'today_yesterday') {
+    const dateRange = { $gte: yesterday, $lte: endOfDay(today) };
+    createdFilter.createdAt = dateRange;
+    assignedRequirementFilter.createdAt = dateRange;
   }
 
-  const assignments = await RequirementAssignment.find({ assignedToId: userId });
-  const assignedReqIds = assignments.map((a) => a.requirementId);
+  const assignments = await RequirementAssignment.find(assignmentFilter);
+  const assignedReqIds = [...new Set(assignments.map((a) => a.requirementId).filter(Boolean))];
 
   const [createdJds, assignedJds] = await Promise.all([
-    Requirement.find({
-      createdById: userId,
-      isDeleted: false,
-      createdAt: { $gte: rangeStart, $lte: rangeEnd },
-    }),
+    Requirement.find(createdFilter),
     assignedReqIds.length
       ? Requirement.find({
           id: { $in: assignedReqIds },
-          isDeleted: false,
-          createdAt: { $gte: rangeStart, $lte: rangeEnd },
+          ...assignedRequirementFilter,
         })
       : [],
   ]);
