@@ -58,8 +58,13 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     // 2. Logged in but visiting a route for a different role
     //    → redirect them to THEIR OWN dashboard (do NOT clear their token)
     if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
-        const home = ROLE_HOME[role] || "/";
-        return <Navigate to={home} replace />;
+        const { isTeamLeader, isTeamLeaderMode } = getStoredAuth();
+        const isTeamLeaderAccessingSubAdmin = role === 'EMPLOYEE' && isTeamLeader && isTeamLeaderMode && allowedRoles.includes('SUB_ADMIN');
+        
+        if (!isTeamLeaderAccessingSubAdmin) {
+            const home = ROLE_HOME[role] || "/";
+            return <Navigate to={home} replace />;
+        }
     }
 
     // 3. Correct role → render the page

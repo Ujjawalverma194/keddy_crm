@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { apiRequest } from "../../services/api";
-import { clearAuthData } from "./authSession";
+import { clearAuthData, getStoredAuth } from "./authSession";
 
 const SubAdminLayout = ({ children }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [userName, setUserName] = useState("Admin");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    
+    const { isTeamLeader, isTeamLeaderMode } = getStoredAuth();
+
+    const handleToggleMode = () => {
+        if (!isTeamLeaderMode) {
+            localStorage.setItem("isTeamLeaderMode", "true");
+            window.location.replace("/sub-admin");
+        } else {
+            localStorage.setItem("isTeamLeaderMode", "false");
+            window.location.replace("/employee");
+        }
+    };
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -73,8 +85,14 @@ const SubAdminLayout = ({ children }) => {
                     <div style={styles.userSection}>
                         <div className="user-info-text" style={styles.userInfo}>
                             <span style={styles.userNameText}>{userName}</span>
-                            <span style={styles.userStatus}>Management Access</span>
+                            <span style={styles.userStatus}>{isTeamLeaderMode ? "Team Leader Access" : "Management Access"}</span>
                         </div>
+                        
+                        {isTeamLeader && isTeamLeaderMode && (
+                            <button onClick={handleToggleMode} style={{...styles.toggleBtn, marginLeft: "10px", padding: "6px 12px", background: "#FF9B51", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontWeight: "600", fontSize: "12px"}}>
+                                Switch to Employee Mode
+                            </button>
+                        )}
                         
                         {/* Updated Avatar with Logout Dropdown */}
                         <div style={styles.avatarWrapper} className="avatar-dropdown">

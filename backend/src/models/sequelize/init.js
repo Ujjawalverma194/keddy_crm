@@ -34,6 +34,8 @@ const User = sequelize.define(
     },
     profilePicture: { type: DataTypes.STRING, allowNull: true },
     parentUserId: { type: DataTypes.INTEGER, allowNull: true },
+    isTeamLeader: { type: DataTypes.BOOLEAN, defaultValue: false },
+    teamLeaderId: { type: DataTypes.INTEGER, allowNull: true },
     isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
     isDeleted: { type: DataTypes.BOOLEAN, defaultValue: false },
     attendanceStreak: { type: DataTypes.INTEGER, defaultValue: 0 },

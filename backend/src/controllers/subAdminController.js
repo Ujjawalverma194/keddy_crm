@@ -36,7 +36,7 @@ async function companyFilter(user) {
 
 async function dashboardStats(req, res) {
   try {
-    const ids = await getCompanyUserIds(req.user);
+    const ids = await getCompanyUserIds(req.user, req);
     const companyId = resolveCompanyId(req.user) || req.user.id;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -77,11 +77,11 @@ async function dashboardStats(req, res) {
       Vendor.countDocuments({ isDeleted: false, createdById: { $in: ids } }),
       Client.countDocuments({ isDeleted: false, createdById: { $in: ids } }),
       Candidate.countDocuments(base),
-      User.countDocuments({
-        parentUserId: companyId,
-        isDeleted: false,
-        role: { $in: ['EMPLOYEE', 'ACCOUNTANT'] },
-      }),
+      User.countDocuments(
+        (req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader)
+          ? { teamLeaderId: req.user.id, isDeleted: false, role: { $in: ['EMPLOYEE', 'ACCOUNTANT'] } }
+          : { parentUserId: companyId, isDeleted: false, role: { $in: ['EMPLOYEE', 'ACCOUNTANT'] } }
+      ),
       Requirement.countDocuments({
         companyId,
         isDeleted: false,
@@ -110,7 +110,7 @@ async function dashboardStats(req, res) {
 
 async function todayVerified(req, res) {
   try {
-    const ids = await getCompanyUserIds(req.user);
+    const ids = await getCompanyUserIds(req.user, req);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -131,7 +131,7 @@ async function todayVerified(req, res) {
 
 async function pipeline(req, res) {
   try {
-    const ids = await getCompanyUserIds(req.user);
+    const ids = await getCompanyUserIds(req.user, req);
     const search = (req.query.search || '').trim();
     const filter = {
       createdById: { $in: ids },
@@ -150,7 +150,7 @@ async function pipeline(req, res) {
 
 async function todayProfiles(req, res) {
   try {
-    const ids = await getCompanyUserIds(req.user);
+    const ids = await getCompanyUserIds(req.user, req);
     const { page, pageSize, skip, limit } = drfPaginate(req.query);
     const search = (req.query.search || '').trim();
     const today = new Date();
@@ -184,7 +184,7 @@ async function todayProfiles(req, res) {
 }
 
 async function last7Verified(req, res) {
-  const ids = await getCompanyUserIds(req.user);
+  const ids = await getCompanyUserIds(req.user, req);
   const since = new Date();
   since.setDate(since.getDate() - 7);
   const items = await Candidate.find({
@@ -200,10 +200,16 @@ async function listUsers(req, res) {
   const companyId = resolveCompanyId(req.user);
   const search = (req.query.search || '').trim();
   const filter = {
-    parentUserId: companyId,
     isDeleted: false,
-    role: { $in: ['EMPLOYEE', 'ACCOUNTANT'] },
   };
+  if (req.headers['x-team-leader-mode'] === 'true') {
+    filter.role = 'EMPLOYEE';
+    filter.teamLeaderId = req.user.id;
+    filter.id = { $ne: req.user.id };
+  } else {
+    filter.role = { $in: ['EMPLOYEE', 'ACCOUNTANT'] };
+    filter.parentUserId = companyId;
+  }
   if (search) {
     const or = [
       { firstName: new RegExp(search, 'i') },
@@ -225,6 +231,8 @@ async function listUsers(req, res) {
     role: u.role,
     profile_picture: u.profilePicture,
     full_name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
+    isTeamLeader: u.isTeamLeader,
+    teamLeaderId: u.teamLeaderId,
   }));
   return res.json(results);
 }
@@ -239,7 +247,9 @@ async function createUser(req, res) {
     number,
     password: hashed,
     role: role || 'EMPLOYEE',
-    parentUserId: req.user.id,
+    parentUserId: (req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader) ? (resolveCompanyId(req.user) || req.user.id) : req.user.id,
+    teamLeaderId: (req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader) ? req.user.id : (req.body.teamLeaderId || null),
+    isTeamLeader: req.body.isTeamLeader === 'true' || req.body.isTeamLeader === true,
     profilePicture: req.file ? relPath(req.file.path) : null,
   });
   return res.status(201).json({ success: true, data: { id: user.id } });
@@ -248,7 +258,7 @@ async function createUser(req, res) {
 async function getUser(req, res) {
   const user = await User.findOne({
     id: parseInt(req.params.pk || req.params.user_id, 10),
-    parentUserId: req.user.id,
+    ...(req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader ? { teamLeaderId: req.user.id } : { parentUserId: req.user.id }),
   });
   if (!user) return res.status(404).json({ success: false });
   return res.json({
@@ -260,6 +270,8 @@ async function getUser(req, res) {
       email: user.email,
       number: user.number,
       role: user.role,
+      isTeamLeader: user.isTeamLeader,
+      teamLeaderId: user.teamLeaderId,
     },
   });
 }
@@ -267,43 +279,56 @@ async function getUser(req, res) {
 async function updateUser(req, res) {
   const user = await User.findOne({
     id: parseInt(req.params.pk, 10),
-    parentUserId: req.user.id,
+    ...(req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader ? { teamLeaderId: req.user.id } : { parentUserId: req.user.id }),
   });
   if (!user) return res.status(404).json({ detail: 'Not found' });
-  const { first_name, last_name, email, number, role, password } = req.body;
+  const { first_name, last_name, email, number, role, password, isTeamLeader, teamLeaderId } = req.body;
   if (first_name) user.firstName = first_name;
   if (last_name) user.lastName = last_name;
   if (email) user.email = email.toLowerCase();
   if (number) user.number = number;
   if (role) user.role = role;
   if (password) user.password = await User.hashPassword(password);
+  
+  if (isTeamLeader !== undefined) user.isTeamLeader = isTeamLeader === 'true' || isTeamLeader === true;
+  if (teamLeaderId !== undefined) user.teamLeaderId = teamLeaderId || null;
+
   await user.save();
   return res.json({ success: true, message: 'User updated' });
 }
 
 async function softDeleteUser(req, res) {
   await User.updateOne(
-    { id: parseInt(req.params.user_id, 10), parentUserId: req.user.id },
+    { 
+      id: parseInt(req.params.user_id, 10), 
+      ...(req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader ? { teamLeaderId: req.user.id } : { parentUserId: req.user.id }) 
+    },
     { isDeleted: true }
   );
   return res.json({ message: 'User soft deleted' });
 }
 
 async function hardDeleteUser(req, res) {
-  await User.deleteOne({ id: parseInt(req.params.user_id, 10), parentUserId: req.user.id });
-  return res.status(204).send();
+  await User.deleteOne({ 
+    id: parseInt(req.params.user_id, 10), 
+    ...(req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader ? { teamLeaderId: req.user.id } : { parentUserId: req.user.id }) 
+  });
+  return res.json({ message: 'User hard deleted' });
 }
 
 async function restoreUser(req, res) {
   await User.updateOne(
-    { id: parseInt(req.params.user_id, 10), parentUserId: req.user.id },
+    { 
+      id: parseInt(req.params.user_id, 10), 
+      ...(req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader ? { teamLeaderId: req.user.id } : { parentUserId: req.user.id }) 
+    },
     { isDeleted: false }
   );
   return res.json({ message: 'User restored' });
 }
 
 async function listClients(req, res) {
-  const ids = await getCompanyUserIds(req.user);
+  const ids = await getCompanyUserIds(req.user, req);
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const filter = { isDeleted: false, createdById: { $in: ids } };
   const [items, total] = await Promise.all([
@@ -350,7 +375,7 @@ async function clientHardDelete(req, res) {
 }
 
 async function listVendors(req, res) {
-  const ids = await getCompanyUserIds(req.user);
+  const ids = await getCompanyUserIds(req.user, req);
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const filter = { isDeleted: false, createdById: { $in: ids } };
   const [items, total] = await Promise.all([
@@ -400,7 +425,7 @@ function applyCandidateListFilters(filter, query) {
 }
 
 async function listCandidates(req, res) {
-  const ids = await getCompanyUserIds(req.user);
+  const ids = await getCompanyUserIds(req.user, req);
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const filter = applyCandidateListFilters(
     { isDeleted: false, createdById: { $in: ids } },
@@ -416,7 +441,7 @@ async function listCandidates(req, res) {
 
 function filterByStatus(status) {
   return async (req, res) => {
-    const ids = await getCompanyUserIds(req.user);
+    const ids = await getCompanyUserIds(req.user, req);
     const { page, pageSize, skip, limit } = drfPaginate(req.query);
 
     const baseFilter =

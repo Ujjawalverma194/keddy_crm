@@ -6,8 +6,8 @@
 
 export const AUTH_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 1 day
 
-const STORAGE_KEYS = ["access", "refresh", "role", "auth_expires_at"];
-const COOKIE_KEYS = ["access", "refresh", "role"];
+const STORAGE_KEYS = ["access", "refresh", "role", "auth_expires_at", "isTeamLeader", "isTeamLeaderMode"];
+const COOKIE_KEYS = ["access", "refresh", "role", "isTeamLeader"];
 
 const AUTH_SESSION_KEY = "auth_session_active";
 const AUTH_EXPIRES_AT_KEY = "auth_expires_at";
@@ -59,6 +59,8 @@ export const getStoredAuth = () => {
         token: local?.getItem("access") || "",
         refresh: local?.getItem("refresh") || "",
         role: local?.getItem("role") || "",
+        isTeamLeader: local?.getItem("isTeamLeader") === "true",
+        isTeamLeaderMode: local?.getItem("isTeamLeaderMode") === "true",
         expiresAt: Number(local?.getItem(AUTH_EXPIRES_AT_KEY) || 0),
     };
 };

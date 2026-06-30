@@ -620,6 +620,8 @@ function Login() {
             localStorage.removeItem("access");
             localStorage.removeItem("refresh");
             localStorage.removeItem("role");
+            localStorage.removeItem("isTeamLeader");
+            localStorage.removeItem("isTeamLeaderMode");
 
             const res = await apiRequest("/api/login/", "POST", form);
 
@@ -634,6 +636,9 @@ function Login() {
             // ✅ Store role in localStorage so ProtectedRoute can check it
             if (res.role) {
                 localStorage.setItem("role", res.role);
+            }
+            if (res.isTeamLeader !== undefined) {
+                localStorage.setItem("isTeamLeader", res.isTeamLeader ? "true" : "false");
             }
 
             // ✅ Role based navigation with replace: true (prevents back-button to login)

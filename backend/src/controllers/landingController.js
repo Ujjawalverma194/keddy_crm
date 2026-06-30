@@ -55,6 +55,7 @@ async function login(req, res) {
     return res.json({
       message: 'Login successful',
       role: user.role,
+      isTeamLeader: user.isTeamLeader,
       access: tokens.access,
       refresh: tokens.refresh,
     });

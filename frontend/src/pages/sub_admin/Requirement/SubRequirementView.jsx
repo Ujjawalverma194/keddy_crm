@@ -145,7 +145,7 @@ function RequirementView() {
                                             <span style={styles.statusBadge}>{sub.candidate?.main_status}</span>
                                         </td>
                                         <td style={styles.td}>
-                                            <button onClick={() => navigate(`/employee/candidate/view/${sub.candidate?.id}`)} style={styles.viewBtnMini}>View Profile</button>
+                                            <button onClick={() => navigate(`/sub-admin/candidate/view/${sub.candidate?.id}`)} style={styles.viewBtnMini}>View Profile</button>
                                         </td>
                                     </tr>
                                 )) : <tr><td colSpan="7" style={styles.noDataTd}>No candidates submitted yet.</td></tr>}

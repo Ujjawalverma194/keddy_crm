@@ -59,7 +59,7 @@ function MyRequirements() {
     const getInitialAllRequirementFilters = () => ({
         title: query.get("title") || "",
         client: query.get("client") || "",
-        status: query.get("status") || "",
+        status: "",
         experience: query.get("experience") || "",
         skills: query.get("skills") || "",
         job_description: query.get("job_description") || "",
@@ -372,7 +372,6 @@ function MyRequirements() {
                 return (
                     matchesRequirementTextFilter(req?.title, allRequirementFilters.title) &&
                     matchesRequirementTextFilter(getRequirementClientName(req), allRequirementFilters.client) &&
-                    matchesRequirementTextFilter(req?.status, allRequirementFilters.status) &&
                     matchesRequirementTextFilter(getRequirementSkillsText(req), allRequirementFilters.skills) &&
                     matchesRequirementTextFilter(req?.rate, allRequirementFilters.rate) &&
                     matchesRequirementTextFilter(req?.vendor_budget_range, allRequirementFilters.budget) &&
@@ -930,16 +929,6 @@ function MyRequirements() {
                                         </div>
 
                                         <div style={styles.categoryFilterGroup}>
-                                            <label style={styles.categoryFilterLabel}>Status</label>
-                                            <select style={styles.categoryFilterInput} value={draftAllRequirementFilters.status} onChange={(e) => updateDraftAllRequirementFilter("status", e.target.value)}>
-                                                <option value="">All Status</option>
-                                                <option value="HOT">HOT</option>
-                                                <option value="WARM">WARM</option>
-                                                <option value="COLD">COLD</option>
-                                            </select>
-                                        </div>
-
-                                        <div style={styles.categoryFilterGroup}>
                                             <label style={styles.categoryFilterLabel}>Experience</label>
                                             <input
                                                 type="text"
@@ -1003,16 +992,6 @@ function MyRequirements() {
 
             <div style={styles.section}>
                 <h2 style={styles.pageTitle}>{getPageTitle()}</h2>
-                {typeParam !== "all" && (
-                    <div style={{ marginBottom: "15px" }}>
-                        <div style={styles.filterGroup}>
-                            <button onClick={() => setStatusFilter("")} style={!statusFilter ? styles.activeFilterBtn : styles.filterBtn}>All</button>
-                            <button onClick={() => setStatusFilter("HOT")} style={statusFilter === "HOT" ? styles.activeFilterBtn : styles.filterBtn}>HOT</button>
-                            <button onClick={() => setStatusFilter("WARM")} style={statusFilter === "WARM" ? styles.activeFilterBtn : styles.filterBtn}>WARM</button>
-                        </div>
-                    </div>
-                )}
-
                 {shouldSplitMyRequirements ? (
                     <>
                         <div style={styles.splitBlock}>
@@ -1050,15 +1029,6 @@ function MyRequirements() {
                 <h2 style={styles.pageTitle}>Team Requirements <span style={{ fontSize: "14px", fontWeight: "normal", color: "#64748B" }}>{typeParam === "all" ? "(All company requirements)" : typeParam === "today" ? "(All team requirements created today)" : "(All team requirements created yesterday)"}</span></h2>
 
                 <div style={{ ...styles.topBar, marginBottom: "20px" }}>
-                    {typeParam !== "all" && (
-                        <div style={styles.filterGroup}>
-                            <button onClick={() => setStatusFilterAvailable("")} style={!statusFilterAvailable ? styles.activeFilterBtn : styles.filterBtn}>All</button>
-                            <button onClick={() => setStatusFilterAvailable("HOT")} style={statusFilterAvailable === "HOT" ? styles.activeFilterBtn : styles.filterBtn}>HOT</button>
-                            <button onClick={() => setStatusFilterAvailable("WARM")} style={statusFilterAvailable === "WARM" ? styles.activeFilterBtn : styles.filterBtn}>WARM</button>
-                            <button onClick={() => setStatusFilterAvailable("COLD")} style={statusFilterAvailable === "COLD" ? styles.activeFilterBtn : styles.filterBtn}>COLD</button>
-                        </div>
-                    )}
-
                     <div style={styles.searchContainer}>
                         <input type="text" placeholder="Search available requirements..." style={styles.searchInput} value={searchQueryAvailable} onChange={(e) => setSearchQueryAvailable(e.target.value)} />
                     </div>

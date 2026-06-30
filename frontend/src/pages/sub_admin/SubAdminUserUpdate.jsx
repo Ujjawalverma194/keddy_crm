@@ -166,7 +166,24 @@ function UpdateUser() {
         role: "",
         password: "",
         confirm_password: "",
+        isTeamLeader: false,
+        teamLeaderId: "",
     });
+
+    const [teamLeaders, setTeamLeaders] = useState([]);
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const response = await apiRequest("/sub-admin/api/users/", "GET", null, getAuthHeaders());
+                const allUsers = response.results || response || [];
+                setTeamLeaders(allUsers.filter(u => u.isTeamLeader && u.id !== Number(id)));
+            } catch (error) {
+                console.error("Failed to load users for team leader dropdown");
+            }
+        };
+        fetchUsers();
+    }, [id]);
 
     const [originalData, setOriginalData] = useState(null);
 
@@ -210,6 +227,8 @@ useEffect(() => {
                     role: userData.role || "EMPLOYEE",
                     password: "",
                     confirm_password: "",
+                    isTeamLeader: userData.isTeamLeader || false,
+                    teamLeaderId: userData.teamLeaderId || "",
                 });
             } else {
                 notify(res.message || "Failed to load user data", "error");
@@ -267,7 +286,11 @@ const handleSubmit = async (e) => {
         email: form.email,  // Include email
         number: form.number,
         role: form.role,     // Include role
+        isTeamLeader: form.isTeamLeader,
     };
+    if (form.teamLeaderId) {
+        payload.teamLeaderId = form.teamLeaderId;
+    }
 
     // Add password only if change password is enabled
     if (changePassword && form.password) {
@@ -300,6 +323,8 @@ const handleSubmit = async (e) => {
                     email: refreshRes.data.email || "",
                     number: refreshRes.data.number || "",
                     role: refreshRes.data.role || "EMPLOYEE",
+                    isTeamLeader: refreshRes.data.isTeamLeader || false,
+                    teamLeaderId: refreshRes.data.teamLeaderId || "",
                 }));
             }
             setTimeout(() => navigate(-1), 1500);
@@ -473,6 +498,29 @@ const handleSubmit = async (e) => {
                                     icon={Icons.RoleIcon}
                                     error={fieldErrors.role}
                                 />
+                                <div style={fieldStyles.wrap}>
+                                    <label style={fieldStyles.label}>Is Team Leader?</label>
+                                    <input
+                                        type="checkbox"
+                                        name="isTeamLeader"
+                                        checked={form.isTeamLeader}
+                                        onChange={(e) => setForm({ ...form, isTeamLeader: e.target.checked })}
+                                        style={{ transform: "scale(1.5)", marginTop: "10px", cursor: "pointer", display: "block" }}
+                                    />
+                                </div>
+                                {!form.isTeamLeader && (
+                                    <SelectField
+                                        label="Assign to Team Leader"
+                                        name="teamLeaderId"
+                                        value={form.teamLeaderId || ""}
+                                        onChange={handleChange}
+                                        options={[
+                                            { value: "", label: "-- None --" },
+                                            ...teamLeaders.map(tl => ({ value: tl.id, label: tl.full_name }))
+                                        ]}
+                                        icon={Icons.User}
+                                    />
+                                )}
                             </div>
                         </div>
 

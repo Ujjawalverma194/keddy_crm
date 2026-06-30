@@ -18,6 +18,10 @@ export async function apiRequest(url, method = "GET", data = null) {
     if (token) {
         headers["Authorization"] = `Bearer ${token}`;
     }
+    
+    if (localStorage.getItem("isTeamLeaderMode") === "true") {
+        headers["x-team-leader-mode"] = "true";
+    }
 
     const options = {
         method: method,

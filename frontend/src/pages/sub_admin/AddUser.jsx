@@ -16,8 +16,27 @@ function AddUser() {
         number: "",
         password: "",
         role: "EMPLOYEE",
+        isTeamLeader: false,
+        teamLeaderId: "",
         profile_picture: null
     });
+    
+    const [teamLeaders, setTeamLeaders] = useState([]);
+    
+    React.useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const response = await apiRequest("/sub-admin/api/users/", "GET", null, {
+                    "Authorization": `Bearer ${localStorage.getItem("access") || ""}`
+                });
+                const allUsers = response.results || response || [];
+                setTeamLeaders(allUsers.filter(u => u.isTeamLeader));
+            } catch (error) {
+                console.error("Failed to load users for team leader dropdown");
+            }
+        };
+        fetchUsers();
+    }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -40,6 +59,8 @@ function AddUser() {
         data.append("number", formData.number);
         data.append("password", formData.password);
         data.append("role", formData.role);
+        data.append("isTeamLeader", formData.isTeamLeader);
+        if (formData.teamLeaderId) data.append("teamLeaderId", formData.teamLeaderId);
 
         if (formData.profile_picture) {
             data.append("profile_picture", formData.profile_picture);
@@ -174,6 +195,36 @@ function AddUser() {
                                 accept="image/*"
                             />
                         </div>
+                    </div>
+
+                    <div style={styles.row}>
+                        <div style={styles.inputGroup}>
+                            <label style={styles.label}>Is Team Leader?</label>
+                            <input
+                                type="checkbox"
+                                name="isTeamLeader"
+                                checked={formData.isTeamLeader}
+                                onChange={(e) => setFormData({ ...formData, isTeamLeader: e.target.checked })}
+                                style={{ transform: "scale(1.5)", marginTop: "10px", cursor: "pointer", display: "block" }}
+                            />
+                        </div>
+
+                        {!formData.isTeamLeader && (
+                            <div style={styles.inputGroup}>
+                                <label style={styles.label}>Assign to Team Leader</label>
+                                <select
+                                    name="teamLeaderId"
+                                    value={formData.teamLeaderId || ""}
+                                    onChange={handleChange}
+                                    style={styles.input}
+                                >
+                                    <option value="">-- None --</option>
+                                    {teamLeaders.map(tl => (
+                                        <option key={tl.id} value={tl.id}>{tl.full_name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
 

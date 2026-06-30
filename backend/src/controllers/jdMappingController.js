@@ -642,7 +642,40 @@ async function companyJds(req, res) {
   const items = await Requirement.find(filter).sort({ createdAt: -1 });
   const clients = await Client.find({ id: { $in: items.map((i) => i.clientId) } });
   const clientMap = new Map(clients.map((c) => [c.id, c]));
-  const results = items.map((r) => requirementJSON(r, clientMap.get(r.clientId)));
+
+  const requirementIds = items.map((i) => i.id);
+  const submissions = requirementIds.length
+    ? await CandidateJDSubmission.find({ requirementId: { $in: requirementIds }, companyId })
+    : [];
+
+  const submissionCandidateIds = [...new Set(submissions.map((s) => s.candidateId).filter(Boolean))];
+  const submittedCandidates = submissionCandidateIds.length
+    ? await Candidate.find({ id: { $in: submissionCandidateIds }, isDeleted: false })
+    : [];
+  const candidateMap = new Map(submittedCandidates.map((c) => [c.id, c]));
+
+  const submissionCounts = new Map();
+  submissions.forEach((submission) => {
+    const candidate = candidateMap.get(submission.candidateId);
+    const requirement = items.find((item) => item.id === submission.requirementId);
+
+    if (!requirement) return;
+
+    // Count only actual client submissions for the requirement's client.
+    // This keeps internal/team submissions separate from Submitted Profiles counts.
+    if (candidate && String(candidate.clientId || '') === String(requirement.clientId || '')) {
+      submissionCounts.set(
+        submission.requirementId,
+        (submissionCounts.get(submission.requirementId) || 0) + 1,
+      );
+    }
+  });
+
+  const results = items.map((r) => ({
+    ...requirementJSON(r, clientMap.get(r.clientId)),
+    total_submissions: submissionCounts.get(r.id) || 0,
+  }));
+
   return res.json({
     success: true,
     type: queryType,

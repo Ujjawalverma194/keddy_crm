@@ -9,7 +9,15 @@ function getCompanyRoot(user) {
   return null;
 }
 
-async function getCompanyUserIds(user) {
+async function getCompanyUserIds(user, req) {
+  if (req && req.headers['x-team-leader-mode'] === 'true' && user.isTeamLeader) {
+    const employees = await User.find({
+      $or: [{ id: user.id }, { teamLeaderId: user.id }],
+      isActive: { $ne: false },
+    }).select('id');
+    return employees.map((u) => u.id);
+  }
+
   const root = getCompanyRoot(user);
   if (!root) return [];
 

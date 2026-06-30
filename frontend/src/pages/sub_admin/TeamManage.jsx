@@ -12,6 +12,10 @@ function UserManagement() {
     // Modal states
     const [showDeleteModal, setShowDeleteModal] = useState({ show: false, userId: null });
     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
+    const [selectedUsers, setSelectedUsers] = useState([]);
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [bulkAssignData, setBulkAssignData] = useState({ isTeamLeader: false, teamLeaderId: "" });
+    const [assigning, setAssigning] = useState(false);
 
     const getAuthHeaders = () => {
         const token = localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -75,6 +79,54 @@ function UserManagement() {
         return fullName.includes(query) || email.includes(query);
     });
 
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedUsers(filteredUsers.map(u => u.id));
+        } else {
+            setSelectedUsers([]);
+        }
+    };
+
+    const handleSelectUser = (id) => {
+        setSelectedUsers(prev => 
+            prev.includes(id) ? prev.filter(uid => uid !== id) : [...prev, id]
+        );
+    };
+
+    const teamLeaders = users.filter(u => u.isTeamLeader);
+
+    const handleBulkAssign = async () => {
+        if (selectedUsers.length === 0) return;
+        setAssigning(true);
+        try {
+            await Promise.all(selectedUsers.map(async (id) => {
+                const user = users.find(u => u.id === id);
+                if (!user) return;
+                const payload = {
+                    first_name: user.first_name,
+                    last_name: user.last_name,
+                    email: user.email,
+                    number: user.number,
+                    role: user.role,
+                    isTeamLeader: bulkAssignData.isTeamLeader,
+                };
+                if (!bulkAssignData.isTeamLeader && bulkAssignData.teamLeaderId) {
+                    payload.teamLeaderId = bulkAssignData.teamLeaderId;
+                }
+                return apiRequest(`/sub-admin/api/users/${id}/`, "PATCH", payload, getAuthHeaders());
+            }));
+            notify("Bulk assignment successful!");
+            setShowAssignModal(false);
+            setSelectedUsers([]);
+            setBulkAssignData({ isTeamLeader: false, teamLeaderId: "" });
+            fetchUsers();
+        } catch (error) {
+            notify("Bulk assignment failed", "error");
+        } finally {
+            setAssigning(false);
+        }
+    };
+
     return (
         <BaseLayout>
             {/* Custom Toast Indicator */}
@@ -95,6 +147,11 @@ function UserManagement() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
+                {selectedUsers.length > 0 && (
+                    <button onClick={() => setShowAssignModal(true)} style={{...styles.addBtn, backgroundColor: "#6366f1", marginRight: "10px"}}>
+                        Assign Team Leader ({selectedUsers.length})
+                    </button>
+                )}
                 <button onClick={() => navigate("/sub-admin/add-user")} style={styles.addBtn}>
                     + Add Employee
                 </button>
@@ -107,6 +164,7 @@ function UserManagement() {
                     <table style={styles.table}>
                         <thead>
                             <tr style={styles.tableHeader}>
+                                <th style={{ ...styles.th, width: '40px' }}><input type="checkbox" onChange={handleSelectAll} checked={filteredUsers.length > 0 && selectedUsers.length === filteredUsers.length} /></th>
                                 <th style={styles.th}>ID</th>
                                 <th style={styles.th}>Full Name</th>
                                 <th style={styles.th}>Email</th>
@@ -118,11 +176,12 @@ function UserManagement() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="6" style={styles.statusText}>Loading data...</td>
+                                    <td colSpan="7" style={styles.statusText}>Loading data...</td>
                                 </tr>
                             ) : filteredUsers.length > 0 ? (
                                 filteredUsers.map((user) => (
                                     <tr key={user.id} style={styles.tableRow}>
+                                        <td style={styles.td}><input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={() => handleSelectUser(user.id)} /></td>
                                         <td style={styles.td}>#{user.id}</td>
                                         <td style={styles.td}>
                                             <div style={styles.userName}>{user.first_name} {user.last_name}</div>
@@ -133,6 +192,11 @@ function UserManagement() {
                                             <span style={styles.roleBadge}>
                                                 {user.role === "EMPLOYEE" ? "Recruiter" : "Accountant"}
                                             </span>
+                                            {user.isTeamLeader && (
+                                                <span style={{ ...styles.roleBadge, backgroundColor: "#6366f1", marginLeft: "8px" }}>
+                                                    Team Leader
+                                                </span>
+                                            )}
                                         </td>
                                         <td style={styles.actionTd}>
                                             <button onClick={() => navigate(`/sub-admin/user/detail/${user.id}`)} style={styles.viewBtn}>View</button>
@@ -143,13 +207,59 @@ function UserManagement() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="6" style={styles.statusText}>No employees found.</td>
+                                    <td colSpan="7" style={styles.statusText}>No employees found.</td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            {showAssignModal && (
+                <div style={styles.modalOverlay}>
+                    <div style={styles.modalContent}>
+                        <h3 style={{marginTop:0, color: '#25343F'}}>Assign Team Leader</h3>
+                        <p style={{fontSize:'14px', color:'#64748B'}}>Applying to {selectedUsers.length} selected user(s):</p>
+                        <div style={{display:'flex', flexDirection:'column', gap:'15px', marginTop:'20px'}}>
+                            
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={bulkAssignData.isTeamLeader} 
+                                    onChange={(e) => setBulkAssignData({ ...bulkAssignData, isTeamLeader: e.target.checked })} 
+                                    style={{ transform: "scale(1.2)" }} 
+                                />
+                                <strong>Mark as New Team Leader(s)</strong>
+                            </label>
+
+                            {!bulkAssignData.isTeamLeader && (
+                                <div>
+                                    <label style={{display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: 'bold'}}>Or Assign to Existing Team Leader:</label>
+                                    <select 
+                                        value={bulkAssignData.teamLeaderId} 
+                                        onChange={(e) => setBulkAssignData({ ...bulkAssignData, teamLeaderId: e.target.value })} 
+                                        style={{...styles.searchInput, width: '100%'}}
+                                    >
+                                        <option value="">-- None --</option>
+                                        {teamLeaders.map(tl => (
+                                            <option key={tl.id} value={tl.id}>{tl.full_name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div style={{display: 'flex', gap: '10px', marginTop: '10px'}}>
+                                <button style={{...styles.softDelBtn, backgroundColor: "#2ecc71", color: "white"}} onClick={handleBulkAssign} disabled={assigning}>
+                                    {assigning ? "Assigning..." : "Confirm Assignment"}
+                                </button>
+                                <button style={styles.cancelBtn} onClick={() => { setShowAssignModal(false); setBulkAssignData({ isTeamLeader: false, teamLeaderId: "" }); }}>
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Delete Confirmation Modal */}
             {showDeleteModal.show && (
