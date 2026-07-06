@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
 import BaseLayout from "../components/SubAdminLayout";
@@ -15,6 +15,7 @@ function AddClient() {
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
+    const [duplicateClient, setDuplicateClient] = useState(null);
 
     // Files state
     const [files, setFiles] = useState({
@@ -41,6 +42,35 @@ function AddClient() {
         setToast({ show: true, msg, type });
         setTimeout(() => setToast({ show: false, msg: "", type: "" }), 3000);
     };
+
+    useEffect(() => {
+        const checkDuplicate = async () => {
+            if (form.client_name || form.company_name || form.phone_number) {
+                try {
+                    const data = await apiRequest("/employee-portal/clients/check-duplicate/", "POST", {
+                        client_name: form.client_name,
+                        company_name: form.company_name,
+                        phone_number: form.phone_number
+                    });
+                    if (data && data.duplicate) {
+                        setDuplicateClient(data.client);
+                    } else {
+                        setDuplicateClient(null);
+                    }
+                } catch (error) {
+                    console.error("Failed to check duplicate client", error);
+                }
+            } else {
+                setDuplicateClient(null);
+            }
+        };
+
+        const timerId = setTimeout(() => {
+            checkDuplicate();
+        }, 800);
+
+        return () => clearTimeout(timerId);
+    }, [form.client_name, form.company_name, form.phone_number]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -99,6 +129,19 @@ function AddClient() {
     return (
         <BaseLayout>
             {toast.show && <div style={{...styles.toast, backgroundColor: toast.type === "error" ? "#E74C3C" : "#27AE60"}}>{toast.msg}</div>}
+            
+            {duplicateClient && (
+                <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 10000, background: '#FEF2F2', border: '1px solid #F87171', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div>
+                        <h4 style={{ margin: 0, color: '#991B1B', fontSize: '16px' }}>Client already exists!</h4>
+                        <p style={{ margin: '4px 0 0', color: '#B91C1C', fontSize: '14px' }}>A client named <strong>{duplicateClient.client_name}</strong> from <strong>{duplicateClient.company_name}</strong> already exists.</p>
+                    </div>
+                    <button type="button" onClick={() => navigate(`/sub-admin/clients`)} style={{ padding: '8px 16px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        View Existing Client
+                    </button>
+                </div>
+            )}
+
             <div style={styles.pageShell}>
                 <div style={styles.hero}><div style={styles.heroLeft}><button type="button" onClick={() => navigate(-1)} style={styles.backBtn}><Icons.Back /></button><div><h2 style={styles.pageTitle}>Add New Client</h2><p style={styles.pageSubtitle}>Create a compact client profile with documents and agreement status.</p></div></div><div style={styles.progressBox}><div style={styles.progressText}>{completedCount} / 3 required done</div><div style={styles.progressTrack}><div style={{...styles.progressFill, width: `${(completedCount / 3) * 100}%`}} /></div></div></div>
                 <form onSubmit={handleSubmit}><div style={styles.layoutGrid}><div style={styles.formGrid}>

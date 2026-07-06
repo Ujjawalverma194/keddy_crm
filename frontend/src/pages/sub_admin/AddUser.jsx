@@ -8,6 +8,7 @@ import "react-toastify/dist/ReactToastify.css";
 function AddUser() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const isTeamLeaderMode = localStorage.getItem("isTeamLeaderMode") === "true";
 
     const [formData, setFormData] = useState({
         first_name: "",
@@ -198,18 +199,20 @@ function AddUser() {
                     </div>
 
                     <div style={styles.row}>
-                        <div style={styles.inputGroup}>
-                            <label style={styles.label}>Is Team Leader?</label>
-                            <input
-                                type="checkbox"
-                                name="isTeamLeader"
-                                checked={formData.isTeamLeader}
-                                onChange={(e) => setFormData({ ...formData, isTeamLeader: e.target.checked })}
-                                style={{ transform: "scale(1.5)", marginTop: "10px", cursor: "pointer", display: "block" }}
-                            />
-                        </div>
+                        {!isTeamLeaderMode && (
+                            <div style={styles.inputGroup}>
+                                <label style={styles.label}>Is Team Leader?</label>
+                                <input
+                                    type="checkbox"
+                                    name="isTeamLeader"
+                                    checked={formData.isTeamLeader}
+                                    onChange={(e) => setFormData({ ...formData, isTeamLeader: e.target.checked })}
+                                    style={{ transform: "scale(1.5)", marginTop: "10px", cursor: "pointer", display: "block" }}
+                                />
+                            </div>
+                        )}
 
-                        {!formData.isTeamLeader && (
+                        {!isTeamLeaderMode && !formData.isTeamLeader && (
                             <div style={styles.inputGroup}>
                                 <label style={styles.label}>Assign to Team Leader</label>
                                 <select

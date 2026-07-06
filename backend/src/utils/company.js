@@ -21,6 +21,11 @@ async function getCompanyUserIds(user, req) {
   const root = getCompanyRoot(user);
   if (!root) return [];
 
+  if (user.role === 'CENTRAL_ADMIN') {
+    const allUsers = await User.find({ isActive: { $ne: false } }).select('id');
+    return allUsers.map((u) => u.id);
+  }
+
   const rootId = root.id || user.id;
   const employees = await User.find({
     $or: [{ id: rootId }, { parentUserId: rootId }],

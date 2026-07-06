@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
 import BaseLayout from "../components/emp_base";
@@ -7,6 +7,7 @@ function AddVendor() {
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
+    const [duplicateVendor, setDuplicateVendor] = useState(null);
     
     const [files, setFiles] = useState({
         bench_list: null,
@@ -42,6 +43,35 @@ function AddVendor() {
         setToast({ show: true, msg, type });
         setTimeout(() => setToast({ show: false, msg: "", type: "" }), 3000);
     };
+
+    useEffect(() => {
+        const checkDuplicate = async () => {
+            if (form.name || form.company_name || form.number) {
+                try {
+                    const data = await apiRequest("/employee-portal/api/vendors/check-duplicate/", "POST", {
+                        vendor_name: form.name,
+                        company_name: form.company_name,
+                        phone_number: form.number
+                    });
+                    if (data && data.duplicate) {
+                        setDuplicateVendor(data.vendor);
+                    } else {
+                        setDuplicateVendor(null);
+                    }
+                } catch (error) {
+                    console.error("Failed to check duplicate vendor", error);
+                }
+            } else {
+                setDuplicateVendor(null);
+            }
+        };
+
+        const timerId = setTimeout(() => {
+            checkDuplicate();
+        }, 800);
+
+        return () => clearTimeout(timerId);
+    }, [form.name, form.company_name, form.number]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -101,6 +131,18 @@ function AddVendor() {
             {toast.show && (
                 <div style={{...styles.toast, backgroundColor: toast.type === 'error' ? '#E74C3C' : '#27AE60'}}>
                     {toast.msg}
+                </div>
+            )}
+
+            {duplicateVendor && (
+                <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 10000, background: '#FEF2F2', border: '1px solid #F87171', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div>
+                        <h4 style={{ margin: 0, color: '#991B1B', fontSize: '16px' }}>Vendor already exists!</h4>
+                        <p style={{ margin: '4px 0 0', color: '#B91C1C', fontSize: '14px' }}>A vendor named <strong>{duplicateVendor.name}</strong> from <strong>{duplicateVendor.companyName}</strong> already exists.</p>
+                    </div>
+                    <button type="button" onClick={() => navigate(`/employee/vendors`)} style={{ padding: '8px 16px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        View Existing Vendor
+                    </button>
                 </div>
             )}
 

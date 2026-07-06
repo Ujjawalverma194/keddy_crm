@@ -271,7 +271,7 @@ function SubmissionModal({
         const activeJdFilters = isClientMode ? (isAssignedTeamClientFlow ? JD_FILTERS : DIRECT_CLIENT_JD_FILTERS) : JD_FILTERS;
         const selectedFilter = activeJdFilters.find((f) => f.value === jdFilter) || activeJdFilters[0];
         const jdType = selectedFilter?.apiValue || "all";
-        const shouldLoadJds = !isClientMode || Boolean(form.client) || lockedToAssignedJd;
+        const shouldLoadJds = true;
 
         const jdRequest = (() => {
           if (lockedToAssignedJd) {
@@ -609,7 +609,7 @@ function SubmissionModal({
                               type="button"
                               key={client.id}
                               style={active ? styles.listRowActive : styles.listRow}
-                              onClick={() => updateForm("client", client.id)}
+                              onClick={() => updateForm("client", active ? "" : client.id)}
                             >
                               <span style={active ? styles.checkActive : styles.check}>{active ? "✓" : ""}</span>
                               <span>{getClientName(client)}</span>
@@ -637,7 +637,7 @@ function SubmissionModal({
                           type="button"
                           key={emp.id}
                           style={active ? styles.listRowActive : styles.listRow}
-                          onClick={() => updateForm("submitted_to", emp.id)}
+                          onClick={() => updateForm("submitted_to", active ? "" : emp.id)}
                         >
                           <span style={active ? styles.checkActive : styles.check}>{active ? "✓" : ""}</span>
                           <span>{getEmployeeName(emp)}</span>
@@ -649,8 +649,7 @@ function SubmissionModal({
               )}
             </section>
 
-            {(!isClientMode || form.client) ? (
-              <section style={styles.stepBlock}>
+            <section style={styles.stepBlock}>
                 <div style={styles.stepHeader}>
                   <span style={styles.stepNo}>2</span>
                   <h3 style={styles.stepTitle}>Choose JD <span style={styles.required}>*</span></h3>
@@ -696,7 +695,7 @@ function SubmissionModal({
                         type="button"
                         key={jd.id}
                         style={active ? styles.jdRowActive : styles.jdRow}
-                        onClick={() => updateForm("jd_mapping", jd.id)}
+                        onClick={() => updateForm("jd_mapping", active ? "" : jd.id)}
                       >
                         <div style={{ minWidth: 0 }}>
                           <div style={styles.jdTopLine}>
@@ -712,15 +711,6 @@ function SubmissionModal({
                   }) : <div style={styles.emptyText}>{loadingOptions ? "Loading JDs..." : "No JD found for selected client"}</div>}
                 </div>
               </section>
-            ) : (
-              <section style={styles.stepBlockMuted}>
-                <div style={styles.stepHeader}>
-                  <span style={styles.stepNoMuted}>2</span>
-                  <h3 style={styles.stepTitleMuted}>Choose JD</h3>
-                </div>
-                <div style={styles.emptyText}>Select a client first to see matching JDs.</div>
-              </section>
-            )}
 
             {isClientMode && (
               <section style={styles.stepBlock}>
@@ -842,20 +832,10 @@ function SubmissionModal({
               >
                 {submitting ? "Submitting..." : canSubmit ? "✓ Confirm submission" : "• Complete both steps"}
               </button>
+              <button type="button" style={styles.sideCancelBtn} onClick={onClose}>Cancel</button>
               </div>
             </div>
           </aside>
-        </div>
-
-        <div style={styles.footer}>
-          <button type="button" style={styles.cancelBtn} onClick={onClose}>Cancel</button>
-          <button
-            type="submit"
-            style={canSubmit && !submitting ? styles.confirmBtn : styles.confirmBtnDisabled}
-            disabled={!canSubmit || submitting}
-          >
-            {submitting ? "Submitting..." : "✓ Confirm submission"}
-          </button>
         </div>
       </form>
     </div>
@@ -960,7 +940,7 @@ const styles = {
     fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   header: {
-    padding: "20px 26px 14px",
+    padding: "14px 20px 10px",
     borderBottom: "1px solid #EBEBF0",
     position: "relative",
     flex: "0 0 auto",
@@ -997,8 +977,8 @@ const styles = {
   content: {
     display: "grid",
     gridTemplateColumns: "minmax(0, 1fr) 270px",
-    gap: "20px",
-    padding: "18px 26px",
+    gap: "16px",
+    padding: "12px 20px",
     overflowY: "auto",
     alignItems: "start",
     boxSizing: "border-box",
@@ -1006,7 +986,7 @@ const styles = {
   mainCol: {
     display: "flex",
     flexDirection: "column",
-    gap: "18px",
+    gap: "12px",
     minWidth: 0,
   },
   stepBlock: {
@@ -1041,7 +1021,7 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
     gap: "10px",
-    marginBottom: "16px",
+    marginBottom: "12px",
   },
   switchBtn: {
     display: "flex",
@@ -1052,9 +1032,9 @@ const styles = {
     border: "1.5px solid #EBEBF0",
     background: "#FFFFFF",
     borderRadius: "14px",
-    padding: "14px",
+    padding: "10px",
     fontWeight: 700,
-    fontSize: "14.5px",
+    fontSize: "13.5px",
     color: "#1D1D1F",
   },
   switchActive: {
@@ -1066,9 +1046,9 @@ const styles = {
     border: "1.5px solid #FF6A2B",
     background: "#FFF0E7",
     borderRadius: "14px",
-    padding: "14px",
+    padding: "10px",
     fontWeight: 700,
-    fontSize: "14.5px",
+    fontSize: "13.5px",
     color: "#D2520F",
     boxShadow: "0 0 0 3px #FFF0E7",
   },
@@ -1129,8 +1109,8 @@ const styles = {
     border: "1.5px solid #EBEBF0",
     borderRadius: "14px",
     overflow: "hidden auto",
-    maxHeight: "164px",
-    marginBottom: "16px",
+    maxHeight: "100px",
+    marginBottom: "12px",
   },
   listError: {
     borderColor: "#FF453A",
@@ -1140,14 +1120,14 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "12px",
-    padding: "12px 14px",
+    padding: "8px 12px",
     cursor: "pointer",
     background: "#fff",
     border: "none",
     borderBottom: "1px solid #EBEBF0",
     textAlign: "left",
     color: "#1D1D1F",
-    fontSize: "14.5px",
+    fontSize: "13.5px",
     fontWeight: 600,
   },
   listRowActive: {
@@ -1155,14 +1135,14 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "12px",
-    padding: "12px 14px",
+    padding: "8px 12px",
     cursor: "pointer",
     background: "#FFF0E7",
     border: "none",
     borderBottom: "1px solid #EBEBF0",
     textAlign: "left",
     color: "#1D1D1F",
-    fontSize: "14.5px",
+    fontSize: "13.5px",
     fontWeight: 600,
   },
   check: {
@@ -1300,7 +1280,7 @@ const styles = {
     border: "1.5px solid #EBEBF0",
     borderRadius: "14px",
     overflow: "hidden auto",
-    maxHeight: "220px",
+    maxHeight: "120px",
   },
   jdRow: {
     width: "100%",
@@ -1308,7 +1288,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: "12px",
-    padding: "12px 14px",
+    padding: "8px 12px",
     cursor: "pointer",
     background: "#fff",
     border: "none",
@@ -1321,7 +1301,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: "12px",
-    padding: "12px 14px",
+    padding: "8px 12px",
     cursor: "pointer",
     background: "#FFF0E7",
     border: "none",
@@ -1597,6 +1577,17 @@ const styles = {
     color: "#fff",
     cursor: "pointer",
     boxShadow: "0 10px 24px -10px rgba(232,80,46,0.7)",
+  },
+  sideCancelBtn: {
+    width: "100%",
+    marginTop: "6px",
+    border: "none",
+    background: "transparent",
+    color: "#86868B",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
+    padding: "6px",
   },
   footer: {
     padding: "14px 26px",

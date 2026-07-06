@@ -136,5 +136,51 @@ async function listCompanyPool(req, res) {
   const userMap = await getUserMap(items.flatMap((v) => [v.uploadedById, v.createdById]));
   return res.json(drfResponse(items.map((v) => vendorToJSON(v, userMap)), total, page, pageSize));
 }
+async function checkDuplicate(req, res) {
+  const { vendor_name, company_name, phone_number } = req.body;
+  
+  if (!vendor_name && !company_name && !phone_number) {
+    return res.json({ duplicate: false });
+  }
 
-module.exports = { create, update, detail, softDelete, toggleVerify, listUserVendors, listCompanyPool };
+  const { Op } = require('sequelize');
+
+  const orConditions = [];
+  if (vendor_name && vendor_name.trim() !== '') {
+    orConditions.push({ name: { [Op.iLike]: `%${vendor_name.trim()}%` } });
+  }
+  if (company_name && company_name.trim() !== '') {
+    orConditions.push({ companyName: { [Op.iLike]: `%${company_name.trim()}%` } });
+  }
+  if (phone_number && phone_number.trim() !== '') {
+    orConditions.push({ number: phone_number.trim() });
+  }
+
+  if (orConditions.length === 0) {
+    return res.json({ duplicate: false });
+  }
+
+  const filterOrOptions = {
+    where: {
+      isDeleted: false,
+      [Op.or]: orConditions
+    }
+  };
+
+  try {
+    const existingVendor = await Vendor.findOne(filterOrOptions);
+    if (existingVendor) {
+      const userMap = await getUserMap([existingVendor.createdById]);
+      return res.json({ 
+        duplicate: true, 
+        vendor: await vendorToJSON(existingVendor, userMap) 
+      });
+    }
+    return res.json({ duplicate: false });
+  } catch (error) {
+    console.error("Duplicate check error:", error);
+    return res.json({ duplicate: false });
+  }
+}
+
+module.exports = { create, update, detail, softDelete, toggleVerify, listUserVendors, listCompanyPool, checkDuplicate };

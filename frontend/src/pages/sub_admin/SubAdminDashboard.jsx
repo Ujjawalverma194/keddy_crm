@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import SubAdminLayout from "../components/SubAdminLayout";
 import { apiRequest } from "../../services/api";
+import { getStoredAuth } from "../components/authSession";
 
 // External Imports
 import StatusUpdateModal from "../../components/StatusUpdateModal";
@@ -187,6 +188,7 @@ const Icons = {
 
 function SubAdminDashboard() {
   const navigate = useNavigate();
+  const { isTeamLeaderMode } = getStoredAuth();
   const [stats, setStats] = useState({});
   const [pipelineData, setPipelineData] = useState([]);
   const [submittedData, setSubmittedData] = useState([]);
@@ -247,7 +249,7 @@ function SubAdminDashboard() {
 
   useEffect(() => {
     fetchSubAdminData();
-  }, );
+  }, []);
 
   const notify = (msg, type = "success") => {
     setToast({ show: true, msg, type });
@@ -511,7 +513,7 @@ const handleUpdateSubmit = async () => {
               path: "/sub-admin/all-candidates",
             },
             {
-              label: "Total Employees",
+              label: isTeamLeaderMode ? "Total Team Members" : "Total Employees",
               val: stats.total_employees,
               icon: <Icons.Users />,
               col: "#25343F",

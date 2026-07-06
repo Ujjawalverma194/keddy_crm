@@ -345,6 +345,54 @@ async function employees(req, res) {
   return res.json(users.map(employeeToDropdownJSON));
 }
 
+async function checkDuplicate(req, res) {
+  const { client_name, company_name, phone_number } = req.body;
+  
+  if (!client_name && !company_name && !phone_number) {
+    return res.json({ duplicate: false });
+  }
+
+  const { Op } = require('sequelize');
+
+  const orConditions = [];
+  if (client_name && client_name.trim() !== '') {
+    orConditions.push({ clientName: { [Op.iLike]: `%${client_name.trim()}%` } });
+  }
+  if (company_name && company_name.trim() !== '') {
+    orConditions.push({ companyName: { [Op.iLike]: `%${company_name.trim()}%` } });
+  }
+  if (phone_number && phone_number.trim() !== '') {
+    orConditions.push({ phoneNumber: phone_number.trim() });
+  }
+
+  if (orConditions.length === 0) {
+    return res.json({ duplicate: false });
+  }
+
+  // Build a query utilizing Sequelize direct options since createSequelizeRepository allows passing them
+  const filterOrOptions = {
+    where: {
+      isDeleted: false,
+      [Op.or]: orConditions
+    }
+  };
+
+  try {
+    const existingClient = await Client.findOne(filterOrOptions);
+    if (existingClient) {
+      const userMap = await getUserMap([existingClient.createdById]);
+      return res.json({ 
+        duplicate: true, 
+        client: clientToJSON(existingClient, userMap) 
+      });
+    }
+    return res.json({ duplicate: false });
+  } catch (error) {
+    console.error("Duplicate check error:", error);
+    return res.json({ duplicate: false });
+  }
+}
+
 module.exports = {
   create,
   update,
@@ -353,4 +401,5 @@ module.exports = {
   softDelete,
   toggleVerify,
   employees,
+  checkDuplicate,
 };

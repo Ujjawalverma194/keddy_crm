@@ -199,16 +199,20 @@ async function last7Verified(req, res) {
 async function listUsers(req, res) {
   const companyId = resolveCompanyId(req.user);
   const search = (req.query.search || '').trim();
-  const filter = {
-    isDeleted: false,
-  };
+  const filter = {};
   if (req.headers['x-team-leader-mode'] === 'true') {
+    filter.isDeleted = false;
     filter.role = 'EMPLOYEE';
     filter.teamLeaderId = req.user.id;
     filter.id = { $ne: req.user.id };
   } else {
-    filter.role = { $in: ['EMPLOYEE', 'ACCOUNTANT'] };
-    filter.parentUserId = companyId;
+    if (req.user.role === 'CENTRAL_ADMIN') {
+      // CENTRAL_ADMIN sees everything, no filters
+    } else {
+      filter.isDeleted = false;
+      filter.role = { $in: ['EMPLOYEE', 'ACCOUNTANT'] };
+      filter.parentUserId = companyId;
+    }
   }
   if (search) {
     const or = [
@@ -229,6 +233,8 @@ async function listUsers(req, res) {
     email: u.email,
     number: u.number,
     role: u.role,
+    is_active: u.isActive,
+    is_deleted: u.isDeleted,
     profile_picture: u.profilePicture,
     full_name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
     isTeamLeader: u.isTeamLeader,
@@ -237,21 +243,29 @@ async function listUsers(req, res) {
   return res.json(results);
 }
 
-async function createUser(req, res) {
-  const { first_name, last_name, email, number, password, role } = req.body;
-  const hashed = await User.hashPassword(password || 'changeme123');
-  const user = await User.create({
-    firstName: first_name,
-    lastName: last_name,
-    email: email?.toLowerCase(),
-    number,
-    password: hashed,
-    role: role || 'EMPLOYEE',
-    parentUserId: (req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader) ? (resolveCompanyId(req.user) || req.user.id) : req.user.id,
-    teamLeaderId: (req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader) ? req.user.id : (req.body.teamLeaderId || null),
-    isTeamLeader: req.body.isTeamLeader === 'true' || req.body.isTeamLeader === true,
-    profilePicture: req.file ? relPath(req.file.path) : null,
-  });
+  async function createUser(req, res) {
+    const { first_name, last_name, email, number, password, role } = req.body;
+
+    const isTeamLeader = req.body.isTeamLeader === 'true' || req.body.isTeamLeader === true;
+    const teamLeaderId = (req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader) ? req.user.id : (req.body.teamLeaderId || null);
+
+    if (isTeamLeader && teamLeaderId) {
+      return res.status(400).json({ success: false, message: 'Cannot assign a Team Leader role to an employee who is already assigned to a team. Please unassign them first.' });
+    }
+
+    const hashed = await User.hashPassword(password || 'changeme123');
+    const user = await User.create({
+      firstName: first_name,
+      lastName: last_name,
+      email: email?.toLowerCase(),
+      number,
+      password: hashed,
+      role: role || 'EMPLOYEE',
+      parentUserId: (req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader) ? (resolveCompanyId(req.user) || req.user.id) : req.user.id,
+      teamLeaderId,
+      isTeamLeader,
+      profilePicture: req.file ? relPath(req.file.path) : null,
+    });
   return res.status(201).json({ success: true, data: { id: user.id } });
 }
 
@@ -289,10 +303,24 @@ async function updateUser(req, res) {
   if (number) user.number = number;
   if (role) user.role = role;
   if (password) user.password = await User.hashPassword(password);
-  
-  if (isTeamLeader !== undefined) user.isTeamLeader = isTeamLeader === 'true' || isTeamLeader === true;
-  if (teamLeaderId !== undefined) user.teamLeaderId = teamLeaderId || null;
+    const isTeamLeaderMode = req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader;
 
+    if (!isTeamLeaderMode) {
+      if (isTeamLeader !== undefined) {
+        const newIsTeamLeader = isTeamLeader === 'true' || isTeamLeader === true;
+        const willHaveTeamLeader = teamLeaderId !== undefined ? (teamLeaderId !== null && teamLeaderId !== "") : user.teamLeaderId !== null;
+
+        if (newIsTeamLeader && willHaveTeamLeader) {
+           return res.status(400).json({ success: false, message: 'Cannot assign a Team Leader role to an employee who is already assigned to a team. Please unassign them first.' });
+        }
+
+        if (user.isTeamLeader && !newIsTeamLeader) {
+          await User.update({ teamLeaderId: null }, { where: { teamLeaderId: user.id } });
+        }
+        user.isTeamLeader = newIsTeamLeader;
+      }
+      if (teamLeaderId !== undefined) user.teamLeaderId = teamLeaderId || null;
+    }
   await user.save();
   return res.json({ success: true, message: 'User updated' });
 }

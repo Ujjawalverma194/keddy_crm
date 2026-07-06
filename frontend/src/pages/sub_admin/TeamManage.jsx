@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
 import BaseLayout from "../components/SubAdminLayout";
+import { getStoredAuth } from "../components/authSession";
 
 function UserManagement() {
     const navigate = useNavigate();
+    const { isTeamLeaderMode } = getStoredAuth();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -95,6 +97,28 @@ function UserManagement() {
 
     const teamLeaders = users.filter(u => u.isTeamLeader);
 
+    const handleUnassignUser = async (id) => {
+        if (!window.confirm("Are you sure you want to unassign this employee from their Team Leader?")) return;
+        try {
+            await apiRequest(`/sub-admin/api/users/${id}/`, "PATCH", { teamLeaderId: null }, getAuthHeaders());
+            notify("Employee unassigned successfully");
+            fetchUsers();
+        } catch (error) {
+            notify("Failed to unassign employee", "error");
+        }
+    };
+
+    const handleDemoteTeamLeader = async (id, name) => {
+        if (!window.confirm(`Are you sure you want to remove the Team Leader role from ${name}? All their team members will be unassigned automatically.`)) return;
+        try {
+            await apiRequest(`/sub-admin/api/users/${id}/`, "PATCH", { isTeamLeader: false }, getAuthHeaders());
+            notify("Team Leader demoted successfully");
+            fetchUsers();
+        } catch (error) {
+            notify("Failed to demote Team Leader", "error");
+        }
+    };
+
     const handleBulkAssign = async () => {
         if (selectedUsers.length === 0) return;
         setAssigning(true);
@@ -110,8 +134,8 @@ function UserManagement() {
                     role: user.role,
                     isTeamLeader: bulkAssignData.isTeamLeader,
                 };
-                if (!bulkAssignData.isTeamLeader && bulkAssignData.teamLeaderId) {
-                    payload.teamLeaderId = bulkAssignData.teamLeaderId;
+                if (!bulkAssignData.isTeamLeader) {
+                    payload.teamLeaderId = bulkAssignData.teamLeaderId || null;
                 }
                 return apiRequest(`/sub-admin/api/users/${id}/`, "PATCH", payload, getAuthHeaders());
             }));
@@ -160,59 +184,242 @@ function UserManagement() {
             <div style={styles.section}>
                 <h2 style={styles.pageTitle}>Employee Management</h2>
 
-                <div style={styles.tableWrapper}>
-                    <table style={styles.table}>
-                        <thead>
-                            <tr style={styles.tableHeader}>
-                                <th style={{ ...styles.th, width: '40px' }}><input type="checkbox" onChange={handleSelectAll} checked={filteredUsers.length > 0 && selectedUsers.length === filteredUsers.length} /></th>
-                                <th style={styles.th}>ID</th>
-                                <th style={styles.th}>Full Name</th>
-                                <th style={styles.th}>Email</th>
-                                <th style={styles.th}>Phone</th>
-                                <th style={styles.th}>Role</th>
-                                <th style={{ ...styles.th, textAlign: "center" }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
+                {loading ? (
+                    <div style={styles.tableWrapper}>
+                        <table style={styles.table}>
+                            <tbody>
                                 <tr>
                                     <td colSpan="7" style={styles.statusText}>Loading data...</td>
                                 </tr>
-                            ) : filteredUsers.length > 0 ? (
-                                filteredUsers.map((user) => (
-                                    <tr key={user.id} style={styles.tableRow}>
-                                        <td style={styles.td}><input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={() => handleSelectUser(user.id)} /></td>
-                                        <td style={styles.td}>#{user.id}</td>
-                                        <td style={styles.td}>
-                                            <div style={styles.userName}>{user.first_name} {user.last_name}</div>
-                                        </td>
-                                        <td style={styles.td}>{user.email}</td>
-                                        <td style={styles.td}>{user.number || "N/A"}</td>
-                                        <td style={styles.td}>
-                                            <span style={styles.roleBadge}>
-                                                {user.role === "EMPLOYEE" ? "Recruiter" : "Accountant"}
-                                            </span>
-                                            {user.isTeamLeader && (
-                                                <span style={{ ...styles.roleBadge, backgroundColor: "#6366f1", marginLeft: "8px" }}>
-                                                    Team Leader
-                                                </span>
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <>
+                        {isTeamLeaderMode ? (
+                            <div style={{ marginBottom: "30px" }}>
+                                <div style={{ marginBottom: '15px', padding: '0 5px' }}>
+                                    <h3 style={{ margin: 0, fontSize: "16px", color: '#64748B' }}>My Team Members</h3>
+                                </div>
+                                <div style={styles.tableWrapper}>
+                                    <table style={styles.table}>
+                                        <thead>
+                                            <tr style={styles.tableHeader}>
+                                                <th style={styles.th}>ID</th>
+                                                <th style={styles.th}>Full Name</th>
+                                                <th style={styles.th}>Email</th>
+                                                <th style={styles.th}>Phone</th>
+                                                <th style={styles.th}>Role</th>
+                                                <th style={{ ...styles.th, textAlign: "center" }}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredUsers.length > 0 ? (
+                                                filteredUsers.map((user) => (
+                                                    <tr key={user.id} style={styles.tableRow}>
+                                                        <td style={styles.td}>#{user.id}</td>
+                                                        <td style={styles.td}>
+                                                            <div style={styles.userName}>{user.first_name} {user.last_name}</div>
+                                                        </td>
+                                                        <td style={styles.td}>{user.email}</td>
+                                                        <td style={styles.td}>{user.number || "N/A"}</td>
+                                                        <td style={styles.td}>
+                                                            <span style={styles.roleBadge}>
+                                                                {user.role === "EMPLOYEE" ? "Recruiter" : "Accountant"}
+                                                            </span>
+                                                        </td>
+                                                        <td style={styles.actionTd}>
+                                                            <button onClick={() => navigate(`/sub-admin/user/detail/${user.id}`)} style={styles.viewBtn}>View</button>
+                                                            <button onClick={() => navigate(`/sub-admin/user/update/${user.id}`)} style={styles.editBtn}>Edit</button>
+                                                            <button onClick={() => setShowDeleteModal({show: true, userId: user.id})} style={styles.deleteBtn}>Delete</button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="7" style={styles.statusText}>No team members found.</td>
+                                                </tr>
                                             )}
-                                        </td>
-                                        <td style={styles.actionTd}>
-                                            <button onClick={() => navigate(`/sub-admin/user/detail/${user.id}`)} style={styles.viewBtn}>View</button>
-                                            <button onClick={() => navigate(`/sub-admin/user/update/${user.id}`)} style={styles.editBtn}>Edit</button>
-                                            <button onClick={() => setShowDeleteModal({show: true, userId: user.id})} style={styles.deleteBtn}>Delete</button>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan="7" style={styles.statusText}>No employees found.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                {teamLeaders.map(tl => {
+                                    const tlUsers = filteredUsers.filter(u => u.teamLeaderId === tl.id);
+                                    const tlMatchesSearch = `${tl.first_name || ''} ${tl.last_name || ''}`.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                                            (tl.email || '').toLowerCase().includes(searchQuery.toLowerCase());
+                                    
+                                    if (!tlMatchesSearch && tlUsers.length === 0) return null;
+
+                                    return (
+                                        <div key={`tl-${tl.id}`} style={{ marginBottom: "30px" }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px', background: '#F8FAFC', padding: '12px 20px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                                                <h3 style={{ margin: 0, fontSize: "16px", color: '#0F172A', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <span style={{ padding: '6px 12px', background: '#6366F1', color: 'white', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold' }}>TEAM LEADER</span>
+                                                    {tl.first_name} {tl.last_name}
+                                                </h3>
+                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                    <button onClick={() => handleDemoteTeamLeader(tl.id, `${tl.first_name} ${tl.last_name}`)} style={{...styles.deleteBtn, backgroundColor: '#EF4444'}}>Remove Team Leader Role</button>
+                                                    <button onClick={() => navigate(`/sub-admin/user/detail/${tl.id}`)} style={styles.viewBtn}>View Details</button>
+                                                    <button onClick={() => navigate(`/sub-admin/user/update/${tl.id}`)} style={styles.editBtn}>Edit Profile</button>
+                                                </div>
+                                            </div>
+                                            
+                                            <div style={styles.tableWrapper}>
+                                                <table style={styles.table}>
+                                                    <thead>
+                                                        <tr style={styles.tableHeader}>
+                                                            <th style={{ ...styles.th, width: '40px' }}>
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) {
+                                                                            const newSelected = [...selectedUsers];
+                                                                            tlUsers.forEach(u => {
+                                                                                if (!newSelected.includes(u.id)) newSelected.push(u.id);
+                                                                            });
+                                                                            setSelectedUsers(newSelected);
+                                                                        } else {
+                                                                            setSelectedUsers(selectedUsers.filter(id => !tlUsers.find(u => u.id === id)));
+                                                                        }
+                                                                    }} 
+                                                                    checked={tlUsers.length > 0 && tlUsers.every(u => selectedUsers.includes(u.id))} 
+                                                                />
+                                                            </th>
+                                                            <th style={styles.th}>ID</th>
+                                                            <th style={styles.th}>Full Name</th>
+                                                            <th style={styles.th}>Email</th>
+                                                            <th style={styles.th}>Phone</th>
+                                                            <th style={styles.th}>Role</th>
+                                                            <th style={{ ...styles.th, textAlign: "center" }}>Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {tlUsers.length > 0 ? (
+                                                            tlUsers.map((user) => (
+                                                                <tr key={user.id} style={styles.tableRow}>
+                                                                    <td style={styles.td}><input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={() => handleSelectUser(user.id)} /></td>
+                                                                    <td style={styles.td}>#{user.id}</td>
+                                                                    <td style={styles.td}>
+                                                                        <div style={styles.userName}>{user.first_name} {user.last_name}</div>
+                                                                    </td>
+                                                                    <td style={styles.td}>{user.email}</td>
+                                                                    <td style={styles.td}>{user.number || "N/A"}</td>
+                                                                    <td style={styles.td}>
+                                                                        <span style={styles.roleBadge}>
+                                                                            {user.role === "EMPLOYEE" ? "Recruiter" : "Accountant"}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={styles.actionTd}>
+                                                                        <button onClick={() => handleUnassignUser(user.id)} style={{...styles.editBtn, backgroundColor: '#F59E0B'}}>Unassign</button>
+                                                                        <button onClick={() => navigate(`/sub-admin/user/detail/${user.id}`)} style={styles.viewBtn}>View</button>
+                                                                        <button onClick={() => navigate(`/sub-admin/user/update/${user.id}`)} style={styles.editBtn}>Edit</button>
+                                                                        <button onClick={() => setShowDeleteModal({show: true, userId: user.id})} style={styles.deleteBtn}>Delete</button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))
+                                                        ) : (
+                                                            <tr>
+                                                                <td colSpan="7" style={styles.statusText}>No employees assigned to this Team Leader.</td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Unassigned Employees Section */}
+                                {(() => {
+                                    const unassignedUsers = filteredUsers.filter(u => !u.teamLeaderId && !u.isTeamLeader);
+                                    if (unassignedUsers.length === 0 && filteredUsers.length > 0) return null;
+                                    if (filteredUsers.length === 0) return (
+                                        <div style={styles.tableWrapper}>
+                                            <table style={styles.table}>
+                                                <tbody>
+                                                    <tr>
+                                                        <td colSpan="7" style={styles.statusText}>No employees found matching search.</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+
+                                    return (
+                                        <div style={{ marginBottom: "30px" }}>
+                                            <div style={{ marginBottom: '15px', padding: '0 5px' }}>
+                                                <h3 style={{ margin: 0, fontSize: "16px", color: '#64748B' }}>Unassigned Employees</h3>
+                                            </div>
+                                            <div style={styles.tableWrapper}>
+                                                <table style={styles.table}>
+                                                    <thead>
+                                                        <tr style={styles.tableHeader}>
+                                                            <th style={{ ...styles.th, width: '40px' }}>
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) {
+                                                                            const newSelected = [...selectedUsers];
+                                                                            unassignedUsers.forEach(u => {
+                                                                                if (!newSelected.includes(u.id)) newSelected.push(u.id);
+                                                                            });
+                                                                            setSelectedUsers(newSelected);
+                                                                        } else {
+                                                                            setSelectedUsers(selectedUsers.filter(id => !unassignedUsers.find(u => u.id === id)));
+                                                                        }
+                                                                    }} 
+                                                                    checked={unassignedUsers.length > 0 && unassignedUsers.every(u => selectedUsers.includes(u.id))} 
+                                                                />
+                                                            </th>
+                                                            <th style={styles.th}>ID</th>
+                                                            <th style={styles.th}>Full Name</th>
+                                                            <th style={styles.th}>Email</th>
+                                                            <th style={styles.th}>Phone</th>
+                                                            <th style={styles.th}>Role</th>
+                                                            <th style={{ ...styles.th, textAlign: "center" }}>Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {unassignedUsers.length > 0 ? (
+                                                            unassignedUsers.map((user) => (
+                                                                <tr key={user.id} style={styles.tableRow}>
+                                                                    <td style={styles.td}><input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={() => handleSelectUser(user.id)} /></td>
+                                                                    <td style={styles.td}>#{user.id}</td>
+                                                                    <td style={styles.td}>
+                                                                        <div style={styles.userName}>{user.first_name} {user.last_name}</div>
+                                                                    </td>
+                                                                    <td style={styles.td}>{user.email}</td>
+                                                                    <td style={styles.td}>{user.number || "N/A"}</td>
+                                                                    <td style={styles.td}>
+                                                                        <span style={styles.roleBadge}>
+                                                                            {user.role === "EMPLOYEE" ? "Recruiter" : "Accountant"}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={styles.actionTd}>
+                                                                        <button onClick={() => navigate(`/sub-admin/user/detail/${user.id}`)} style={styles.viewBtn}>View</button>
+                                                                        <button onClick={() => navigate(`/sub-admin/user/update/${user.id}`)} style={styles.editBtn}>Edit</button>
+                                                                        <button onClick={() => setShowDeleteModal({show: true, userId: user.id})} style={styles.deleteBtn}>Delete</button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))
+                                                        ) : (
+                                                            <tr>
+                                                                <td colSpan="7" style={styles.statusText}>No unassigned employees found.</td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </>
+                        )}
+                    </>
+                )}
             </div>
 
             {showAssignModal && (

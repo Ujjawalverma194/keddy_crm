@@ -16,6 +16,7 @@ const router = express.Router();
 router.use(authenticate);
 
 // Vendors
+router.post("/api/vendors/check-duplicate/", vendors.checkDuplicate);
 router.post("/api/vendors/create/", uploadVendor.any(), vendors.create);
 router.put(
   "/api/vendors/:vendor_id/update/",
@@ -29,6 +30,7 @@ router.delete("/api/vendors/:vendor_id/delete/", vendors.softDelete);
 router.get("/api/user/vendors/", vendors.listUserVendors);
 
 // Clients
+router.post("/clients/check-duplicate/", clients.checkDuplicate);
 router.post("/clients/create/", uploadClient.any(), clients.create);
 router.patch(
   "/api/clients/:client_id/update/",
