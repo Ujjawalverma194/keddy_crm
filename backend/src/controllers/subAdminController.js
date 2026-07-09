@@ -249,6 +249,10 @@ async function listUsers(req, res) {
     const isTeamLeader = req.body.isTeamLeader === 'true' || req.body.isTeamLeader === true;
     const teamLeaderId = (req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader) ? req.user.id : (req.body.teamLeaderId || null);
 
+    if (role === 'ACCOUNTANT' && (isTeamLeader || teamLeaderId)) {
+      return res.status(400).json({ success: false, message: 'Accountants cannot be Team Leaders or assigned to a team.' });
+    }
+
     if (isTeamLeader && teamLeaderId) {
       return res.status(400).json({ success: false, message: 'Cannot assign a Team Leader role to an employee who is already assigned to a team. Please unassign them first.' });
     }
@@ -321,6 +325,12 @@ async function updateUser(req, res) {
       }
       if (teamLeaderId !== undefined) user.teamLeaderId = teamLeaderId || null;
     }
+
+    const updatedRole = role || user.role;
+    if (updatedRole === 'ACCOUNTANT' && (user.isTeamLeader || user.teamLeaderId)) {
+       return res.status(400).json({ success: false, message: 'Accountants cannot be Team Leaders or assigned to a team.' });
+    }
+
   await user.save();
   return res.json({ success: true, message: 'User updated' });
 }
@@ -510,7 +520,211 @@ async function removeFromOffboarded(req, res) {
   return res.json({ message: 'Updated' });
 }
 
+async function teamOverviewAnalytics(req, res) {
+  try {
+    const timeFilter = req.query.time || 'today';
+    const employeeId = req.query.employee_id;
+    
+    let teamIds = await getCompanyUserIds(req.user, req);
+    let targetIds = [...teamIds];
+    if (employeeId && employeeId !== 'all') {
+      targetIds = [parseInt(employeeId, 10)];
+    }
+
+    let startDate = new Date();
+    let endDate = new Date();
+    startDate.setHours(0,0,0,0);
+    endDate.setHours(23,59,59,999);
+
+    if (timeFilter === 'week') {
+      const day = startDate.getDay();
+      const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
+      startDate = new Date(startDate.setDate(diff));
+      startDate.setHours(0,0,0,0);
+    } else if (timeFilter === 'month') {
+      startDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    } else if (timeFilter === 'quarter') {
+      const quarter = Math.floor(startDate.getMonth() / 3);
+      startDate = new Date(startDate.getFullYear(), quarter * 3, 1);
+    } else if (timeFilter === 'custom') {
+      if (req.query.start) startDate = new Date(req.query.start);
+      if (req.query.end) {
+        endDate = new Date(req.query.end);
+        endDate.setHours(23,59,59,999);
+      }
+    }
+
+    let prevStartDate = new Date(startDate);
+    let prevEndDate = new Date(endDate);
+    if (timeFilter === 'today') {
+      prevStartDate.setDate(prevStartDate.getDate() - 1);
+      prevEndDate = new Date(prevStartDate);
+      prevEndDate.setHours(23, 59, 59, 999);
+    } else if (timeFilter === 'week') {
+      prevStartDate.setDate(prevStartDate.getDate() - 7);
+      prevEndDate = new Date(startDate);
+      prevEndDate.setMilliseconds(-1);
+    } else if (timeFilter === 'month') {
+      prevStartDate.setMonth(prevStartDate.getMonth() - 1);
+      prevEndDate = new Date(startDate);
+      prevEndDate.setMilliseconds(-1);
+    } else if (timeFilter === 'quarter') {
+      prevStartDate.setMonth(prevStartDate.getMonth() - 3);
+      prevEndDate = new Date(startDate);
+      prevEndDate.setMilliseconds(-1);
+    } else if (timeFilter === 'custom') {
+      const diffTime = endDate.getTime() - startDate.getTime();
+      prevEndDate = new Date(startDate);
+      prevEndDate.setMilliseconds(-1);
+      prevStartDate = new Date(prevEndDate.getTime() - diffTime);
+    }
+
+    const dateQuery = { $gte: startDate, $lte: endDate };
+    const prevDateQuery = { $gte: prevStartDate, $lte: prevEndDate };
+
+    const [allProfiles, allSubmittedProfiles, prevAllProfiles, prevAllSubmittedProfiles] = await Promise.all([
+      Candidate.find({ isDeleted: false, createdById: { $in: teamIds }, createdAt: dateQuery }),
+      Candidate.find({ ...submittedProfileBaseFilter({ createdById: { $in: teamIds } }), createdAt: dateQuery }),
+      Candidate.find({ isDeleted: false, createdById: { $in: teamIds }, createdAt: prevDateQuery }),
+      Candidate.find({ ...submittedProfileBaseFilter({ createdById: { $in: teamIds } }), createdAt: prevDateQuery })
+    ]);
+
+    const profiles = allProfiles.filter(p => targetIds.includes(Number(p.createdById)));
+    const submittedProfiles = allSubmittedProfiles.filter(p => targetIds.includes(Number(p.createdById)));
+
+    const prevProfiles = prevAllProfiles.filter(p => targetIds.includes(Number(p.createdById)));
+    const prevSubmittedProfiles = prevAllSubmittedProfiles.filter(p => targetIds.includes(Number(p.createdById)));
+
+    const totalSourced = profiles.length;
+    const exactSubmitted = submittedProfiles.length;
+    const exactOnboarded = profiles.filter(p => p.mainStatus === 'ONBORD').length;
+
+    const l1Count = profiles.filter(p => p.mainStatus === 'L1').length;
+    const l2Count = profiles.filter(p => p.mainStatus === 'L2').length;
+    const l3Count = profiles.filter(p => p.mainStatus === 'L3').length;
+    const screeningCount = profiles.filter(p => p.mainStatus === 'SCREENING').length;
+    const interviewCount = l1Count + l2Count + l3Count;
+    
+    const prevTotalSourced = prevProfiles.length;
+    const prevExactSubmitted = prevSubmittedProfiles.length;
+    const prevExactOnboarded = prevProfiles.filter(p => p.mainStatus === 'ONBORD').length;
+    const prevL1Count = prevProfiles.filter(p => p.mainStatus === 'L1').length;
+    const prevL2Count = prevProfiles.filter(p => p.mainStatus === 'L2').length;
+    const prevL3Count = prevProfiles.filter(p => p.mainStatus === 'L3').length;
+    const prevInterviewCount = prevL1Count + prevL2Count + prevL3Count;
+
+    const calcChange = (curr, prev) => {
+        if (prev === 0) return curr > 0 ? 100 : 0;
+        return Math.round(((curr - prev) / prev) * 100);
+    };
+
+    const uniqueRecruiters = new Set(profiles.map(p => p.createdById)).size || 1;
+    const avgSubmitsRecruiter = (exactSubmitted / uniqueRecruiters).toFixed(1);
+
+    const days = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)));
+    const weeks = Math.max(1, days / 7);
+    const avgSubmitsWeek = (exactSubmitted / weeks).toFixed(1);
+
+    const formatDateLocal = (dateStr) => {
+       const d = new Date(dateStr);
+       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    const activityMap = {};
+    
+    submittedProfiles.forEach(p => {
+       const d = formatDateLocal(p.createdAt);
+       if(!activityMap[d]) activityMap[d] = { submitted: 0, interviews: 0, onboarded: 0 };
+       activityMap[d].submitted++;
+    });
+
+    profiles.forEach(p => {
+       const d = formatDateLocal(p.createdAt);
+       if(!activityMap[d]) activityMap[d] = { submitted: 0, interviews: 0, onboarded: 0 };
+       if (['L1','L2','L3'].includes(p.mainStatus)) activityMap[d].interviews++;
+       if (p.mainStatus === 'ONBORD') activityMap[d].onboarded++;
+    });
+
+    const activity_over_time = [];
+    for(let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dStr = formatDateLocal(d);
+        activity_over_time.push({
+            date: dStr,
+            submitted: activityMap[dStr]?.submitted || 0,
+            interviews: activityMap[dStr]?.interviews || 0,
+            onboarded: activityMap[dStr]?.onboarded || 0,
+        });
+    }
+
+    const teamUsers = await User.find({ id: { $in: teamIds }, role: { $ne: 'ACCOUNTANT' } });
+    const team_breakdown = teamUsers.map(u => {
+       const uProfiles = allProfiles.filter(p => Number(p.createdById) === Number(u.id));
+       const uSubmitted = allSubmittedProfiles.filter(p => Number(p.createdById) === Number(u.id));
+       
+       let uL1 = 0, uL2 = 0, uL3 = 0, uOnb = 0, uScreen = 0;
+       uProfiles.forEach(p => {
+           if (p.mainStatus === 'L1') uL1++;
+           if (p.mainStatus === 'L2') uL2++;
+           if (p.mainStatus === 'L3') uL3++;
+           if (p.mainStatus === 'ONBORD') uOnb++;
+           if (p.mainStatus === 'SCREENING') uScreen++;
+       });
+
+       const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+       const uTodayProfiles = uProfiles.filter(p => new Date(p.createdAt) >= todayStart);
+       const uTodaySub = uSubmitted.filter(p => new Date(p.createdAt) >= todayStart);
+
+       return {
+           id: u.id,
+           first_name: u.firstName,
+           last_name: u.lastName,
+           role: u.role,
+           isTeamLeader: u.isTeamLeader,
+           today_src: uTodayProfiles.length,
+           today_sub: uTodaySub.length,
+           sourced: uProfiles.length,
+           screen: uScreen,
+           submitted: uSubmitted.length,
+           l1: uL1,
+           l2: uL2,
+           l3: uL3,
+           onboarded: uOnb
+       };
+    });
+
+    return res.json({
+        summary_metrics: {
+            profiles_sourced: totalSourced,
+            profiles_sourced_change: calcChange(totalSourced, prevTotalSourced),
+            submitted: exactSubmitted,
+            submitted_change: calcChange(exactSubmitted, prevExactSubmitted),
+            total_interviews: interviewCount,
+            total_interviews_change: calcChange(interviewCount, prevInterviewCount),
+            onboarded: exactOnboarded,
+            onboarded_change: calcChange(exactOnboarded, prevExactOnboarded),
+            avg_submits_recruiter: avgSubmitsRecruiter,
+            avg_submits_week: avgSubmitsWeek
+        },
+        pipeline_funnel: {
+            sourced: totalSourced,
+            internal_screening: screeningCount,
+            submitted: exactSubmitted,
+            l1: l1Count,
+            l2: l2Count,
+            l3: l3Count,
+            onboarded: exactOnboarded
+        },
+        activity_over_time,
+        team_breakdown
+    });
+  } catch (err) {
+    console.error('teamOverviewAnalytics error:', err);
+    return res.status(500).json({ detail: 'Failed to load team analytics' });
+  }
+}
+
 module.exports = {
+  teamOverviewAnalytics,
   dashboardStats,
   todayVerified,
   pipeline,

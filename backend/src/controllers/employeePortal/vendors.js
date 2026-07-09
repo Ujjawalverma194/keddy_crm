@@ -79,6 +79,19 @@ async function detail(req, res) {
 async function softDelete(req, res) {
   const vendor = await Vendor.findOne({ id: parseInt(req.params.vendor_id, 10) });
   if (!vendor) return res.status(404).json({ detail: 'Not found.' });
+
+  const User = require('../../models/User');
+  let allowedIds = [req.user.id];
+  
+  if (req.user.isTeamLeader && req.headers['x-team-leader-mode'] === 'true') {
+    const teamMembers = await User.find({ teamLeaderId: req.user.id }).select('id');
+    allowedIds = allowedIds.concat(teamMembers.map(u => u.id));
+  }
+
+  if (!allowedIds.includes(vendor.createdById)) {
+    return res.status(403).json({ error: 'You can only delete vendors created by yourself or your team members.' });
+  }
+
   vendor.isDeleted = true;
   await vendor.save();
   return res.json({ message: 'Vendor deleted successfully' });
@@ -96,9 +109,19 @@ async function toggleVerify(req, res) {
 async function listUserVendors(req, res) {
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const search = (req.query.search || '').trim();
+  let targetIds = [req.user.id];
+  if (req.user.isTeamLeader && req.headers['x-team-leader-mode'] === 'true') {
+    const User = require('../../models/User');
+    const teamMembers = await User.find({ teamLeaderId: req.user.id }).select('id');
+    targetIds = targetIds.concat(teamMembers.map(u => u.id));
+  }
+
   const filter = {
     isDeleted: false,
-    $or: [{ createdById: req.user.id }, { assignedEmployeeIds: req.user.id }],
+    $or: [
+      { createdById: { $in: targetIds } },
+      ...targetIds.map(id => ({ assignedEmployeeIds: id }))
+    ],
   };
   if (search) {
     filter.$and = [
@@ -119,7 +142,7 @@ async function listUserVendors(req, res) {
 }
 
 async function listCompanyPool(req, res) {
-  const companyIds = await getCompanyUserIds(req.user);
+  const companyIds = await getCompanyUserIds(req.user, req);
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const search = (req.query.search || '').trim();
   const filter = { isDeleted: false, createdById: { $in: companyIds } };

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
 import BaseLayout from "../components/SubAdminLayout";
 import { getStoredAuth } from "../components/authSession";
+import { MoreVertical, Eye, Calendar, Edit, Trash2, UserMinus } from "lucide-react";
 
 function UserManagement() {
     const navigate = useNavigate();
@@ -18,6 +19,98 @@ function UserManagement() {
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [bulkAssignData, setBulkAssignData] = useState({ isTeamLeader: false, teamLeaderId: "" });
     const [assigning, setAssigning] = useState(false);
+    
+    const [activeMenu, setActiveMenu] = useState(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (!event.target.closest('.action-menu-container')) {
+                setActiveMenu(null);
+            }
+        };
+        document.addEventListener("click", handleClickOutside);
+        return () => document.removeEventListener("click", handleClickOutside);
+    }, []);
+
+    const toggleMenu = (id) => {
+        setActiveMenu(prev => prev === id ? null : id);
+    };
+
+    const renderActionMenu = (user, type = 'normal') => {
+        const isOpen = activeMenu === user.id;
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <button onClick={() => navigate(`/sub-admin/user/eod/${user.id}`)} style={{...styles.viewBtn, background: '#F0F9FF', borderColor: '#BAE6FD', color: '#0369A1'}}>
+                    View EOD
+                </button>
+                <div className="action-menu-container" style={{ position: 'relative', display: 'inline-block' }}>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); toggleMenu(user.id); }} 
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '5px', color: '#64748B' }}
+                    >
+                        <MoreVertical size={20} />
+                    </button>
+                    {isOpen && (
+                        <div style={{ position: 'absolute', right: '100%', top: '0', marginRight: '5px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.15)', zIndex: 9999, minWidth: '130px', overflow: 'hidden' }}>
+                            {type === 'tl-member' && (
+                                <button onClick={() => { handleUnassignUser(user.id); setActiveMenu(null); }} style={styles.dropdownItem}>
+                                    <UserMinus size={15} /> Unassign
+                                </button>
+                            )}
+                            <button onClick={() => { navigate(`/sub-admin/user/detail/${user.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
+                                <Eye size={15} /> View Details
+                            </button>
+                            <button onClick={() => { navigate(`/sub-admin/user/update/${user.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
+                                <Edit size={15} /> Edit
+                            </button>
+                            <button onClick={() => { setShowDeleteModal({show: true, userId: user.id}); setActiveMenu(null); }} style={{...styles.dropdownItem, color: '#ef4444', borderBottom: 'none'}}>
+                                <Trash2 size={15} /> Delete
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    const renderTlActionMenu = (tl) => {
+        const isOpen = activeMenu === `tl-${tl.id}`;
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <button onClick={() => {
+                    localStorage.setItem("impersonateTlId", tl.id);
+                    localStorage.setItem("impersonateTlName", `${tl.first_name} ${tl.last_name}`);
+                    navigate("/sub-admin/team-overview");
+                }} style={{...styles.editBtn, backgroundColor: '#27AE60'}}>
+                    Switch to TL Activity
+                </button>
+                <button onClick={() => navigate(`/sub-admin/user/eod/${tl.id}`)} style={{...styles.viewBtn, background: '#F0F9FF', borderColor: '#BAE6FD', color: '#0369A1'}}>
+                    View EOD
+                </button>
+                <div className="action-menu-container" style={{ position: 'relative', display: 'inline-block' }}>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); toggleMenu(`tl-${tl.id}`); }} 
+                        style={{ background: '#fff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', padding: '5px', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                        <MoreVertical size={18} />
+                    </button>
+                    {isOpen && (
+                        <div style={{ position: 'absolute', right: '0', top: '100%', marginTop: '5px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.15)', zIndex: 9999, minWidth: '180px', overflow: 'hidden' }}>
+                            <button onClick={() => { navigate(`/sub-admin/user/detail/${tl.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
+                                <Eye size={15} /> View Details
+                            </button>
+                            <button onClick={() => { navigate(`/sub-admin/user/update/${tl.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
+                                <Edit size={15} /> Edit Profile
+                            </button>
+                            <button onClick={() => { handleDemoteTeamLeader(tl.id, `${tl.first_name} ${tl.last_name}`); setActiveMenu(null); }} style={{...styles.dropdownItem, color: '#ef4444', borderBottom: 'none'}}>
+                                <UserMinus size={15} /> Remove TL Role
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     const getAuthHeaders = () => {
         const token = localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -228,10 +321,8 @@ function UserManagement() {
                                                                 {user.role === "EMPLOYEE" ? "Recruiter" : "Accountant"}
                                                             </span>
                                                         </td>
-                                                        <td style={styles.actionTd}>
-                                                            <button onClick={() => navigate(`/sub-admin/user/detail/${user.id}`)} style={styles.viewBtn}>View</button>
-                                                            <button onClick={() => navigate(`/sub-admin/user/update/${user.id}`)} style={styles.editBtn}>Edit</button>
-                                                            <button onClick={() => setShowDeleteModal({show: true, userId: user.id})} style={styles.deleteBtn}>Delete</button>
+                                                        <td style={{ ...styles.actionTd, textAlign: "center" }}>
+                                                            {renderActionMenu(user, 'normal')}
                                                         </td>
                                                     </tr>
                                                 ))
@@ -261,9 +352,7 @@ function UserManagement() {
                                                     {tl.first_name} {tl.last_name}
                                                 </h3>
                                                 <div style={{ display: 'flex', gap: '10px' }}>
-                                                    <button onClick={() => handleDemoteTeamLeader(tl.id, `${tl.first_name} ${tl.last_name}`)} style={{...styles.deleteBtn, backgroundColor: '#EF4444'}}>Remove Team Leader Role</button>
-                                                    <button onClick={() => navigate(`/sub-admin/user/detail/${tl.id}`)} style={styles.viewBtn}>View Details</button>
-                                                    <button onClick={() => navigate(`/sub-admin/user/update/${tl.id}`)} style={styles.editBtn}>Edit Profile</button>
+                                                    {renderTlActionMenu(tl)}
                                                 </div>
                                             </div>
                                             
@@ -277,7 +366,7 @@ function UserManagement() {
                                                                     onChange={(e) => {
                                                                         if (e.target.checked) {
                                                                             const newSelected = [...selectedUsers];
-                                                                            tlUsers.forEach(u => {
+                                                                            tlUsers.filter(u => u.role !== 'ACCOUNTANT').forEach(u => {
                                                                                 if (!newSelected.includes(u.id)) newSelected.push(u.id);
                                                                             });
                                                                             setSelectedUsers(newSelected);
@@ -285,7 +374,7 @@ function UserManagement() {
                                                                             setSelectedUsers(selectedUsers.filter(id => !tlUsers.find(u => u.id === id)));
                                                                         }
                                                                     }} 
-                                                                    checked={tlUsers.length > 0 && tlUsers.every(u => selectedUsers.includes(u.id))} 
+                                                                    checked={tlUsers.filter(u => u.role !== 'ACCOUNTANT').length > 0 && tlUsers.filter(u => u.role !== 'ACCOUNTANT').every(u => selectedUsers.includes(u.id))} 
                                                                 />
                                                             </th>
                                                             <th style={styles.th}>ID</th>
@@ -300,7 +389,11 @@ function UserManagement() {
                                                         {tlUsers.length > 0 ? (
                                                             tlUsers.map((user) => (
                                                                 <tr key={user.id} style={styles.tableRow}>
-                                                                    <td style={styles.td}><input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={() => handleSelectUser(user.id)} /></td>
+                                                                    <td style={styles.td}>
+                                                                        {user.role !== 'ACCOUNTANT' && (
+                                                                            <input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={() => handleSelectUser(user.id)} />
+                                                                        )}
+                                                                    </td>
                                                                     <td style={styles.td}>#{user.id}</td>
                                                                     <td style={styles.td}>
                                                                         <div style={styles.userName}>{user.first_name} {user.last_name}</div>
@@ -312,11 +405,8 @@ function UserManagement() {
                                                                             {user.role === "EMPLOYEE" ? "Recruiter" : "Accountant"}
                                                                         </span>
                                                                     </td>
-                                                                    <td style={styles.actionTd}>
-                                                                        <button onClick={() => handleUnassignUser(user.id)} style={{...styles.editBtn, backgroundColor: '#F59E0B'}}>Unassign</button>
-                                                                        <button onClick={() => navigate(`/sub-admin/user/detail/${user.id}`)} style={styles.viewBtn}>View</button>
-                                                                        <button onClick={() => navigate(`/sub-admin/user/update/${user.id}`)} style={styles.editBtn}>Edit</button>
-                                                                        <button onClick={() => setShowDeleteModal({show: true, userId: user.id})} style={styles.deleteBtn}>Delete</button>
+                                                                    <td style={{ ...styles.actionTd, textAlign: "center" }}>
+                                                                        {renderActionMenu(user, 'tl-member')}
                                                                     </td>
                                                                 </tr>
                                                             ))
@@ -363,7 +453,7 @@ function UserManagement() {
                                                                     onChange={(e) => {
                                                                         if (e.target.checked) {
                                                                             const newSelected = [...selectedUsers];
-                                                                            unassignedUsers.forEach(u => {
+                                                                            unassignedUsers.filter(u => u.role !== 'ACCOUNTANT').forEach(u => {
                                                                                 if (!newSelected.includes(u.id)) newSelected.push(u.id);
                                                                             });
                                                                             setSelectedUsers(newSelected);
@@ -371,7 +461,7 @@ function UserManagement() {
                                                                             setSelectedUsers(selectedUsers.filter(id => !unassignedUsers.find(u => u.id === id)));
                                                                         }
                                                                     }} 
-                                                                    checked={unassignedUsers.length > 0 && unassignedUsers.every(u => selectedUsers.includes(u.id))} 
+                                                                    checked={unassignedUsers.filter(u => u.role !== 'ACCOUNTANT').length > 0 && unassignedUsers.filter(u => u.role !== 'ACCOUNTANT').every(u => selectedUsers.includes(u.id))} 
                                                                 />
                                                             </th>
                                                             <th style={styles.th}>ID</th>
@@ -386,7 +476,11 @@ function UserManagement() {
                                                         {unassignedUsers.length > 0 ? (
                                                             unassignedUsers.map((user) => (
                                                                 <tr key={user.id} style={styles.tableRow}>
-                                                                    <td style={styles.td}><input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={() => handleSelectUser(user.id)} /></td>
+                                                                    <td style={styles.td}>
+                                                                        {user.role !== 'ACCOUNTANT' && (
+                                                                            <input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={() => handleSelectUser(user.id)} />
+                                                                        )}
+                                                                    </td>
                                                                     <td style={styles.td}>#{user.id}</td>
                                                                     <td style={styles.td}>
                                                                         <div style={styles.userName}>{user.first_name} {user.last_name}</div>
@@ -398,10 +492,8 @@ function UserManagement() {
                                                                             {user.role === "EMPLOYEE" ? "Recruiter" : "Accountant"}
                                                                         </span>
                                                                     </td>
-                                                                    <td style={styles.actionTd}>
-                                                                        <button onClick={() => navigate(`/sub-admin/user/detail/${user.id}`)} style={styles.viewBtn}>View</button>
-                                                                        <button onClick={() => navigate(`/sub-admin/user/update/${user.id}`)} style={styles.editBtn}>Edit</button>
-                                                                        <button onClick={() => setShowDeleteModal({show: true, userId: user.id})} style={styles.deleteBtn}>Delete</button>
+                                                                    <td style={{ ...styles.actionTd, textAlign: "center" }}>
+                                                                        {renderActionMenu(user, 'normal')}
                                                                     </td>
                                                                 </tr>
                                                             ))
@@ -429,15 +521,35 @@ function UserManagement() {
                         <p style={{fontSize:'14px', color:'#64748B'}}>Applying to {selectedUsers.length} selected user(s):</p>
                         <div style={{display:'flex', flexDirection:'column', gap:'15px', marginTop:'20px'}}>
                             
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <input 
-                                    type="checkbox" 
-                                    checked={bulkAssignData.isTeamLeader} 
-                                    onChange={(e) => setBulkAssignData({ ...bulkAssignData, isTeamLeader: e.target.checked })} 
-                                    style={{ transform: "scale(1.2)" }} 
-                                />
-                                <strong>Mark as New Team Leader(s)</strong>
-                            </label>
+                            {(() => {
+                                const hasAssignedUserSelected = selectedUsers.some(id => {
+                                    const user = users.find(u => u.id === id);
+                                    return user && user.teamLeaderId;
+                                });
+                                return (
+                                    <>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: hasAssignedUserSelected ? 'not-allowed' : 'pointer', opacity: hasAssignedUserSelected ? 0.5 : 1 }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={bulkAssignData.isTeamLeader} 
+                                                onChange={(e) => {
+                                                    if (!hasAssignedUserSelected) {
+                                                        setBulkAssignData({ ...bulkAssignData, isTeamLeader: e.target.checked })
+                                                    }
+                                                }} 
+                                                disabled={hasAssignedUserSelected}
+                                                style={{ transform: "scale(1.2)", cursor: hasAssignedUserSelected ? 'not-allowed' : 'pointer' }} 
+                                            />
+                                            <strong>Mark as New Team Leader(s)</strong>
+                                        </label>
+                                        {hasAssignedUserSelected && (
+                                            <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '-10px', marginLeft: '25px' }}>
+                                                Cannot mark as Team Leader because selected employees are already assigned to a team. Unassign them first.
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
 
                             {!bulkAssignData.isTeamLeader && (
                                 <div>
@@ -501,7 +613,7 @@ const styles = {
     addBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "12px 24px", borderRadius: "10px", fontWeight: "700", cursor: "pointer", boxShadow: "0 4px 12px rgba(255, 155, 81, 0.3)" },
     section: { padding: "10px", borderRadius: "12px" },
     pageTitle: { fontSize: "22px", color: "#25343F", marginBottom: "20px", fontWeight: "800" },
-    tableWrapper: { background: "#fff", borderRadius: "16px", overflow: "hidden", boxShadow: "0 4px 20px rgba(37, 52, 63, 0.08)", border: "1px solid #BFC9D1" },
+    tableWrapper: { background: "#fff", borderRadius: "16px", overflow: "visible", boxShadow: "0 4px 20px rgba(37, 52, 63, 0.08)", border: "1px solid #BFC9D1" },
     table: { width: "100%", borderCollapse: "collapse" },
     tableHeader: { background: "#BFC9D1" },
     th: { padding: "16px", textAlign: "left", color: "#25343F", fontSize: "14px", fontWeight: "700" },
@@ -520,7 +632,8 @@ const styles = {
     modalContent: { background: '#fff', padding: '25px', borderRadius: '15px', width: '350px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' },
     softDelBtn: { background: '#64748B', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight:'600' },
     hardDelBtn: { background: '#ff4d4d', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight:'600' },
-    cancelBtn: { background: '#eee', color: '#333', border: 'none', padding: '10px', borderRadius: '8px', cursor:'pointer', fontWeight:'600' }
+    cancelBtn: { background: '#eee', color: '#333', border: 'none', padding: '10px', borderRadius: '8px', cursor:'pointer', fontWeight:'600' },
+    dropdownItem: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', background: '#fff', border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#334155', fontWeight: '500', transition: 'background 0.2s', borderBottom: '1px solid #F1F5F9' }
 };
 
 export default UserManagement;

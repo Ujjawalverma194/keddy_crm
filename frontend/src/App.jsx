@@ -51,6 +51,7 @@ import SubAdminClientList from "./pages/sub_admin/ClientList";
 import SubAdminAddClient from "./pages/sub_admin/AddClient";
 import SubAdminDocView from "./pages/sub_admin/DocViewer";
 import SubAdminTeamManage from "./pages/sub_admin/TeamManage";
+import TeamOverview from "./pages/sub_admin/TeamOverview";
 import AddUser from "./pages/sub_admin/AddUser";
 import SubAdminUserDetail from "./pages/sub_admin/SubAdminUserDetail";
 import SubAdminUserUpdate from "./pages/sub_admin/SubAdminUserUpdate";
@@ -103,6 +104,9 @@ import MyMonthly from "./pages/emplyee_portal/Attendance/Mymonthly";
 // ===============AttedanceDashboard=====SUBADMIN======
 import TeamReports from "./pages/sub_admin/Attendance/TeamReports";
 
+import AddEod from "./pages/employee/AddEod";
+import ViewEod from "./pages/sub_admin/ViewEod";
+
 const ROLES = {
     EMPLOYEE: "EMPLOYEE",
     SUB_ADMIN: "SUB_ADMIN",
@@ -130,6 +134,8 @@ function App() {
 
                 <Route path="/employee" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><EmployeeDashboard /></ProtectedRoute>} />
                 <Route path="/employee/TeamSubmissions" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><EmployeeTeamSubmissions /></ProtectedRoute>} />
+                <Route path="/employee/add-eod" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><AddEod /></ProtectedRoute>} />
+                <Route path="/employee/edit-eod/:id" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><AddEod /></ProtectedRoute>} />
 
                 <Route path="/employee/candidates/add" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><AddCandidate /></ProtectedRoute>} />
                 <Route path="/employee/candidates" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><CandidateList /></ProtectedRoute>} />
@@ -176,8 +182,10 @@ function App() {
                 <Route path="/sub-admin/client/add" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubAdminAddClient /></ProtectedRoute>} />
                 <Route path="/sub-admin/vendor/doc-view/:id" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubAdminDocView /></ProtectedRoute>} />
                 <Route path="/sub-admin/team-manage" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubAdminTeamManage /></ProtectedRoute>} />
+                <Route path="/sub-admin/team-overview" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><TeamOverview /></ProtectedRoute>} />
                 <Route path="/sub-admin/add-user" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><AddUser /></ProtectedRoute>} />
                 <Route path="/sub-admin/user/detail/:id" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubAdminUserDetail /></ProtectedRoute>} />
+                <Route path="/sub-admin/user/eod/:id" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><ViewEod /></ProtectedRoute>} />
                 <Route path="/sub-admin/user/update/:id" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubAdminUserUpdate /></ProtectedRoute>} />
                 <Route path="/sub-admin/client/view/:id" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubAdminClientView /></ProtectedRoute>} />
                 <Route path="/sub-admin/total-submitted-profiles" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubadminTotalSubmittedProfiles /></ProtectedRoute>} />

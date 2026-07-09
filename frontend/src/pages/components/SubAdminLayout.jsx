@@ -21,6 +21,15 @@ const SubAdminLayout = ({ children }) => {
         }
     };
 
+    const isImpersonating = !!localStorage.getItem("impersonateTlId");
+    const impersonateTlName = localStorage.getItem("impersonateTlName");
+
+    const handleSwitchToAdmin = () => {
+        localStorage.removeItem("impersonateTlId");
+        localStorage.removeItem("impersonateTlName");
+        window.location.replace("/sub-admin/team-manage");
+    };
+
     useEffect(() => {
         const fetchUserData = async () => {
             try {
@@ -45,6 +54,7 @@ const SubAdminLayout = ({ children }) => {
     const menuItems = [
         { label: "Overview", path: "/sub-admin" },
         { label: "Manage Team", path: "/sub-admin/team-manage" },
+        { label: "Team Overview", path: "/sub-admin/team-overview" },
         { label: "Total Profiles", path: "/sub-admin/all-candidates" },
         // { label: "Offboarded Profiles", path: "/sub-admin/offboarded-profiles" },
         { label: "Clients", path: "/sub-admin/clients" },
@@ -84,12 +94,18 @@ const SubAdminLayout = ({ children }) => {
 
                     <div style={styles.userSection}>
                         <div className="user-info-text" style={styles.userInfo}>
-                            <span style={styles.userNameText}>{userName}</span>
-                            <span style={styles.userStatus}>{isTeamLeaderMode ? "Team Leader Access" : "Management Access"}</span>
+                            <span style={styles.userNameText}>{isImpersonating ? impersonateTlName : userName}</span>
+                            <span style={styles.userStatus}>{isImpersonating ? "Impersonating TL" : (isTeamLeaderMode ? "Team Leader Access" : "Management Access")}</span>
                         </div>
                         
-                        {isTeamLeader && isTeamLeaderMode && (
-                            <button onClick={handleToggleMode} style={{...styles.toggleBtn, marginLeft: "10px", padding: "6px 12px", background: "#FF9B51", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontWeight: "600", fontSize: "12px"}}>
+                        {isImpersonating && (
+                            <button onClick={handleSwitchToAdmin} style={{marginLeft: "10px", padding: "6px 12px", background: "#FF5E5E", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontWeight: "600", fontSize: "12px"}}>
+                                Switch to Admin
+                            </button>
+                        )}
+                        
+                        {!isImpersonating && isTeamLeader && isTeamLeaderMode && (
+                            <button onClick={handleToggleMode} style={{marginLeft: "10px", padding: "6px 12px", background: "#FF9B51", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontWeight: "600", fontSize: "12px"}}>
                                 Switch to Employee Mode
                             </button>
                         )}

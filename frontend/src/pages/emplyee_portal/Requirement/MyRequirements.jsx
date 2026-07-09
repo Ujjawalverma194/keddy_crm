@@ -768,9 +768,10 @@ function MyRequirements() {
             {loading ? (
                 <tr><td colSpan="9" style={styles.loadingTd}>Loading requirements...</td></tr>
             ) : rows.length > 0 ? (
-                rows.map((req) => {
+                rows.map((req, index) => {
                     const ownershipMeta = getRequirementOwnershipMeta(req);
-                    const canDeleteRequirement = isRequirementCreatedByCurrentUser(req);
+                    const canDeleteRequirement = true; // Let backend handle authorization
+                    const dropdownDynamicStyle = index < 3 ? { top: "100%", bottom: "auto", marginTop: "8px" } : { bottom: "100%", top: "auto", marginBottom: "8px" };
 
                     return (
                     <RequirementRowWrapper
@@ -813,14 +814,10 @@ function MyRequirements() {
                             {renderAssignedTeam(req.assigned_to_details)}
                         </td>
                         <td style={styles.actionTdCompact}>
-                            <div
-                                style={styles.actionMenuWrapper}
-                                onMouseEnter={() => { setActionDropdownOpenMy(req.id); setActionDropdownOpenAvailable(null); }}
-                                onMouseLeave={() => setActionDropdownOpenMy(null)}
-                            >
+                            <div style={styles.actionMenuWrapper}>
                                 <button type="button" style={styles.actionDotsBtn} onClick={(e) => { e.stopPropagation(); toggleActionMenuMy(req.id); }} title="Actions">⋯</button>
                                 {actionDropdownOpenMy === req.id && (
-                                    <div style={styles.actionDropdown}>
+                                    <div style={{ ...styles.actionDropdown, ...dropdownDynamicStyle }}>
                                         <button type="button" style={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); navigate(`/employee/requirement/view/${req.id}`); setActionDropdownOpenMy(null); }}>View</button>
                                         <button type="button" style={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); navigate(`/employee/requirement/edit/${req.id}`); setActionDropdownOpenMy(null); }}>Update</button>
                                         {canDeleteRequirement && (
@@ -1063,7 +1060,9 @@ function MyRequirements() {
                             {loadingAvailable ? (
                                 <tr><td colSpan="9" style={styles.loadingTd}>Loading available requirements...</td></tr>
                             ) : availableRequirements.length > 0 ? (
-                                paginatedAvailableRequirements.map((req) => (
+                                paginatedAvailableRequirements.map((req, index) => {
+                                    const dropdownDynamicStyle = index < 3 ? { top: "100%", bottom: "auto", marginTop: "8px" } : { bottom: "100%", top: "auto", marginBottom: "8px" };
+                                    return (
                                     <RequirementRowWrapper key={req.id} status={req.status} onClick={() => navigate(`/employee/requirement/view/${req.id}`)}>
                                         <td style={styles.td}>
                                             <div style={styles.reqIdBadge}>{req.requirement_id}</div>
@@ -1090,21 +1089,18 @@ function MyRequirements() {
                                         </td>
                                         <td style={styles.td}><div style={styles.statLine}>Submissions: <strong>{renderSubmissionCount(req)}</strong></div></td>
                                         <td style={styles.actionTd}>
-                                            <div
-                                                style={styles.actionMenuWrapper}
-                                                onMouseEnter={() => { setActionDropdownOpenAvailable(req.id); setActionDropdownOpenMy(null); }}
-                                                onMouseLeave={() => setActionDropdownOpenAvailable(null)}
-                                            >
+                                            <div style={styles.actionMenuWrapper}>
                                                 <button type="button" style={styles.actionDotsBtn} onClick={(e) => { e.stopPropagation(); toggleActionMenuAvailable(req.id); }} title="Actions">⋯</button>
                                                 {actionDropdownOpenAvailable === req.id && (
-                                                    <div style={styles.actionDropdown}>
+                                                    <div style={{ ...styles.actionDropdown, ...dropdownDynamicStyle }}>
                                                         <button type="button" style={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); navigate(`/employee/requirement/view/${req.id}`); setActionDropdownOpenAvailable(null); }}>View</button>
                                                     </div>
                                                 )}
                                             </div>
                                         </td>
                                     </RequirementRowWrapper>
-                                ))
+                                    );
+                                })
                             ) : (
                                 <tr><td colSpan="9" style={styles.loadingTd}>No available requirements found.</td></tr>
                             )}

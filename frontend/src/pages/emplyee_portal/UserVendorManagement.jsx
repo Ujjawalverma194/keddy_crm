@@ -45,13 +45,17 @@ function VendorList() {
         if (confirmDelete) {
             try {
                 // API Call for Soft Delete
-                await apiRequest(`/employee-portal/api/vendors/${id}/delete/`, "DELETE");
-                alert("Vendor deleted successfully!");
-                // List refresh karne ke liye
-                fetchVendors(currentPage, searchQuery);
+                const res = await apiRequest(`/employee-portal/api/vendors/${id}/delete/`, "DELETE");
+                if (res && res.error) {
+                    alert(res.error);
+                } else {
+                    alert("Vendor deleted successfully!");
+                    fetchVendors(currentPage, searchQuery);
+                }
             } catch (error) {
                 console.error("Delete failed:", error);
-                alert("Could not delete vendor.");
+                const msg = error.response?.data?.error || error.error || error.message || "You are not authorized to delete this vendor.";
+                alert(msg);
             }
         }
     };

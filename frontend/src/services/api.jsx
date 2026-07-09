@@ -22,6 +22,11 @@ export async function apiRequest(url, method = "GET", data = null) {
     if (localStorage.getItem("isTeamLeaderMode") === "true") {
         headers["x-team-leader-mode"] = "true";
     }
+    
+    const impersonateTlId = localStorage.getItem("impersonateTlId");
+    if (impersonateTlId) {
+        headers["x-impersonate-tl"] = impersonateTlId;
+    }
 
     const options = {
         method: method,

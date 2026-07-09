@@ -475,6 +475,26 @@ const DailyWorkReport = sequelize.define(
 );
 DailyWorkReport.beforeCreate(assignNumericId('dailyWorkReports'));
 
+const EodReport = sequelize.define(
+  'EodReport',
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    date: { type: DataTypes.DATEONLY, allowNull: false },
+    reportingTime: { type: DataTypes.STRING },
+    tasksCompleted: { type: DataTypes.TEXT },
+    issuesFaced: { type: DataTypes.TEXT },
+    resolutionSteps: { type: DataTypes.TEXT },
+    logoutTime: { type: DataTypes.STRING },
+    companyId: { type: DataTypes.INTEGER },
+  },
+  {
+    tableName: 'eod_reports',
+    indexes: [{ unique: true, fields: ['user_id', 'date'] }],
+  }
+);
+EodReport.beforeCreate(assignNumericId('eodReports'));
+
 const GoogleCalendarAccount = sequelize.define(
   'GoogleCalendarAccount',
   {
@@ -557,6 +577,8 @@ TimeSheet.belongsTo(Candidate, { foreignKey: 'candidateId', as: 'candidate' });
 VendorInvoice.belongsTo(Candidate, { foreignKey: 'candidateId', as: 'candidate' });
 Attendance.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 DailyWorkReport.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+EodReport.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(EodReport, { foreignKey: 'userId', as: 'eodReports' });
 
 async function syncDatabase() {
   await sequelize.sync();
@@ -585,6 +607,7 @@ module.exports = {
   CompanySettings,
   Attendance,
   DailyWorkReport,
+  EodReport,
   GoogleCalendarAccount,
   CandidateCalendarEvent,
   CandidateCalendarEventHistory,

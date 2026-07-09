@@ -10,6 +10,15 @@ function getCompanyRoot(user) {
 }
 
 async function getCompanyUserIds(user, req) {
+  if (req && req.headers['x-impersonate-tl'] && user.role === 'SUB_ADMIN') {
+    const tlId = parseInt(req.headers['x-impersonate-tl'], 10);
+    const employees = await User.find({
+      $or: [{ id: tlId }, { teamLeaderId: tlId }],
+      isActive: { $ne: false },
+    }).select('id');
+    return employees.map((u) => u.id);
+  }
+
   if (req && req.headers['x-team-leader-mode'] === 'true' && user.isTeamLeader) {
     const employees = await User.find({
       $or: [{ id: user.id }, { teamLeaderId: user.id }],

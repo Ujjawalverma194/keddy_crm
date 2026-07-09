@@ -11,6 +11,7 @@ const vendors = require("../controllers/employeePortal/vendors");
 const clients = require("../controllers/employeePortal/clients");
 const candidates = require("../controllers/employeePortal/candidates");
 const dashboard = require("../controllers/employeePortal/dashboard");
+const eodController = require("../controllers/eodController");
 
 const router = express.Router();
 router.use(authenticate);
@@ -133,6 +134,13 @@ router.get(
 );
 
 // Dashboard
+
+// EOD Routes
+router.post("/api/eod/", eodController.createEod);
+router.put("/api/eod/:id/", eodController.updateEod);
+router.get("/api/eod/my-eods/", eodController.getMyEods);
+router.get("/api/eod/:id/", eodController.getEod);
+
 router.get("/dashboard/stats/", dashboard.stats);
 router.get("/dashboard/today-candidates/", dashboard.todayCandidates);
 router.get("/dashboard/today-verified-candidates/", dashboard.todayVerified);

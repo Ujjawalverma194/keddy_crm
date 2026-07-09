@@ -2,16 +2,21 @@ const express = require('express');
 const { authenticate, requireRoles } = require('../middleware/auth');
 const { uploadProfile } = require('../middleware/upload');
 const ctrl = require('../controllers/subAdminController');
+const eodController = require('../controllers/eodController');
 
 const router = express.Router();
 router.use(authenticate);
 router.use(requireRoles('SUB_ADMIN', 'EMPLOYEE'));
 
 router.get('/api/subadmin/dashboard/stats/', ctrl.dashboardStats);
+router.get('/api/team-overview/analytics/', ctrl.teamOverviewAnalytics);
 router.get('/api/subadmin/dashboard/today-verified/', ctrl.todayVerified);
 router.get('/api/subadmin/dashboard/pipeline/', ctrl.pipeline);
 router.get('/api/dashboard/today-profiles/', ctrl.todayProfiles);
 router.get('/api/last-7-days-verified/', ctrl.last7Verified);
+
+// EOD Admin route
+router.get('/api/eod/employee/:employeeId', eodController.getEmployeeEodsByAdmin);
 
 router.get('/api/users/', ctrl.listUsers);
 router.post('/api/users/', uploadProfile.single('profile_picture'), ctrl.createUser);

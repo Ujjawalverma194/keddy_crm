@@ -12,7 +12,7 @@ router.get('/my-monthly/', authenticate, requireRoles('EMPLOYEE'), ctrl.myMonthl
 router.get('/attendance-board/', authenticate, ctrl.attendanceBoard);
 
 router.get('/admin/users/', authenticate, requireRoles('SUB_ADMIN'), ctrl.adminUsers);
-router.get('/admin/users/:id/', authenticate, requireRoles('SUB_ADMIN'), ctrl.adminUserDetail);
+router.get('/admin/users/:id/', authenticate, requireRoles('SUB_ADMIN', 'EMPLOYEE'), ctrl.adminUserDetail);
 router.get('/admin/attendance/', authenticate, requireRoles('SUB_ADMIN'), ctrl.adminAttendanceList);
 router.get('/admin/attendance/:id/', authenticate, requireRoles('SUB_ADMIN'), ctrl.adminAttendanceDetail);
 router.put('/admin/attendance/:id/', authenticate, requireRoles('SUB_ADMIN'), ctrl.adminAttendanceUpdate);

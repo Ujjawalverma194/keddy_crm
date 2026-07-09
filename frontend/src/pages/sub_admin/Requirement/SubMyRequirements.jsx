@@ -34,6 +34,11 @@ function MyRequirements() {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [empSearch, setEmpSearch] = useState("");
   const [toast, setToast] = useState({ show: false, msg: "", type: "" });
+  const [actionDropdownOpen, setActionDropdownOpen] = useState(null);
+
+  const toggleActionMenu = (id) => {
+    setActionDropdownOpen(actionDropdownOpen === id ? null : id);
+  };
 
   const getAuthHeaders = () => {
     const token =
@@ -533,7 +538,9 @@ function MyRequirements() {
                   </td>
                 </tr>
               ) : visibleRequirements.length > 0 ? (
-                paginatedRequirements.map((req) => (
+                paginatedRequirements.map((req, index) => {
+                  const dropdownDynamicStyle = index < 3 ? { top: "100%", bottom: "auto", marginTop: "8px" } : { bottom: "100%", top: "auto", marginBottom: "8px" };
+                  return (
                   <tr
                     key={req.id}
                     style={{
@@ -617,27 +624,19 @@ function MyRequirements() {
                       )}
                     </td>
                    <td style={styles.actionTd}>
-    <div
-        style={styles.actionMenuWrapper}
-        onMouseEnter={(e) => {
-            const menu = e.currentTarget.querySelector(".action-dropdown");
-            if (menu) menu.style.display = "block";
-        }}
-        onMouseLeave={(e) => {
-            const menu = e.currentTarget.querySelector(".action-dropdown");
-            if (menu) menu.style.display = "none";
-        }}
-    >
+    <div style={styles.actionMenuWrapper}>
         <button
             type="button"
             style={styles.actionDotsBtn}
+            onClick={(e) => { e.stopPropagation(); toggleActionMenu(req.id); }}
         >
             ⋮
         </button>
 
+        {actionDropdownOpen === req.id && (
         <div
             className="action-dropdown"
-            style={styles.actionDropdown}
+            style={{ ...styles.actionDropdown, ...dropdownDynamicStyle, display: "block" }}
         >
             <button
                 style={styles.dropdownItem}
@@ -674,10 +673,12 @@ function MyRequirements() {
                 🗑 Delete
             </button>
         </div>
+        )}
     </div>
 </td>
                   </tr>
-                ))
+                );
+                })
               ) : (
                 <tr>
                   <td

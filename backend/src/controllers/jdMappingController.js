@@ -379,8 +379,22 @@ async function softDelete(req, res) {
 
   if (!r) return res.status(404).json({ detail: 'Not found' });
 
-  if (String(r.createdById) !== String(req.user.id)) {
-    return res.status(403).json({ detail: 'You can delete only requirements created by you.' });
+  let canDelete = false;
+
+  if (['ADMIN', 'SUB_ADMIN', 'CENTRAL_ADMIN'].includes(req.user.role)) {
+    canDelete = true;
+  } else if (String(r.createdById) === String(req.user.id)) {
+    canDelete = true;
+  } else if (req.user.role === 'EMPLOYEE') {
+    const User = require('../models/User');
+    const creator = await User.findOne({ id: r.createdById });
+    if (creator && (String(creator.teamLeaderId) === String(req.user.id) || String(creator.parentUserId) === String(req.user.id))) {
+      canDelete = true;
+    }
+  }
+
+  if (!canDelete) {
+    return res.status(403).json({ detail: 'You can delete only requirements created by you or your team.' });
   }
 
   await Requirement.updateOne({ id: requirementId }, { isDeleted: true });
