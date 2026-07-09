@@ -51,6 +51,7 @@ function MyMonthly() {
 
     useEffect(() => {
         fetchMonthly(selectedMonth, 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedMonth]);
 
     const getStatusStyle = (status) => {

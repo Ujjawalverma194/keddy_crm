@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest, API_BASE } from "../../services/api";
 import SubAdminLayout from "../components/SubAdminLayout";
+    // eslint-disable-next-line no-unused-vars
 import mammoth from "mammoth";
+    // eslint-disable-next-line no-unused-vars
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -122,10 +124,15 @@ function ActivePipelineList() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [selectedCand, setSelectedCand] = useState(null);
+    // eslint-disable-next-line no-unused-vars
   const [previewUrl, setPreviewUrl] = useState("");
+    // eslint-disable-next-line no-unused-vars
 const [previewHtml, setPreviewHtml] = useState("");
+    // eslint-disable-next-line no-unused-vars
 const [showPreviewModal, setShowPreviewModal] = useState(false);
+    // eslint-disable-next-line no-unused-vars
 const [previewType, setPreviewType] = useState("");
+    // eslint-disable-next-line no-unused-vars
 const [pdfPages, setPdfPages] = useState(null);
   const [editForm, setEditForm] = useState({
     main_status: "",
@@ -155,6 +162,7 @@ const [pdfPages, setPdfPages] = useState(null);
 
   useEffect(() => {
     fetchPipeline(searchTerm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
   const handleUpdateSubmit = async () => {

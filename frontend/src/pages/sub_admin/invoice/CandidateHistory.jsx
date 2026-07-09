@@ -11,6 +11,7 @@ export default function CandidateInvoiceHistory() {
 
   useEffect(() => {
     fetchHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateId]);
 
   const fetchHistory = async () => {

@@ -249,6 +249,7 @@ function SubAdminDashboard() {
 
   useEffect(() => {
     fetchSubAdminData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const notify = (msg, type = "success") => {

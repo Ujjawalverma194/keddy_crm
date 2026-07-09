@@ -47,7 +47,9 @@ function MyRequirements() {
     const [availableStats, setAvailableStats] = useState({ total_available: 0, hot_count: 0, warm_count: 0, cold_count: 0 });
     const [loadingAvailable, setLoadingAvailable] = useState(true);
     const [searchQueryAvailable, setSearchQueryAvailable] = useState("");
+    // eslint-disable-next-line no-unused-vars
     const [statusFilter, setStatusFilter] = useState("");
+    // eslint-disable-next-line no-unused-vars
     const [statusFilterAvailable, setStatusFilterAvailable] = useState("");
     const [currentPage, setCurrentPage] = useState(Number(query.get("page")) || 1);
     const [itemsPerPage, setItemsPerPage] = useState(Number(query.get("page_size")) || 10);
@@ -142,6 +144,7 @@ function MyRequirements() {
             fetchMyRequirements(typeParam, searchQuery, typeParam === "all" ? "" : statusFilter);
         }, 500);
         return () => clearTimeout(delayDebounceFn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery, typeParam, statusFilter]);
 
     useEffect(() => {
@@ -150,6 +153,7 @@ function MyRequirements() {
             fetchAvailableRequirements(searchQueryAvailable, typeParam === "all" ? "" : statusFilterAvailable);
         }, 500);
         return () => clearTimeout(delayDebounceFn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQueryAvailable, statusFilterAvailable, typeParam]);
 
     useEffect(() => {

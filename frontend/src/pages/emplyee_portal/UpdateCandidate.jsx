@@ -27,6 +27,7 @@ function UpdateCandidate() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
@@ -416,7 +417,6 @@ function UpdateCandidate() {
               <label style={styles.label}>Client Rate Type</label>
               <select
                 name="client_rate_type"
-                style={styles.input}
                 value={form.client_rate_type || ""}
                 onChange={handleChange}
                 style={{

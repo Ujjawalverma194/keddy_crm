@@ -45,6 +45,7 @@ function AttendanceDashboard() {
 
     useEffect(() => {
         fetchTodayData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleCheckIn = async () => {

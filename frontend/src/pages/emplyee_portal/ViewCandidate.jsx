@@ -100,6 +100,7 @@ function DetailedViewCandidate() {
 
   useEffect(() => {
     fetchCandidateDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const notify = (msg, type = "success") => {

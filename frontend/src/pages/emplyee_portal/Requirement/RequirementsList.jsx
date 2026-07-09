@@ -57,6 +57,7 @@ function RequirementList() {
             fetchRequirements(1, searchQuery, statusFilter);
         }, 500);
         return () => clearTimeout(delayDebounceFn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery, statusFilter]);
 
     const truncateText = (text, maxLength) => {

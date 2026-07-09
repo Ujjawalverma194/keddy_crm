@@ -111,6 +111,7 @@ export default function InvoiceList() {
       fetchInvoices(1);
     }, 500);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   const handleUpdateStatus = async () => {

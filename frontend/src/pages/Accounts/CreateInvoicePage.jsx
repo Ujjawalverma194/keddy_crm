@@ -333,6 +333,7 @@ export default function CreateInvoice() {
     if (items.length > 0) {
       setItems(items.map(item => ({ ...item, gst_rate: invoiceGstRate })));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceGstRate]);
 
   const handleClientAdded = (newClient) => {

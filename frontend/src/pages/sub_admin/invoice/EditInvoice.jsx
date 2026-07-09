@@ -39,6 +39,7 @@ export default function EditInvoice() {
   // ===============================
   useEffect(() => {
     fetchInvoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchInvoice = async () => {

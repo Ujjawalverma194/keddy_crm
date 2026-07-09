@@ -41,6 +41,7 @@ function HR_Dashboard() {
     const [verifiedCandidates, setVerifiedCandidates] = useState([]);
     const [pipelineCandidates, setPipelineCandidates] = useState([]);
     const [teamSubmissions, setTeamSubmissions] = useState([]);
+    // eslint-disable-next-line no-unused-vars
     const [last7Verified, setLast7Verified] = useState([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
@@ -65,6 +66,7 @@ function HR_Dashboard() {
         finally { setLoading(false); }
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { fetchAllData(); }, []);
 
     const notify = (msg, type = "success") => {

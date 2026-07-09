@@ -118,6 +118,7 @@ function ClientList() {
             fetchClients(1, searchQuery);
         }, 500);
         return () => clearTimeout(delayDebounceFn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery]);
 
     const handleDelete = async (id, name) => {

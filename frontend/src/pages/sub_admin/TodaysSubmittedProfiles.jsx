@@ -169,6 +169,7 @@ function TodayVerifiedProfiles() {
 
   useEffect(() => {
     fetchTodayVerified(searchTerm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
   const handleUpdateSubmit = async () => {

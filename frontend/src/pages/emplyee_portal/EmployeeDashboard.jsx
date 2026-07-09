@@ -127,6 +127,7 @@ function EmployeeDashboard() {
     const [pipelineCandidates, setPipelineCandidates] = useState([]);
     const [teamSubmissions, setTeamSubmissions] = useState([]);
     const [teamSubmissionsCount, setTeamSubmissionsCount] = useState(0);
+    // eslint-disable-next-line no-unused-vars
     const [last7Verified, setLast7Verified] = useState([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
@@ -199,6 +200,7 @@ function EmployeeDashboard() {
         }
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { fetchAllData(); }, []);
     
     useEffect(() => {

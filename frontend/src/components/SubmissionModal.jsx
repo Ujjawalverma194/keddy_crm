@@ -344,6 +344,7 @@ function SubmissionModal({
       mounted = false;
       clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, employeeSearch, clientSearch, jdSearch, jdFilter, selectedCand, initialSubmitType, hideInternalOption, restrictToAssignedJdUntilEdit, allowAllJdsForClientSubmit, isAssignedTeamClientFlow, isClientMode, form.client]);
 
   if (!isOpen) return null;

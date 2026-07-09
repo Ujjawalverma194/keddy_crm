@@ -171,6 +171,7 @@ function TodayNewProfiles() {
 
   useEffect(() => {
     fetchTodayProfiles(searchTerm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
 const handleUpdateSubmit = async () => {

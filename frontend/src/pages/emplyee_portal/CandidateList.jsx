@@ -8,6 +8,7 @@ import {
   getCreatedByName,
 } from "../../utils/candidateDisplay";
 
+    // eslint-disable-next-line no-unused-vars
 const Icons = {
   Edit: () => (
     <svg

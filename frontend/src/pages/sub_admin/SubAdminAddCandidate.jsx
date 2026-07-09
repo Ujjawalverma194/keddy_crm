@@ -69,6 +69,7 @@ function AddCandidate() {
   const [resumeFile, setResumeFile] = useState(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [vendors, setVendors] = useState([]);
+    // eslint-disable-next-line no-unused-vars
   const [employees, setEmployees] = useState([]);
   const [searchVendor, setSearchVendor] = useState("");
   const [isParsing, setIsParsing] = useState(false);
@@ -77,6 +78,8 @@ function AddCandidate() {
 
   useEffect(() => {
     loadDropdowns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

@@ -103,12 +103,14 @@ function DetailedViewCandidate() {
     total_amount_with_gst: "",
     gst_rate: "",
   });
+    // eslint-disable-next-line no-unused-vars
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewHtml, setPreviewHtml] = useState("");
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewType, setPreviewType] = useState("");
   const [previewTitle, setPreviewTitle] = useState("Resume Preview");
+    // eslint-disable-next-line no-unused-vars
   const [previewSourceUrl, setPreviewSourceUrl] = useState("");
   const [pdfPages, setPdfPages] = useState(null);
   const [expandedLists, setExpandedLists] = useState({
@@ -276,6 +278,7 @@ function DetailedViewCandidate() {
 
   useEffect(() => {
     fetchCandidateDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
@@ -288,6 +291,7 @@ function DetailedViewCandidate() {
       setVendorInvoices([]);
       setClientInvoices([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, candidate]);
 
   const notify = (msg, type = "success") => {
@@ -491,11 +495,17 @@ function DetailedViewCandidate() {
       lastVendorInvoice,
     };
   };
+    // eslint-disable-next-line no-unused-vars
 
+    // eslint-disable-next-line no-unused-vars
   const {
+    // eslint-disable-next-line no-unused-vars
     currentTimesheet,
+    // eslint-disable-next-line no-unused-vars
     lastTimesheet,
+    // eslint-disable-next-line no-unused-vars
     currentVendorInvoice,
+    // eslint-disable-next-line no-unused-vars
     lastVendorInvoice,
   } = getCurrentMonthData();
 

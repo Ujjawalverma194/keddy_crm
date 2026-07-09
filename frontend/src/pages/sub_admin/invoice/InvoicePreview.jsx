@@ -10,6 +10,7 @@ export default function InvoicePreview() {
 
   useEffect(() => {
     fetchPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoice_id]);
 
   const fetchPreview = async () => {

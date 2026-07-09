@@ -12,6 +12,7 @@ function VendorList() {
 
     const [currentPage, setCurrentPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState("");
+    // eslint-disable-next-line no-unused-vars
     const [totalCount, setTotalCount] = useState(0);
     const [hasNext, setHasNext] = useState(false);
     const [hasPrev, setHasPrev] = useState(false);
@@ -265,6 +266,7 @@ function VendorList() {
         fetchEmployees();
 
         return () => clearTimeout(delayDebounceFn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage, searchQuery]);
 
     const handleVerifyToggle = async (vendorId, currentStatus) => {

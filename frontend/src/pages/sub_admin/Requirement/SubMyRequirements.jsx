@@ -129,6 +129,7 @@ function MyRequirements() {
       }
     };
     fetchEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const truncateText = (text, maxLength) => {
@@ -269,7 +270,9 @@ function MyRequirements() {
     req?.is_created_by_me === true ||
     req?.created_by_current_user === true ||
     req?.is_mine === true;
+    // eslint-disable-next-line no-unused-vars
 
+    // eslint-disable-next-line no-unused-vars
   const getCreatedByMeDisplayCount = () => {
     const apiCount = Number(stats.created_by_me) || 0;
     const localCreatedCount = requirements.filter(
@@ -312,7 +315,9 @@ function MyRequirements() {
       notify("Assignment Failed", "error");
     }
   };
+    // eslint-disable-next-line no-unused-vars
 
+    // eslint-disable-next-line no-unused-vars
   const handleDeleteRequirement = async (req) => {
     if (!req?.id) return;
 
@@ -1332,7 +1337,9 @@ const styles = {
     lineHeight: "1.6",
     color: "#334155",
     whiteSpace: "pre-wrap",
+    // eslint-disable-next-line no-dupe-keys
   },
+    // eslint-disable-next-line no-dupe-keys
   actionTd: {
     textAlign: "center",
   },

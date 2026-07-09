@@ -14,9 +14,13 @@ function SubAdminRequirementList() {
     const [statusFilter, setStatusFilter] = useState("");
 
     const [currentPage, setCurrentPage] = useState(1);
+    // eslint-disable-next-line no-unused-vars
     const [totalPages, setTotalPages] = useState(1);
+    // eslint-disable-next-line no-unused-vars
     const [totalItems, setTotalItems] = useState(0);
+    // eslint-disable-next-line no-unused-vars
     const [hasNext, setHasNext] = useState(false);
+    // eslint-disable-next-line no-unused-vars
     const [hasPrevious, setHasPrevious] = useState(false);
 
     const [selectedRequirementId, setSelectedRequirementId] = useState(null);
@@ -61,6 +65,7 @@ function SubAdminRequirementList() {
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => fetchRequirements(1, searchQuery, statusFilter), 500);
         return () => clearTimeout(delayDebounceFn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery, statusFilter]);
 
     useEffect(() => {

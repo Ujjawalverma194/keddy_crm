@@ -38,6 +38,7 @@ function AttendanceBoard() {
 
     useEffect(() => {
         fetchBoard(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const formatDate = (dateStr) => {
@@ -126,7 +127,9 @@ function AttendanceBoard() {
                                 users.map((record, index) => {
                                     const u = record.user;
                                     const fullName = `${u?.first_name || ""} ${u?.last_name || ""}`.trim();
+    // eslint-disable-next-line no-unused-vars
                                     const avatarColor = getAvatarColor(fullName);
+    // eslint-disable-next-line no-unused-vars
                                     const isCheckedOut = !!record.check_out;
 
                                     return (

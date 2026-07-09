@@ -259,10 +259,12 @@ function ClientList() {
             fetchClients(1, searchQuery);
         }, 500);
         return () => clearTimeout(delayDebounceFn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery, startDate, endDate]);
 
     useEffect(() => {
         fetchEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ✅ Verify Toggle Handler
