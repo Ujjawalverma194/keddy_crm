@@ -9,4 +9,5 @@ module.exports = {
   ...require('./Documents'),
   ...require('./Invoice'),
   ...require('./Attendance'),
+  VendorPOC: require('./VendorPOC'),
 };

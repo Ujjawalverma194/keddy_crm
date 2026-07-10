@@ -53,6 +53,14 @@ function vendorToJSON(v, userMap = new Map()) {
     created_by: createdBy ? { id: createdBy.id, email: createdBy.email } : null,
     created_by_name: userDisplayName(createdBy),
     created_by_email: createdBy?.email || null,
+    pocs: v.pocs ? v.pocs.map(p => ({
+      id: p.id,
+      name: p.name,
+      number: p.number,
+      email: p.email,
+      isPrimary: p.isPrimary,
+      assignedEmployeeIds: p.assignedEmployeeIds
+    })) : [],
     created_at: v.createdAt,
     updated_at: v.updatedAt,
   };

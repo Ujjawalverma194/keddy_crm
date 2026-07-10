@@ -90,6 +90,22 @@ const Vendor = sequelize.define(
 );
 Vendor.beforeCreate(assignNumericId('vendors'));
 
+const VendorPOC = sequelize.define(
+  'VendorPOC',
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true },
+    vendorId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING, allowNull: false },
+    number: { type: DataTypes.STRING, allowNull: false },
+    email: { type: DataTypes.STRING },
+    isPrimary: { type: DataTypes.BOOLEAN, defaultValue: false },
+    assignedEmployeeIds: { type: DataTypes.JSONB, defaultValue: [] },
+    isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+  },
+  { tableName: 'vendor_pocs' }
+);
+VendorPOC.beforeCreate(assignNumericId('vendorPocs'));
+
 const Client = sequelize.define(
   'Client',
   {
@@ -579,9 +595,35 @@ Attendance.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 DailyWorkReport.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 EodReport.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(EodReport, { foreignKey: 'userId', as: 'eodReports' });
+Vendor.hasMany(VendorPOC, { foreignKey: 'vendorId', as: 'pocs' });
+VendorPOC.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendorCompany' });
 
 async function syncDatabase() {
   await sequelize.sync();
+
+  // One-time migration for existing Vendors to create their primary VendorPOC
+  try {
+    const pocCount = await VendorPOC.count();
+    if (pocCount === 0) {
+      const vendors = await Vendor.findAll();
+      for (const v of vendors) {
+        if (v.name && v.number) {
+          await VendorPOC.create({
+            vendorId: v.id,
+            name: v.name,
+            number: v.number,
+            email: v.email,
+            assignedEmployeeIds: v.assignedEmployeeIds || [],
+            isPrimary: true,
+            isActive: v.isActive
+          });
+        }
+      }
+      console.log(`Migrated ${vendors.length} vendors to VendorPOCs.`);
+    }
+  } catch (err) {
+    console.error('Error during VendorPOC migration:', err);
+  }
 }
 
 module.exports = {
@@ -611,5 +653,6 @@ module.exports = {
   GoogleCalendarAccount,
   CandidateCalendarEvent,
   CandidateCalendarEventHistory,
+  VendorPOC,
   syncDatabase,
 };

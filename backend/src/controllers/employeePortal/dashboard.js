@@ -89,11 +89,24 @@ async function stats(req, res) {
   const userId = req.user.id;
   const { start, end } = todayRange();
 
+  const { VendorPOC } = require('../../models/sequelize/init');
+  const { Op } = require('sequelize');
+  const pocs = await VendorPOC.findAll({
+    where: { assignedEmployeeIds: { [Op.contains]: [userId] } },
+    attributes: ['vendorId']
+  });
+  const assignedVendorIds = [...new Set(pocs.map(p => p.vendorId))];
+  
+  const vendorOr = [{ createdById: userId }];
+  if (assignedVendorIds.length > 0) {
+    vendorOr.push({ id: { $in: assignedVendorIds } });
+  }
+
   const [totalVendors, totalClients, totalProfiles, todayProfiles, todaySubmitted, totalPipelines, todayCreatedJds, todayAssignedJds] =
     await Promise.all([
       Vendor.countDocuments({
         isDeleted: false,
-        $or: [{ createdById: userId }, { assignedEmployeeIds: userId }],
+        $or: vendorOr,
       }),
       Client.countDocuments({
         isDeleted: false,

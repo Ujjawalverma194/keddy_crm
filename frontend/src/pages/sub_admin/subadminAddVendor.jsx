@@ -64,7 +64,10 @@ function AddVendor() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ show: false, msg: "", type: "" });
-  const [duplicateVendor, setDuplicateVendor] = useState(null);
+  
+  const [companySuggestions, setCompanySuggestions] = useState([]);
+  const [showCompanySuggestions, setShowCompanySuggestions] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
 
   const [files, setFiles] = useState({
     bench_list: null,
@@ -80,40 +83,58 @@ function AddVendor() {
   };
 
   useEffect(() => {
-    const checkDuplicate = async () => {
-      if (form.name || form.company_name || form.number) {
+    const searchCompany = async () => {
+      if (form.company_name && !selectedCompanyId) {
         try {
-          const data = await apiRequest("/employee-portal/api/vendors/check-duplicate/", "POST", {
-            vendor_name: form.name,
-            company_name: form.company_name,
-            phone_number: form.number
-          });
-          if (data && data.duplicate) {
-            setDuplicateVendor(data.vendor);
+          const res = await apiRequest(`/sub-admin/api/admin-vendors/search/?q=${encodeURIComponent(form.company_name)}`);
+          if (res && res.length > 0) {
+            setCompanySuggestions(res);
+            setShowCompanySuggestions(true);
           } else {
-            setDuplicateVendor(null);
+            setCompanySuggestions([]);
+            setShowCompanySuggestions(false);
           }
         } catch (error) {
-          console.error("Failed to check duplicate vendor", error);
+          console.error("Failed to search vendors", error);
         }
       } else {
-        setDuplicateVendor(null);
+        setCompanySuggestions([]);
+        setShowCompanySuggestions(false);
       }
     };
-
-    const timerId = setTimeout(() => {
-      checkDuplicate();
-    }, 800);
-
-    return () => clearTimeout(timerId);
-  }, [form.name, form.company_name, form.number]);
-
+    const timer = setTimeout(() => { searchCompany(); }, 500);
+    return () => clearTimeout(timer);
+  }, [form.company_name, selectedCompanyId]);
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    if (name === 'company_name') {
+        setSelectedCompanyId(null);
+    }
     setForm({
       ...form,
       [name]: type === "checkbox" ? checked : value,
     });
+  };
+
+  const handleSelectCompany = (comp) => {
+    setSelectedCompanyId(comp.id);
+    setForm({
+      ...form,
+      company_name: comp.companyName || "",
+      vendor_official_email: comp.email || "",
+      company_website: comp.companyWebsite || "",
+      company_pan_or_reg_no: comp.companyPanOrRegNo || "",
+      sending_email_id: comp.sendingEmailId || "",
+      company_employee_count: comp.companyEmployeeCount || "",
+      specialized_tech_developers: comp.specializedTechDevelopers || "",
+      top_3_clients: comp.top3Clients || "",
+      no_of_bench_developers: comp.noOfBenchDevelopers || "",
+      // Clear POC fields for new entry
+      name: "",
+      number: "",
+      email: "",
+    });
+    setShowCompanySuggestions(false);
   };
 
   const handleFileChange = (e, key) => {
@@ -126,12 +147,16 @@ function AddVendor() {
 
     setIsSubmitting(true);
     const formData = new FormData();
+    
+    if (selectedCompanyId) {
+        formData.append("company_id", selectedCompanyId);
+    }
 
-    Object.keys(form).forEach((key) => {
-      let val = form[key];
-      if (typeof val === "boolean") val = val ? "1" : "0";
-      if (val !== null && val !== undefined && val !== "") {
-        formData.append(key, val);
+    Object.entries(form).forEach(([key, val]) => {
+      let value = form[key];
+      if (typeof value === "boolean") value = value ? "1" : "0";
+      if (value !== null && value !== undefined && value !== "") {
+        formData.append(key, value);
       }
     });
 
@@ -163,17 +188,7 @@ function AddVendor() {
         </div>
       )}
 
-      {duplicateVendor && (
-          <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 10000, background: '#FEF2F2', border: '1px solid #F87171', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div>
-                  <h4 style={{ margin: 0, color: '#991B1B', fontSize: '16px' }}>Vendor already exists!</h4>
-                  <p style={{ margin: '4px 0 0', color: '#B91C1C', fontSize: '14px' }}>A vendor named <strong>{duplicateVendor.name}</strong> from <strong>{duplicateVendor.companyName}</strong> already exists.</p>
-              </div>
-              <button type="button" onClick={() => navigate(`/sub-admin/all-Vendors`)} style={{ padding: '8px 16px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  View Existing Vendor
-              </button>
-          </div>
-      )}
+
 
       <div style={styles.pageShell}>
         <div style={styles.hero}>
@@ -215,7 +230,28 @@ function AddVendor() {
                     <input style={styles.input} name="number" value={form.number} onChange={handleChange} required placeholder="9876543220" />
                   </Field>
                   <Field label="Company Name" required style={styles.col4}>
-                    <input style={styles.input} name="company_name" value={form.company_name} onChange={handleChange} required placeholder="ABC Tech" />
+                    <div style={{ position: 'relative' }}>
+                      <input style={styles.input} name="company_name" value={form.company_name} onChange={handleChange} required placeholder="ABC Tech" />
+                      {showCompanySuggestions && companySuggestions.length > 0 && (
+                        <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', listStyle: 'none', padding: 0, margin: '4px 0 0', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
+                          {companySuggestions.map(comp => (
+                            <li 
+                              key={comp.id} 
+                              onClick={() => handleSelectCompany(comp)}
+                              style={{ padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <div>
+                                <div style={{ fontWeight: '600', color: '#111827' }}>{comp.companyName}</div>
+                                {comp.email && <div style={{ fontSize: '12px', color: '#6B7280' }}>{comp.email}</div>}
+                              </div>
+                              <span style={{ fontSize: '12px', color: '#FF6B2C', fontWeight: 'bold' }}>Select &rarr;</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </Field>
                 </div>
               </div>

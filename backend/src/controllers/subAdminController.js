@@ -416,19 +416,62 @@ async function listVendors(req, res) {
   const ids = await getCompanyUserIds(req.user, req);
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const filter = { isDeleted: false, createdById: { $in: ids } };
+  
+  const { VendorPOC } = require('../models/sequelize/init');
+  const { toSequelizeWhere } = require('../utils/sequelizeWhere');
+
   const [items, total] = await Promise.all([
-    Vendor.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Vendor.rawModel.findAll({
+      where: toSequelizeWhere(filter, Vendor.rawModel),
+      order: [['createdAt', 'DESC']],
+      offset: skip,
+      limit: limit,
+      include: [{ model: VendorPOC, as: 'pocs' }]
+    }),
     Vendor.countDocuments(filter),
   ]);
   const userMap = await getUserMap(items.flatMap((v) => [v.createdById, v.uploadedById]));
   return res.json(drfResponse(items.map((v) => vendorToJSON(v, userMap)), total, page, pageSize));
 }
 
+async function searchVendors(req, res) {
+  const { q } = req.query;
+  const ids = await getCompanyUserIds(req.user, req);
+  const filter = { isDeleted: false, createdById: { $in: ids } };
+  if (q) {
+    filter.companyName = { $iLike: `%${q}%` };
+  }
+  const items = await Vendor.find(filter).limit(10);
+  return res.json(items.map((v) => ({ 
+    id: v.id, 
+    companyName: v.companyName, 
+    email: v.vendorOfficialEmail || v.email, 
+    companyWebsite: v.companyWebsite, 
+    companyPanOrRegNo: v.companyPanOrRegNo,
+    sendingEmailId: v.sendingEmailId,
+    companyEmployeeCount: v.companyEmployeeCount,
+    top3Clients: v.top3Clients,
+    noOfBenchDevelopers: v.noOfBenchDevelopers,
+    specializedTechDevelopers: v.specializedTechDevelopers
+  })));
+}
+
 async function assignVendor(req, res) {
-  const { vendor_id, employee_ids } = req.body;
+  const { vendor_id, poc_id, employee_ids } = req.body;
+  if (poc_id) {
+    const { VendorPOC } = require('../models/sequelize/init');
+    const poc = await VendorPOC.findOne({ where: { id: poc_id } });
+    if (!poc) return res.status(404).json({ detail: 'POC not found' });
+    poc.assignedEmployeeIds = [...new Set([...(poc.assignedEmployeeIds || []), ...employee_ids])];
+    poc.changed('assignedEmployeeIds', true);
+    await poc.save();
+    return res.json({ message: 'Assigned to POC' });
+  }
+
   const vendor = await Vendor.findOne({ id: vendor_id });
   if (!vendor) return res.status(404).json({ detail: 'Not found' });
   vendor.assignedEmployeeIds = [...new Set([...(vendor.assignedEmployeeIds || []), ...employee_ids])];
+  vendor.changed('assignedEmployeeIds', true);
   await vendor.save();
   return res.json({ message: 'Assigned' });
 }
@@ -744,6 +787,7 @@ module.exports = {
   clientRestore,
   clientHardDelete,
   listVendors,
+  searchVendors,
   assignVendor,
   vendorSoftDelete,
   vendorRestore,

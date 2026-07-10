@@ -17,6 +17,7 @@ const router = express.Router();
 router.use(authenticate);
 
 // Vendors
+router.get("/api/vendors/search/", vendors.search);
 router.post("/api/vendors/check-duplicate/", vendors.checkDuplicate);
 router.post("/api/vendors/create/", uploadVendor.any(), vendors.create);
 router.put(

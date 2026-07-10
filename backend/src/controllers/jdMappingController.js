@@ -658,6 +658,16 @@ async function companyJds(req, res) {
   const clientMap = new Map(clients.map((c) => [c.id, c]));
 
   const requirementIds = items.map((i) => i.id);
+  
+  const assignments = requirementIds.length
+    ? await RequirementAssignment.find({ requirementId: { $in: requirementIds } })
+    : [];
+  const assignedUserIds = assignments.map(a => a.assignedToId).filter(Boolean);
+  const createdUserIds = items.map(i => i.createdById).filter(Boolean);
+  const userIdsToFetch = [...new Set([...assignedUserIds, ...createdUserIds])];
+  const users = userIdsToFetch.length ? await User.find({ id: { $in: userIdsToFetch } }) : [];
+  const userMap = new Map(users.map(u => [u.id, u]));
+
   const submissions = requirementIds.length
     ? await CandidateJDSubmission.find({ requirementId: { $in: requirementIds }, companyId })
     : [];
@@ -685,10 +695,20 @@ async function companyJds(req, res) {
     }
   });
 
-  const results = items.map((r) => ({
-    ...requirementJSON(r, clientMap.get(r.clientId)),
-    total_submissions: submissionCounts.get(r.id) || 0,
-  }));
+  const results = items.map((r) => {
+    const creator = userMap.get(r.createdById);
+    const reqAssignments = assignments.filter(a => String(a.requirementId) === String(r.id));
+
+    return {
+      ...requirementJSON(r, clientMap.get(r.clientId)),
+      created_by_details: creator ? { id: creator.id, name: `${creator.firstName || ''} ${creator.lastName || ''}`.trim() || creator.name } : null,
+      assigned_to_details: reqAssignments.map(a => {
+        const u = userMap.get(a.assignedToId);
+        return u ? { assignment_id: a.id, id: u.id, name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.name } : null;
+      }).filter(Boolean),
+      total_submissions: submissionCounts.get(r.id) || 0,
+    };
+  });
 
   return res.json({
     success: true,

@@ -34,6 +34,7 @@ router.post('/api/clients/:client_id/restore/', ctrl.clientRestore);
 router.delete('/api/clients/:client_id/hard-delete/', ctrl.clientHardDelete);
 
 router.get('/api/admin-vendors/', ctrl.listVendors);
+router.get('/api/admin-vendors/search/', ctrl.searchVendors);
 router.post('/api/vendors/assign/', ctrl.assignVendor);
 router.delete('/api/vendors/:vendor_id/soft-delete/', ctrl.vendorSoftDelete);
 router.post('/api/vendors/:vendor_id/restore/', ctrl.vendorRestore);

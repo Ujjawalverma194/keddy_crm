@@ -315,6 +315,25 @@ function MyRequirements() {
       notify("Assignment Failed", "error");
     }
   };
+
+  const handleUnassign = async (assignmentId) => {
+    const confirmed = window.confirm("Are you sure you want to unassign this employee?");
+    if (!confirmed) return;
+
+    try {
+      await apiRequest(
+        `/jd-mapping/api/assignments/${assignmentId}/delete/`,
+        "DELETE",
+        null,
+        getAuthHeaders()
+      );
+      notify("Unassigned Successfully!");
+      fetchMyRequirements(typeParam, searchQuery, statusFilter);
+    } catch (error) {
+      console.error("Unassign Failed:", error);
+      notify("Unassign Failed", "error");
+    }
+  };
     // eslint-disable-next-line no-unused-vars
 
     // eslint-disable-next-line no-unused-vars
@@ -366,6 +385,9 @@ function MyRequirements() {
   const paginatedRequirements = isAllRequirements
     ? visibleRequirements.slice(startIndex, endIndex)
     : visibleRequirements;
+
+  const currentReq = requirements.find(r => r.id === selectedRequirementId);
+  const assignedUserIds = currentReq?.assigned_to_details?.map(u => u.id) || [];
 
   return (
     <BaseLayout>
@@ -517,16 +539,18 @@ function MyRequirements() {
             <thead>
               <tr style={styles.tableHeader}>
                 {isAllRequirements && (
-                  <th style={{ ...styles.th, width: "55px" }}>Sel</th>
+                  <th style={{ ...styles.th, width: "40px" }}>Sel</th>
                 )}
-                <th style={{ ...styles.th, width: "130px" }}>ID & Date</th>
-                <th style={{ ...styles.th, width: "220px" }}>Title & Client</th>
-                <th style={{ ...styles.th, width: "140px" }}>Exp / Rate</th>
-                <th style={{ ...styles.th, width: "100px" }}>Status</th>
-                <th style={{ ...styles.th, width: "240px" }}>JD Description</th>
-                <th style={{ ...styles.th, width: "140px" }}>Stats / Team</th>
+                <th style={{ ...styles.th, width: "110px" }}>ID & Date</th>
+                <th style={{ ...styles.th, width: "180px" }}>Title & Client</th>
+                <th style={{ ...styles.th, width: "110px" }}>Exp / Rate</th>
+                <th style={{ ...styles.th, width: "90px" }}>Status</th>
+                <th style={{ ...styles.th, width: "180px" }}>JD Description</th>
+                <th style={{ ...styles.th, width: "90px" }}>Created By</th>
+                <th style={{ ...styles.th, width: "120px" }}>Assigned To</th>
+                <th style={{ ...styles.th, width: "110px" }}>Stats / Team</th>
                 <th
-                  style={{ ...styles.th, textAlign: "center", width: "160px" }}
+                  style={{ ...styles.th, textAlign: "center", width: "110px" }}
                 >
                   Actions
                 </th>
@@ -536,7 +560,7 @@ function MyRequirements() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={isAllRequirements ? 8 : 7}
+                    colSpan={isAllRequirements ? 10 : 9}
                     style={styles.loadingTd}
                   >
                     Loading requirements...
@@ -620,6 +644,32 @@ function MyRequirements() {
                       </div>
                     </td>
                     <td style={styles.td}>
+                      <div style={{...styles.primaryText, whiteSpace: 'normal', fontSize: '13px', color: '#4B5563'}}>
+                        {req.created_by_details?.name || "—"}
+                      </div>
+                    </td>
+                    <td style={styles.td}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {req.assigned_to_details && req.assigned_to_details.length > 0 ? (
+                          req.assigned_to_details.map(user => (
+                            <span key={user.id} style={{
+                              background: '#F3F4F6',
+                              color: '#374151',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '500',
+                              border: '1px solid #E5E7EB'
+                            }}>
+                              {user.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span style={{ color: '#9CA3AF', fontSize: '12px' }}>—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={styles.td}>
                       <div style={styles.statLine}>
                         Submissions: <strong>{req.total_submissions}</strong>
                       </div>
@@ -687,7 +737,7 @@ function MyRequirements() {
               ) : (
                 <tr>
                   <td
-                    colSpan={isAllRequirements ? 8 : 7}
+                    colSpan={isAllRequirements ? 10 : 9}
                     style={styles.loadingTd}
                   >
                     No requirements found.
@@ -772,6 +822,29 @@ function MyRequirements() {
               </button>
             </div>
             <div style={styles.modalScrollBody}>
+              {currentReq?.assigned_to_details?.length > 0 && (
+                <div style={{ marginBottom: "15px" }}>
+                  <h4 style={{ fontSize: "14px", color: "#374151", marginBottom: "8px", marginTop: 0 }}>Already Assigned Employees</h4>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {currentReq.assigned_to_details.map(user => (
+                      <div key={user.assignment_id || user.id} style={{ display: "flex", alignItems: "center", background: "#F3F4F6", padding: "4px 8px", borderRadius: "4px", fontSize: "12px", border: "1px solid #E5E7EB" }}>
+                        <span style={{ marginRight: "8px", color: "#374151", fontWeight: "500" }}>{user.name}</span>
+                        {user.assignment_id && (
+                          <button
+                            type="button"
+                            onClick={() => handleUnassign(user.assignment_id)}
+                            style={{ background: "#EF4444", color: "white", border: "none", borderRadius: "3px", padding: "2px 6px", cursor: "pointer", fontSize: "10px", fontWeight: "bold" }}
+                          >
+                            Unassign
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <h4 style={{ fontSize: "14px", color: "#374151", marginBottom: "8px", marginTop: "10px" }}>Available Employees</h4>
               <input
                 placeholder="Search employee..."
                 style={styles.modalSearchInput}
@@ -780,6 +853,7 @@ function MyRequirements() {
               />
               <div style={styles.empList}>
                 {employees
+                  .filter((emp) => !assignedUserIds.includes(emp.id))
                   .filter((emp) =>
                     `${emp.first_name || ""} ${emp.last_name || ""} ${emp.name || ""}`
                       .toLowerCase()

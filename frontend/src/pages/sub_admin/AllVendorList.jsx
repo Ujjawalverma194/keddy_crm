@@ -8,6 +8,8 @@ function VendorList() {
     const navigate = useNavigate();
     const [vendors, setVendors] = useState([]);
     const [employees, setEmployees] = useState([]);
+    const [selectedPocs, setSelectedPocs] = useState([]);
+    const [selectedEmployees, setSelectedEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -20,7 +22,6 @@ function VendorList() {
     const [selectedVendors, setSelectedVendors] = useState([]);
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState({ show: false, vendorId: null });
-    const [selectedEmployees, setSelectedEmployees] = useState([]);
     const [empSearch, setEmpSearch] = useState("");
     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
     const [verifyingId, setVerifyingId] = useState(null);
@@ -294,14 +295,14 @@ function VendorList() {
     };
 
     const handleAssignSubmit = async () => {
-        if (selectedVendors.length === 0 || selectedEmployees.length === 0) {
-            return notify("Select vendors and employees first", "error");
+        if (selectedPocs.length === 0 || selectedEmployees.length === 0) {
+            return notify("Select POCs and employees first", "error");
         }
 
         try {
-            const promises = selectedVendors.map(vendorId =>
+            const promises = selectedPocs.map(pocId =>
                 apiRequest("/sub-admin/api/vendors/assign/", "POST", {
-                    vendor_id: vendorId,
+                    poc_id: pocId,
                     employee_ids: selectedEmployees
                 }, getAuthHeaders())
             );
@@ -309,7 +310,7 @@ function VendorList() {
             await Promise.all(promises);
             notify(`Successfully assigned to ${selectedEmployees.length} employees`);
             setShowAssignModal(false);
-            setSelectedVendors([]);
+            setSelectedPocs([]);
             setSelectedEmployees([]);
             fetchVendors(currentPage, searchQuery);
         } catch (error) {
@@ -333,8 +334,8 @@ function VendorList() {
         }
     };
 
-    const toggleVendorSelection = (id) => {
-        setSelectedVendors(prev =>
+    const togglePocSelection = (id) => {
+        setSelectedPocs(prev =>
             prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]
         );
     };
@@ -369,9 +370,9 @@ function VendorList() {
                 </div>
 
                 <div style={{ display: "flex", gap: "10px" }}>
-                    {selectedVendors.length > 0 && (
+                    {selectedPocs.length > 0 && (
                         <button style={styles.assignBtn} onClick={() => setShowAssignModal(true)}>
-                            Assign Selected ({selectedVendors.length})
+                            Assign Selected ({selectedPocs.length})
                         </button>
                     )}
                     <button onClick={() => navigate("/sub-admin/add-vendor")} style={styles.addBtn}>
@@ -390,18 +391,19 @@ function VendorList() {
                                 <th style={styles.th}>
                                     <input
                                         type="checkbox"
-                                        onChange={() =>
-                                            setSelectedVendors(
-                                                selectedVendors.length === filteredVendors.length
-                                                    ? []
-                                                    : filteredVendors.map(v => v.id)
-                                            )
-                                        }
-                                        checked={selectedVendors.length === filteredVendors.length && filteredVendors.length > 0}
+                                        checked={selectedPocs.length === filteredVendors.reduce((acc, v) => acc + (v.pocs?.length || 0), 0) && filteredVendors.length > 0}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                const allPocIds = filteredVendors.flatMap(v => v.pocs?.map(p => p.id) || []);
+                                                setSelectedPocs(allPocIds);
+                                            } else {
+                                                setSelectedPocs([]);
+                                            }
+                                        }}
                                     />
                                 </th>
-                                <th style={styles.th}>Vendor & Company</th>
-                                <th style={styles.th}>Contact Info</th>
+                                <th style={styles.th}>Vendor Company</th>
+                                <th style={styles.th}>Points of Contact</th>
                                 <th style={styles.th}>Profiles</th>
                                 <th style={styles.th}>Created By</th>
                                 <th style={styles.th}>Onsite</th>
@@ -428,25 +430,29 @@ function VendorList() {
                                     key={vendor.id}
                                     style={{
                                         ...styles.tableRow,
-                                        background: selectedVendors.includes(vendor.id) ? "#F1F5F9" : "transparent"
+                                        background: "transparent"
                                     }}
                                 >
                                     <td style={styles.td}>
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedVendors.includes(vendor.id)}
-                                            onChange={() => toggleVendorSelection(vendor.id)}
-                                        />
+                                        <div style={styles.primaryText}>{vendor.company_name}</div>
+                                        <div style={styles.secondaryText}>{vendor.company_website || "No Website"}</div>
                                     </td>
 
                                     <td style={styles.td}>
-                                        <div style={styles.primaryText}>{vendor.name || vendor.vendor_name}</div>
-                                        <div style={styles.secondaryText}>{vendor.company_name}</div>
-                                    </td>
-
-                                    <td style={styles.td}>
-                                        <div style={styles.primaryText}>{vendor.number}</div>
-                                        <div style={styles.secondaryText}>{vendor.email || "No Email"}</div>
+                                        {(vendor.pocs || []).map(poc => (
+                                            <div key={poc.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', padding: '4px', background: selectedPocs.includes(poc.id) ? '#F1F5F9' : 'transparent', borderRadius: '4px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedPocs.includes(poc.id)}
+                                                    onChange={() => togglePocSelection(poc.id)}
+                                                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                                                />
+                                                <div>
+                                                    <div style={{ fontWeight: '600', fontSize: '13px' }}>{poc.name} {poc.isPrimary && <span style={{ fontSize: '10px', color: '#FF6B2C', marginLeft: '4px' }}>(Primary)</span>}</div>
+                                                    <div style={{ fontSize: '12px', color: '#6B7280' }}>{poc.number} | {poc.email || "No Email"}</div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </td>
 
                                     <td style={styles.td}>

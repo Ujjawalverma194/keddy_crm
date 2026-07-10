@@ -34,20 +34,84 @@ function parseBody(req) {
   };
 }
 
+async function search(req, res) {
+  const { q } = req.query;
+  const ids = await getCompanyUserIds(req.user, req);
+  const filter = { isDeleted: false, createdById: { $in: ids } };
+  if (q) {
+    filter.companyName = { $iLike: `%${q}%` };
+  }
+  const items = await Vendor.find(filter).limit(10);
+  return res.json(items.map((v) => ({ 
+    id: v.id, 
+    companyName: v.companyName, 
+    email: v.vendorOfficialEmail || v.email, 
+    companyWebsite: v.companyWebsite, 
+    companyPanOrRegNo: v.companyPanOrRegNo,
+    sendingEmailId: v.sendingEmailId,
+    companyEmployeeCount: v.companyEmployeeCount,
+    top3Clients: v.top3Clients,
+    noOfBenchDevelopers: v.noOfBenchDevelopers,
+    specializedTechDevelopers: v.specializedTechDevelopers
+  })));
+}
+
 async function create(req, res) {
   const data = parseBody(req);
+  const companyId = req.body.company_id;
   if (!data.name || !data.companyName || !data.number) {
     return res.status(400).json({ name: ['Vendor name is required.'] });
   }
   const files = req.files || {};
-  const doc = await Vendor.create({
-    ...data,
-    uploadedById: req.user.id,
-    createdById: req.user.id,
-    benchList: files.bench_list?.[0] ? relPath(files.bench_list[0].path) : undefined,
-    ndaDocument: files.nda_document?.[0] ? relPath(files.nda_document[0].path) : undefined,
-    msaDocument: files.msa_document?.[0] ? relPath(files.msa_document[0].path) : undefined,
-  });
+  
+  const { VendorPOC } = require('../../models/sequelize/init');
+  let doc;
+
+  if (companyId) {
+    doc = await Vendor.findOne({ id: companyId });
+    if (doc) {
+      await VendorPOC.create({
+        vendorId: doc.id,
+        name: data.name,
+        number: data.number,
+        email: data.email,
+        isPrimary: false,
+        isActive: true
+      });
+      
+      const updates = {};
+      if (data.companyWebsite) updates.companyWebsite = data.companyWebsite;
+      if (data.companyPanOrRegNo) updates.companyPanOrRegNo = data.companyPanOrRegNo;
+      if (data.top3Clients) updates.top3Clients = data.top3Clients;
+      if (data.noOfBenchDevelopers) updates.noOfBenchDevelopers = data.noOfBenchDevelopers;
+      if (data.specializedTechDevelopers) updates.specializedTechDevelopers = data.specializedTechDevelopers;
+      
+      if (Object.keys(updates).length > 0) {
+        await Vendor.updateOne({ id: doc.id }, updates);
+      }
+    }
+  }
+
+  if (!doc) {
+    doc = await Vendor.create({
+      ...data,
+      uploadedById: req.user.id,
+      createdById: req.user.id,
+      benchList: files.bench_list?.[0] ? relPath(files.bench_list[0].path) : undefined,
+      ndaDocument: files.nda_document?.[0] ? relPath(files.nda_document[0].path) : undefined,
+      msaDocument: files.msa_document?.[0] ? relPath(files.msa_document[0].path) : undefined,
+    });
+    
+    await VendorPOC.create({
+      vendorId: doc.id,
+      name: data.name,
+      number: data.number,
+      email: data.email,
+      isPrimary: true,
+      isActive: true
+    });
+  }
+
   const json = await vendorToJSON(doc);
   return res.status(201).json({
     message: 'Vendor created successfully',
@@ -116,12 +180,27 @@ async function listUserVendors(req, res) {
     targetIds = targetIds.concat(teamMembers.map(u => u.id));
   }
 
+  const { VendorPOC } = require('../../models/sequelize/init');
+  const { Op } = require('sequelize');
+  
+  const pocs = await VendorPOC.findAll({
+    where: {
+      [Op.or]: targetIds.map(id => ({
+        assignedEmployeeIds: { [Op.contains]: [id] }
+      }))
+    },
+    attributes: ['vendorId']
+  });
+  const assignedVendorIds = [...new Set(pocs.map(p => p.vendorId))];
+
+  const $or = [{ createdById: { $in: targetIds } }];
+  if (assignedVendorIds.length > 0) {
+    $or.push({ id: { $in: assignedVendorIds } });
+  }
+
   const filter = {
     isDeleted: false,
-    $or: [
-      { createdById: { $in: targetIds } },
-      ...targetIds.map(id => ({ assignedEmployeeIds: id }))
-    ],
+    $or,
   };
   if (search) {
     filter.$and = [
@@ -133,12 +212,31 @@ async function listUserVendors(req, res) {
       },
     ];
   }
+  const { toSequelizeWhere } = require('../../utils/sequelizeWhere');
+
   const [items, total] = await Promise.all([
-    Vendor.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Vendor.rawModel.findAll({
+      where: toSequelizeWhere(filter, Vendor.rawModel),
+      order: [['createdAt', 'DESC']],
+      offset: skip,
+      limit: limit,
+      include: [{ model: VendorPOC, as: 'pocs' }]
+    }),
     Vendor.countDocuments(filter),
   ]);
-  const userMap = await getUserMap(items.flatMap((v) => [v.uploadedById, v.createdById]));
-  return res.json(drfResponse(items.map((v) => vendorToJSON(v, userMap)), total, page, pageSize));
+  const filteredItems = items.map(vendor => {
+    if (!targetIds.includes(vendor.createdById) && vendor.pocs) {
+      const allowedPocs = vendor.pocs.filter(poc => {
+        if (!poc.assignedEmployeeIds) return false;
+        return targetIds.some(id => poc.assignedEmployeeIds.includes(id));
+      });
+      vendor.setDataValue('pocs', allowedPocs);
+    }
+    return vendor;
+  });
+
+  const userMap = await getUserMap(filteredItems.flatMap((v) => [v.uploadedById, v.createdById]));
+  return res.json(drfResponse(filteredItems.map((v) => vendorToJSON(v, userMap)), total, page, pageSize));
 }
 
 async function listCompanyPool(req, res) {
@@ -152,8 +250,17 @@ async function listCompanyPool(req, res) {
       { companyName: new RegExp(search, 'i') },
     ];
   }
+  const { VendorPOC } = require('../../models/sequelize/init');
+  const { toSequelizeWhere } = require('../../utils/sequelizeWhere');
+
   const [items, total] = await Promise.all([
-    Vendor.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Vendor.rawModel.findAll({
+      where: toSequelizeWhere(filter, Vendor.rawModel),
+      order: [['createdAt', 'DESC']],
+      offset: skip,
+      limit: limit,
+      include: [{ model: VendorPOC, as: 'pocs' }]
+    }),
     Vendor.countDocuments(filter),
   ]);
   const userMap = await getUserMap(items.flatMap((v) => [v.uploadedById, v.createdById]));
@@ -206,4 +313,4 @@ async function checkDuplicate(req, res) {
   }
 }
 
-module.exports = { create, update, detail, softDelete, toggleVerify, listUserVendors, listCompanyPool, checkDuplicate };
+module.exports = { create, update, detail, softDelete, toggleVerify, listUserVendors, listCompanyPool, checkDuplicate, search };

@@ -91,7 +91,7 @@ function VendorList() {
                         <thead>
                             <tr style={styles.tableHeader}>
                                 <th style={{ ...styles.th, width: "50px" }}>S.No</th>
-                                <th style={{ ...styles.th, width: "180px" }}>Vendor Details</th>
+                                <th style={{ ...styles.th, width: "180px" }}>Points of Contact</th>
                                 <th style={{ ...styles.th, width: "150px" }}>Company</th>
                                 <th style={{ ...styles.th, width: "140px" }}>Tech Stack</th>
                                 <th style={{ ...styles.th, width: "80px" }}>Profiles</th>
@@ -112,8 +112,12 @@ function VendorList() {
                                             {(currentPage - 1) * PAGE_SIZE + index + 1}
                                         </td>
                                         <td style={styles.td}>
-                                            <div style={styles.vendorName}>{vendor.name}</div>
-                                            <div style={styles.subText}>{vendor.email || vendor.number}</div>
+                                            {(vendor.pocs || []).map(poc => (
+                                                <div key={poc.id} style={{ marginBottom: '6px' }}>
+                                                    <div style={styles.vendorName}>{poc.name} {poc.isPrimary && <span style={{ fontSize: '10px', color: '#FF6B2C' }}>(Primary)</span>}</div>
+                                                    <div style={styles.subText}>{poc.number} | {poc.email || "No Email"}</div>
+                                                </div>
+                                            ))}
                                         </td>
                                         <td style={styles.td}>{vendor.company_name}</td>
                                         <td style={styles.td}>
