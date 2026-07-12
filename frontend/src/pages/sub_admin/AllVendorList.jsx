@@ -388,22 +388,23 @@ function VendorList() {
                     <table style={styles.table}>
                         <thead>
                             <tr style={styles.tableHeader}>
-                                <th style={styles.th}>
+                                <th style={styles.th}>Vendor Company</th>
+                                <th style={{ ...styles.th, display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <input
                                         type="checkbox"
-                                        checked={selectedPocs.length === filteredVendors.reduce((acc, v) => acc + (v.pocs?.length || 0), 0) && filteredVendors.length > 0}
+                                        checked={vendors.length > 0 && selectedPocs.length === vendors.flatMap(v => v.pocs || []).length}
                                         onChange={(e) => {
                                             if (e.target.checked) {
-                                                const allPocIds = filteredVendors.flatMap(v => v.pocs?.map(p => p.id) || []);
-                                                setSelectedPocs(allPocIds);
+                                                const allIds = vendors.flatMap(v => v.pocs || []).map(p => p.id);
+                                                setSelectedPocs(allIds);
                                             } else {
                                                 setSelectedPocs([]);
                                             }
                                         }}
+                                        style={{ cursor: 'pointer' }}
                                     />
+                                    Points of Contact
                                 </th>
-                                <th style={styles.th}>Vendor Company</th>
-                                <th style={styles.th}>Points of Contact</th>
                                 <th style={styles.th}>Profiles</th>
                                 <th style={styles.th}>Created By</th>
                                 <th style={styles.th}>Onsite</th>

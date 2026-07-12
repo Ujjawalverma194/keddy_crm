@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from "react";
+const fs = require('fs');
+
+const fileContent = `import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
-import BaseLayout from "../components/subAdminBase";
+import BaseLayout from "../components/emp_base";
 
 const Icons = {
   Back: () => (
@@ -92,7 +94,7 @@ function AddVendor() {
     const searchCompany = async () => {
       if (form.company_name && !selectedCompanyId) {
         try {
-          const res = await apiRequest(`/sub-admin/api/admin-vendors/search/?q=${encodeURIComponent(form.company_name)}`);
+          const res = await apiRequest(\`/employee-portal/api/vendors/search/?q=\${encodeURIComponent(form.company_name)}\`);
           if (res && res.length > 0) {
             setCompanySuggestions(res);
             setShowCompanySuggestions(true);
@@ -232,7 +234,7 @@ function AddVendor() {
     if (files.msa_document) formData.append("msa_document", files.msa_document);
 
     try {
-      await apiRequest("/sub-admin/api/admin-vendors/create/", "POST", formData);
+      await apiRequest("/employee-portal/api/vendors/create/", "POST", formData);
       notify("Vendor created successfully!");
       setForm(EMPTY_FORM);
       setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
@@ -266,7 +268,7 @@ function AddVendor() {
                   <li key={poc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '8px' }}>
                     <div>
                       <div style={{ fontWeight: '600', color: '#111827' }}>{poc.name}</div>
-                      <div style={{ fontSize: '13px', color: '#6B7280' }}>{poc.number} {poc.email ? `• ${poc.email}` : ''}</div>
+                      <div style={{ fontSize: '13px', color: '#6B7280' }}>{poc.number} {poc.email ? \`• \${poc.email}\` : ''}</div>
                     </div>
                     <button type="button" onClick={() => assignPoc(poc)} style={{ background: '#FFF0EA', color: '#FF6B2C', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>Assign This POC</button>
                   </li>
@@ -298,7 +300,7 @@ function AddVendor() {
           <div style={styles.progressBox}>
             <div style={styles.progressText}>{completedCount} / 3 required done</div>
             <div style={styles.progressTrack}>
-              <div style={{ ...styles.progressFill, width: `${(completedCount / 3) * 100}%` }} />
+              <div style={{ ...styles.progressFill, width: \`\${(completedCount / 3) * 100}%\` }} />
             </div>
           </div>
         </div>
@@ -542,3 +544,11 @@ const styles = {
 };
 
 export default AddVendor;
+\`;
+
+fs.writeFileSync('src/pages/emplyee_portal/AddVendor.jsx', fileContent);
+// Also apply exactly the same to subadmin (wait, subadmin has different API paths)
+// employee-portal/api/vendors -> sub-admin/api/admin-vendors
+
+let subadminContent = fileContent.replace(/\\/employee-portal\\/api\\/vendors/g, '/sub-admin/api/admin-vendors');
+fs.writeFileSync('src/pages/sub_admin/subadminAddVendor.jsx', subadminContent);

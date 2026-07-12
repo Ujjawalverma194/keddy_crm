@@ -369,8 +369,18 @@ async function listClients(req, res) {
   const ids = await getCompanyUserIds(req.user, req);
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const filter = { isDeleted: false, createdById: { $in: ids } };
+
+  const { ClientPOC } = require('../models/sequelize/init');
+  const { toSequelizeWhere } = require('../utils/sequelizeWhere');
+
   const [items, total] = await Promise.all([
-    Client.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Client.rawModel.findAll({
+      where: toSequelizeWhere(filter, Client.rawModel),
+      order: [['createdAt', 'DESC']],
+      offset: skip,
+      limit: limit,
+      include: [{ model: ClientPOC, as: 'pocs' }]
+    }),
     Client.countDocuments(filter),
   ]);
   const userMap = await getUserMap(items.map((c) => c.createdById));
@@ -434,6 +444,31 @@ async function listVendors(req, res) {
   return res.json(drfResponse(items.map((v) => vendorToJSON(v, userMap)), total, page, pageSize));
 }
 
+async function searchClients(req, res) {
+  const { q } = req.query;
+  const ids = await getCompanyUserIds(req.user, req);
+  const filter = { isDeleted: false, createdById: { $in: ids } };
+  
+  const { ClientPOC } = require('../models/sequelize/init');
+  const { Op } = require('sequelize');
+
+  if (q) {
+    filter.companyName = { [Op.iLike]: `%${q}%` };
+  }
+  
+  const { toSequelizeWhere } = require('../utils/sequelizeWhere');
+  const Client = require('../models/Client');
+  
+  const items = await Client.rawModel.findAll({
+    where: toSequelizeWhere(filter, Client.rawModel),
+    limit: 10,
+    include: [{ model: ClientPOC, as: 'pocs' }]
+  });
+  
+  const { clientToJSON } = require('../utils/formatters');
+  return res.json(items.map((c) => clientToJSON(c, new Map())));
+}
+
 async function searchVendors(req, res) {
   const { q } = req.query;
   const ids = await getCompanyUserIds(req.user, req);
@@ -441,7 +476,13 @@ async function searchVendors(req, res) {
   if (q) {
     filter.companyName = { $iLike: `%${q}%` };
   }
-  const items = await Vendor.find(filter).limit(10);
+  const { VendorPOC } = require('../models/sequelize/init');
+  const { toSequelizeWhere } = require('../utils/sequelizeWhere');
+  const items = await Vendor.rawModel.findAll({
+    where: toSequelizeWhere(filter, Vendor.rawModel),
+    limit: 10,
+    include: [{ model: VendorPOC, as: 'pocs', where: { isActive: true }, required: false }]
+  });
   return res.json(items.map((v) => ({ 
     id: v.id, 
     companyName: v.companyName, 
@@ -452,7 +493,8 @@ async function searchVendors(req, res) {
     companyEmployeeCount: v.companyEmployeeCount,
     top3Clients: v.top3Clients,
     noOfBenchDevelopers: v.noOfBenchDevelopers,
-    specializedTechDevelopers: v.specializedTechDevelopers
+    specializedTechDevelopers: v.specializedTechDevelopers,
+    pocs: v.pocs || []
   })));
 }
 
@@ -781,6 +823,7 @@ module.exports = {
   hardDeleteUser,
   restoreUser,
   listClients,
+  searchClients,
   assignClient,
   revokeClient,
   clientSoftDelete,

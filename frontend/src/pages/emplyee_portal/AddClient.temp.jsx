@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
-import BaseLayout from "../components/subAdminBase";
+import BaseLayout from "../components/emp_base";
 
 const Icons = {
   Back: () => (
@@ -10,7 +10,7 @@ const Icons = {
       <path d="M12 19l-7-7 7-7" />
     </svg>
   ),
-  Vendor: () => (
+  Client: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B2C" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
@@ -34,14 +34,6 @@ const Icons = {
       <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.8 1.8 0 0 0 15 19.4a1.8 1.8 0 0 0-1 .6l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.8 1.8 0 0 0 11.6 15a1.8 1.8 0 0 0-.6-1l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.8 1.8 0 0 0 15 11.6a1.8 1.8 0 0 0 1-.6l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.8 1.8 0 0 0 19.4 15z" />
     </svg>
   ),
-  UserPlus: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B2C" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="8.5" cy="7" r="4" />
-      <line x1="20" y1="8" x2="20" y2="14" />
-      <line x1="23" y1="11" x2="17" y2="11" />
-    </svg>
-  )
 };
 
 const EMPTY_FORM = {
@@ -53,7 +45,7 @@ const EMPTY_FORM = {
   provide_onsite: false,
   onsite_location: "",
   specialized_tech_developers: "",
-  vendor_official_email: "",
+  client_official_email: "",
   sending_email_id: "",
   provide_bench: true,
   provide_market: false,
@@ -61,7 +53,7 @@ const EMPTY_FORM = {
   remark: "",
 };
 
-function AddVendor() {
+function AddClient() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ show: false, msg: "", type: "" });
@@ -71,9 +63,7 @@ function AddVendor() {
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   
   const [showPocModal, setShowPocModal] = useState(false);
-  const [modalCompany, setModalCompany] = useState(null);
-
-  const [pocs, setPocs] = useState([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
+  const [availablePocs, setAvailablePocs] = useState([]);
 
   const [files, setFiles] = useState({
     bench_list: null,
@@ -82,6 +72,7 @@ function AddVendor() {
   });
 
   const [form, setForm] = useState(EMPTY_FORM);
+  const [pocs, setPocs] = useState([{ name: "", number: "", email: "", isPrimary: false }]);
 
   const notify = (msg, type = "success") => {
     setToast({ show: true, msg, type });
@@ -92,7 +83,7 @@ function AddVendor() {
     const searchCompany = async () => {
       if (form.company_name && !selectedCompanyId) {
         try {
-          const res = await apiRequest(`/sub-admin/api/admin-vendors/search/?q=${encodeURIComponent(form.company_name)}`);
+          const res = await apiRequest(`/employee-portal/api/clients/search/?q=${encodeURIComponent(form.company_name)}`);
           if (res && res.length > 0) {
             setCompanySuggestions(res);
             setShowCompanySuggestions(true);
@@ -101,7 +92,7 @@ function AddVendor() {
             setShowCompanySuggestions(false);
           }
         } catch (error) {
-          console.error("Failed to search vendors", error);
+          console.error("Failed to search clients", error);
         }
       } else {
         setCompanySuggestions([]);
@@ -111,7 +102,6 @@ function AddVendor() {
     const timer = setTimeout(() => { searchCompany(); }, 500);
     return () => clearTimeout(timer);
   }, [form.company_name, selectedCompanyId]);
-
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (name === 'company_name') {
@@ -123,77 +113,51 @@ function AddVendor() {
     });
   };
 
-  const handleSelectCompany = (comp) => {
-    setModalCompany(comp);
+  const handleSelectCompany = async (comp) => {
+    setSelectedCompanyId(comp.id);
+    setForm({
+      ...form,
+      company_name: comp.companyName || "",
+      client_official_email: comp.email || "",
+      company_website: comp.companyWebsite || "",
+      company_pan_or_reg_no: comp.companyPanOrRegNo || "",
+      sending_email_id: comp.sendingEmailId || "",
+      company_employee_count: comp.companyEmployeeCount || "",
+      specialized_tech_developers: comp.specializedTechDevelopers || "",
+      top_3_clients: comp.top3Clients || "",
+      no_of_bench_developers: comp.noOfBenchDevelopers || "",
+    });
     setShowCompanySuggestions(false);
-    setShowPocModal(true);
-  };
 
-  const assignPoc = (poc) => {
-    setSelectedCompanyId(modalCompany.id);
-    setForm({
-      ...form,
-      company_name: modalCompany.companyName || "",
-      vendor_official_email: modalCompany.email || "",
-      company_website: modalCompany.companyWebsite || "",
-      company_pan_or_reg_no: modalCompany.companyPanOrRegNo || "",
-      sending_email_id: modalCompany.sendingEmailId || "",
-      company_employee_count: modalCompany.companyEmployeeCount || "",
-      specialized_tech_developers: modalCompany.specializedTechDevelopers || "",
-      top_3_clients: modalCompany.top3Clients || "",
-      no_of_bench_developers: modalCompany.noOfBenchDevelopers || "",
-    });
-    setPocs([{ id: poc.id, name: poc.name || "", number: poc.number || "", email: poc.email || "", isPrimary: poc.isPrimary || false }]);
-    setShowPocModal(false);
-    // Smooth scroll to POCs section
-    setTimeout(() => {
-      const el = document.getElementById("poc-section");
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
-  };
-
-  const addNewPoc = () => {
-    setSelectedCompanyId(modalCompany.id);
-    setForm({
-      ...form,
-      company_name: modalCompany.companyName || "",
-      vendor_official_email: modalCompany.email || "",
-      company_website: modalCompany.companyWebsite || "",
-      company_pan_or_reg_no: modalCompany.companyPanOrRegNo || "",
-      sending_email_id: modalCompany.sendingEmailId || "",
-      company_employee_count: modalCompany.companyEmployeeCount || "",
-      specialized_tech_developers: modalCompany.specializedTechDevelopers || "",
-      top_3_clients: modalCompany.top3Clients || "",
-      no_of_bench_developers: modalCompany.noOfBenchDevelopers || "",
-    });
-    setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
-    setShowPocModal(false);
-    // Smooth scroll to POCs section
-    setTimeout(() => {
-      const el = document.getElementById("poc-section");
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
-  };
-
-  const handlePocChange = (index, e) => {
-    const { name, value, type, checked } = e.target;
-    const newPocs = [...pocs];
-    if (type === 'checkbox' && name === 'isPrimary') {
-      newPocs.forEach(p => p.isPrimary = false); // uncheck all others
-      newPocs[index][name] = checked;
-    } else {
-      newPocs[index][name] = value;
+    try {
+      // Fetch full details including POCs
+      const detailRes = await apiRequest(`/employee-portal/api/clients/${comp.id}/`);
+      if (detailRes && detailRes.pocs && detailRes.pocs.length > 0) {
+        setAvailablePocs(detailRes.pocs);
+        setShowPocModal(true);
+      } else {
+        setPocs([{ name: "", number: "", email: "", isPrimary: false }]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch client detail", err);
+      setPocs([{ name: "", number: "", email: "", isPrimary: false }]);
     }
-    setPocs(newPocs);
   };
 
-  const addAnotherPoc = () => {
-    setPocs([...pocs, { id: null, name: "", number: "", email: "", isPrimary: false }]);
+  const handleAssignPoc = (selectedPoc) => {
+    setPocs([{
+      id: selectedPoc.id,
+      name: selectedPoc.name || "",
+      number: selectedPoc.number || "",
+      email: selectedPoc.email || "",
+      isPrimary: false
+    }]);
+    setShowPocModal(false);
   };
 
-  const removePoc = (index) => {
-    const newPocs = pocs.filter((_, i) => i !== index);
-    setPocs(newPocs);
+  const handleSkipPoc = () => {
+    setPocs([{ name: "", number: "", email: "", isPrimary: false }]);
+    setShowPocModal(false);
   };
 
   const handleFileChange = (e, key) => {
@@ -219,31 +183,46 @@ function AddVendor() {
       }
     });
 
-    const validPocs = pocs.filter(p => p.name && p.number);
-    if (validPocs.length > 0) {
-      formData.append("pocs", JSON.stringify(validPocs));
-    } else if (pocs[0]?.name) {
-      // In case they fill name but not number, maybe it errors later, but let's send it to backend for validation
-      formData.append("pocs", JSON.stringify([{name: pocs[0].name}]));
-    }
-
     if (files.bench_list) formData.append("bench_list", files.bench_list);
     if (files.nda_document) formData.append("nda_document", files.nda_document);
     if (files.msa_document) formData.append("msa_document", files.msa_document);
+    
+    // Append the dynamic POCs array
+    formData.append("pocs", JSON.stringify(pocs));
 
     try {
-      await apiRequest("/sub-admin/api/admin-vendors/create/", "POST", formData);
-      notify("Vendor created successfully!");
+      await apiRequest("/employee-portal/api/clients/create/", "POST", formData);
+      notify("Client created successfully!");
       setForm(EMPTY_FORM);
-      setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
+      setPocs([{ name: "", number: "", email: "", isPrimary: false }]);
       setFiles({ bench_list: null, nda_document: null, msa_document: null });
       e.target.reset();
     } catch (error) {
-      console.error("Vendor create error:", error);
-      notify("Error creating vendor. Please check all fields.", "error");
+      console.error("Client create error:", error);
+      notify("Error creating client. Please check all fields.", "error");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePocChange = (index, field, value) => {
+    const newPocs = [...pocs];
+    newPocs[index][field] = value;
+    setPocs(newPocs);
+  };
+
+  const addPoc = () => {
+    setPocs([...pocs, { name: "", number: "", email: "", isPrimary: false }]);
+  };
+
+  const removePoc = (index) => {
+    const newPocs = [...pocs];
+    newPocs.splice(index, 1);
+    // Ensure at least one primary if we removed the primary
+    if (newPocs.length > 0 && !newPocs.some((p) => p.isPrimary)) {
+      newPocs[0].isPrimary = true;
+    }
+    setPocs(newPocs);
   };
 
   const completedCount = [pocs[0]?.name, pocs[0]?.number, form.company_name].filter(Boolean).length;
@@ -256,28 +235,32 @@ function AddVendor() {
         </div>
       )}
 
-      {showPocModal && modalCompany && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: '12px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', color: '#111827' }}>Select or Add POC for {modalCompany.companyName}</h3>
-            {modalCompany.pocs && modalCompany.pocs.length > 0 ? (
-              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0', maxHeight: '300px', overflowY: 'auto' }}>
-                {modalCompany.pocs.map(poc => (
-                  <li key={poc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '8px' }}>
-                    <div>
-                      <div style={{ fontWeight: '600', color: '#111827' }}>{poc.name}</div>
-                      <div style={{ fontSize: '13px', color: '#6B7280' }}>{poc.number} {poc.email ? `• ${poc.email}` : ''}</div>
-                    </div>
-                    <button type="button" onClick={() => assignPoc(poc)} style={{ background: '#FFF0EA', color: '#FF6B2C', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>Assign This POC</button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p style={{ fontSize: '14px', color: '#6B7280', marginBottom: '20px' }}>No POCs found for this company.</p>
-            )}
+      {showPocModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <div style={styles.modalHeader}>
+              <h3 style={styles.modalTitle}>Existing Points of Contact</h3>
+              <p style={{ margin: "4px 0 0", color: "#6B7280", fontSize: "14px" }}>
+                This company already has the following POCs. You can assign one directly.
+              </p>
+            </div>
+            <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px' }}>
+              {availablePocs.map(poc => (
+                <div key={poc.id} style={styles.pocCard}>
+                  <div>
+                    <div style={{ fontWeight: '700', color: '#111827' }}>{poc.name}</div>
+                    <div style={{ fontSize: '13px', color: '#6B7280' }}>📞 {poc.number} {poc.email ? `| ✉️ ${poc.email}` : ''}</div>
+                  </div>
+                  <button type="button" onClick={() => handleAssignPoc(poc)} style={styles.assignBtn}>
+                    Assign this POC
+                  </button>
+                </div>
+              ))}
+            </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button type="button" onClick={() => setShowPocModal(false)} style={{ background: '#F3F4F6', color: '#374151', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>Cancel</button>
-              <button type="button" onClick={addNewPoc} style={{ background: '#FF6B2C', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>Add New POC</button>
+              <button type="button" onClick={handleSkipPoc} style={styles.skipBtn}>
+                Skip & Create New POC
+              </button>
             </div>
           </div>
         </div>
@@ -290,8 +273,8 @@ function AddVendor() {
               <Icons.Back />
             </button>
             <div>
-              <h2 style={styles.pageTitle}>Create New Vendor</h2>
-              <p style={styles.pageSubtitle}>Compact ATS-style vendor onboarding with documents and service details.</p>
+              <h2 style={styles.pageTitle}>Create New Client</h2>
+              <p style={styles.pageSubtitle}>Compact ATS-style client onboarding with documents and service details.</p>
             </div>
           </div>
 
@@ -308,17 +291,17 @@ function AddVendor() {
             <div style={styles.formGrid}>
               <div style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
-                  <div style={styles.sectionIcon}><Icons.Vendor /></div>
+                  <div style={styles.sectionIcon}><Icons.Client /></div>
                   <div>
                     <h3 style={styles.sectionTitle}>Required information</h3>
-                    <p style={styles.sectionHint}>Vendor person, contact and company basics.</p>
+                    <p style={styles.sectionHint}>Client person, contact and company basics.</p>
                   </div>
                 </div>
 
                 <div style={styles.innerGrid}>
-                  <Field label="Company Name" required style={styles.col4}>
-                    <div style={{ position: 'relative', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <input style={{ ...styles.input, flex: 1 }} name="company_name" value={form.company_name} onChange={handleChange} required placeholder="ABC Tech" />
+                  <Field label="Company Name" required style={styles.col12} htmlFor="company_name">
+                    <div style={{ position: 'relative' }}>
+                      <input id="company_name" style={styles.input} name="company_name" value={form.company_name} onChange={handleChange} required placeholder="ABC Tech" autoFocus />
                       {showCompanySuggestions && companySuggestions.length > 0 && (
                         <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', listStyle: 'none', padding: 0, margin: '4px 0 0', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
                           {companySuggestions.map(comp => (
@@ -333,75 +316,98 @@ function AddVendor() {
                                 <div style={{ fontWeight: '600', color: '#111827' }}>{comp.companyName}</div>
                                 {comp.email && <div style={{ fontSize: '12px', color: '#6B7280' }}>{comp.email}</div>}
                               </div>
-                              <span style={{ fontSize: '12px', color: '#FF6B2C', fontWeight: 'bold' }}>Get This Vendor &rarr;</span>
+                              <span style={{ fontSize: '12px', color: '#FF6B2C', fontWeight: 'bold' }}>Select &rarr;</span>
                             </li>
                           ))}
                         </ul>
                       )}
                     </div>
                   </Field>
-
-                  <Field label="Vendor Official Email" style={styles.col4}>
-                    <input style={styles.input} type="email" name="vendor_official_email" value={form.vendor_official_email} onChange={handleChange} placeholder="info@company.com" />
-                  </Field>
-                  <Field label="Sending Email ID" style={styles.col4}>
-                    <input style={styles.input} type="email" name="sending_email_id" value={form.sending_email_id} onChange={handleChange} placeholder="hello@company.com" />
-                  </Field>
-
-                  <Field label="Company Website" style={styles.col4}>
-                    <input style={styles.input} name="company_website" value={form.company_website} onChange={handleChange} placeholder="www.company.com" />
-                  </Field>
-                  <Field label="PAN / Reg No." style={styles.col4}>
-                    <input style={styles.input} name="company_pan_or_reg_no" value={form.company_pan_or_reg_no} onChange={handleChange} placeholder="ABCDE1234F" />
-                  </Field>
-                  <Field label="Company Employee Count" style={styles.col4}>
-                    <input style={styles.input} type="number" name="company_employee_count" value={form.company_employee_count} onChange={handleChange} placeholder="e.g. 50" />
-                  </Field>
-                </div>
-              </div>
-
-              <div id="poc-section" style={styles.sectionCard}>
-                <div style={styles.sectionHeader}>
-                  <div style={styles.sectionIcon}><Icons.UserPlus /></div>
-                  <div>
-                    <h3 style={styles.sectionTitle}>Points of Contact</h3>
-                    <p style={styles.sectionHint}>Add one or more contact persons for this company.</p>
-                  </div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  {pocs.map((poc, idx) => (
-                    <div key={idx} style={{ padding: "16px", borderRadius: "12px", border: "1px solid #E8ECF2", position: "relative" }}>
-                      {pocs.length > 1 && (
-                        <button type="button" onClick={() => removePoc(idx)} style={{ position: "absolute", top: "10px", right: "10px", background: "transparent", color: "#EF4444", border: "none", cursor: "pointer", fontWeight: "bold" }}>&times; Remove</button>
-                      )}
-                      <div style={styles.innerGrid}>
-                        <Field label="POC Name" required style={styles.col4}>
-                          <input style={styles.input} name="name" value={poc.name} onChange={(e) => handlePocChange(idx, e)} required placeholder="John Doe" />
-                        </Field>
-                        <Field label="Phone Number" required style={styles.col4}>
-                          <input style={styles.input} name="number" value={poc.number} onChange={(e) => handlePocChange(idx, e)} required placeholder="9876543210" />
-                        </Field>
-                        <Field label="Email Address" style={styles.col4}>
-                          <input style={styles.input} type="email" name="email" value={poc.email} onChange={(e) => handlePocChange(idx, e)} placeholder="john@example.com" />
-                        </Field>
-                        <div style={{ ...styles.col12, display: "flex", alignItems: "center", marginTop: "8px" }}>
-                          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "600", cursor: "pointer", color: "#374151" }}>
-                            <input type="checkbox" name="isPrimary" checked={poc.isPrimary} onChange={(e) => handlePocChange(idx, e)} style={{ accentColor: "#FF6B2C", width: "16px", height: "16px" }} />
-                            Set as Primary POC
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  <button type="button" onClick={addAnotherPoc} style={{ background: "#FFF0EA", color: "#FF6B2C", border: "1px dashed #FF6B2C", padding: "12px", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "bold", textAlign: "center", width: "100%" }}>+ Add Another POC</button>
                 </div>
               </div>
 
               <div style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
-                  <div style={styles.sectionIcon}><Icons.Settings /></div>
+                  <div style={styles.sectionIcon}><Icons.Client /></div>
                   <div>
-                    <h3 style={styles.sectionTitle}>Service details</h3>
+                    <h3 style={styles.sectionTitle}>Points of Contact</h3>
+                    <p style={styles.sectionHint}>Add one or multiple persons representing this client.</p>
+                  </div>
+                </div>
+
+                {pocs.map((poc, idx) => (
+                  <div key={idx} style={{ ...styles.innerGrid, marginBottom: '16px', paddingBottom: '16px', borderBottom: idx < pocs.length - 1 ? '1px dashed #EEF1F5' : 'none' }}>
+                    <div style={{ ...styles.col12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontWeight: '800', color: '#24272D', fontSize: '14px' }}>Contact {idx + 1} {poc.isPrimary && <span style={{ color: '#27AE60', fontSize: '12px', marginLeft: '8px', background: '#eafaf1', padding: '2px 8px', borderRadius: '12px' }}>Primary</span>}</div>
+                      {pocs.length > 1 && (
+                        <button type="button" onClick={() => removePoc(idx)} style={{ background: 'none', border: 'none', color: '#E74C3C', fontSize: '13px', fontWeight: '800', cursor: 'pointer' }}>Remove</button>
+                      )}
+                    </div>
+                    <Field label="Name" required style={styles.col4}>
+                      <input style={styles.input} value={poc.name} onChange={(e) => handlePocChange(idx, 'name', e.target.value)} required placeholder="John Doe" />
+                    </Field>
+                    <Field label="Phone Number" required style={styles.col4}>
+                      <input style={styles.input} value={poc.number} onChange={(e) => handlePocChange(idx, 'number', e.target.value)} required placeholder="9876543220" />
+                    </Field>
+                    <Field label="Email" style={styles.col4}>
+                      <input style={styles.input} type="email" value={poc.email} onChange={(e) => handlePocChange(idx, 'email', e.target.value)} placeholder="john@example.com" />
+                    </Field>
+                    <div style={styles.col12}>
+                      <label style={{ ...styles.toggleChip, ...(poc.isPrimary ? styles.toggleChipActive : {}) }}>
+                        <input type="checkbox" checked={poc.isPrimary} onChange={(e) => {
+                          const newPocs = [...pocs];
+                          if (e.target.checked) {
+                            newPocs.forEach(p => p.isPrimary = false);
+                            newPocs[idx].isPrimary = true;
+                          } else {
+                            newPocs[idx].isPrimary = false;
+                          }
+                          setPocs(newPocs);
+                        }} style={{ display: 'none' }} />
+                        Set as Primary Contact
+                      </label>
+                    </div>
+                  </div>
+                ))}
+                
+                <button type="button" onClick={addPoc} style={{ background: 'transparent', border: '1px dashed #FF6B2C', color: '#FF6B2C', padding: '10px 16px', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', marginTop: '8px' }}>
+                  + Add Another POC
+                </button>
+              </div>
+
+              <div style={styles.sectionCard}>
+                <div style={styles.sectionHeader}>
+                  <div style={styles.sectionIcon}><Icons.Mail /></div>
+                  <div>
+                    <h3 style={styles.sectionTitle}>Contact & online presence</h3>
+                    <p style={styles.sectionHint}>Official mail IDs, website, registration and company size.</p>
+                  </div>
+                </div>
+
+                <div style={styles.innerGrid}>
+                  <Field label="Client Official Email" style={styles.col6}>
+                    <input style={styles.input} type="email" name="client_official_email" value={form.client_official_email} onChange={handleChange} />
+                  </Field>
+                  <Field label="Sending Email ID" style={styles.col6}>
+                    <input style={styles.input} type="email" name="sending_email_id" value={form.sending_email_id} onChange={handleChange} />
+                  </Field>
+                  <Field label="Website URL" style={styles.col4}>
+                    <input style={styles.input} name="company_website" value={form.company_website} onChange={handleChange} />
+                  </Field>
+                  <Field label="PAN / Reg No." style={styles.col4}>
+                    <input style={styles.input} name="company_pan_or_reg_no" value={form.company_pan_or_reg_no} onChange={handleChange} />
+                  </Field>
+                  <Field label="Company Employee Count" style={styles.col4}>
+                    <input style={styles.input} type="number" name="company_employee_count" value={form.company_employee_count} onChange={handleChange} />
+                  </Field>
+                </div>
+              </div>
+
+              <div style={styles.sectionCard}>
+                <div style={styles.sectionHeader}>
+                  <div style={styles.sectionIcon}><Icons.Client /></div>
+                  <div>
+                    <h3 style={styles.sectionTitle}>Service info</h3>
                     <p style={styles.sectionHint}>Tech strengths, clients and bench details.</p>
                   </div>
                 </div>
@@ -423,32 +429,27 @@ function AddVendor() {
                 </div>
 
                 <div style={styles.innerGrid}>
-                  <Field label="Bench List (File)" style={styles.col4}>
-                    <input style={{ ...styles.input, padding: "10px 0" }} type="file" onChange={(e) => handleFileChange(e, 'bench_list')} accept=".pdf,.doc,.docx" />
-                  </Field>
-                  <Field label="NDA Document" style={styles.col4}>
-                    <input style={{ ...styles.input, padding: "10px 0" }} type="file" onChange={(e) => handleFileChange(e, 'nda_document')} accept=".pdf,.doc,.docx" />
-                  </Field>
-                  <Field label="MSA Document" style={styles.col4}>
-                    <input style={{ ...styles.input, padding: "10px 0" }} type="file" onChange={(e) => handleFileChange(e, 'msa_document')} accept=".pdf,.doc,.docx" />
-                  </Field>
-
-                  <Field label="Recruiter Remark" style={styles.col12}>
+                  <Field label="Bench List" style={styles.col4}><input style={styles.input} type="file" onChange={(e) => handleFileChange(e, "bench_list")} /></Field>
+                  <Field label="NDA Document" style={styles.col4}><input style={styles.input} type="file" onChange={(e) => handleFileChange(e, "nda_document")} /></Field>
+                  <Field label="MSA Document" style={styles.col4}><input style={styles.input} type="file" onChange={(e) => handleFileChange(e, "msa_document")} /></Field>
+                  <div style={{ ...styles.inputGroup, ...styles.col12 }}>
+                    <label style={styles.label}>Remark</label>
                     <div style={styles.textareaShell}>
-                      <textarea style={styles.textarea} name="remark" value={form.remark} onChange={handleChange} placeholder="Add context or notes for this vendor..." />
+                      <textarea style={styles.textarea} name="remark" value={form.remark} onChange={handleChange} placeholder="Additional notes..." />
                     </div>
-                  </Field>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div style={styles.sideCard}>
-              <div style={styles.previewKicker}>Preview summary</div>
-              <h3 style={styles.previewTitle}>{form.company_name || "New Vendor"}</h3>
-              <p style={styles.previewSub}>{pocs[0]?.name || "No primary POC"} • {pocs[0]?.number || "N/A"}</p>
+              <div style={styles.previewKicker}>Live Preview</div>
+              <h3 style={styles.previewTitle}>{form.company_name || "New company"}</h3>
+              <div style={styles.previewSub}>{pocs[0]?.name ? `${pocs[0].name} (Primary POC)` : "No POC added"}</div>
 
               <div style={styles.previewList}>
-                <div style={styles.previewRow}><span>Email</span><b>{form.vendor_official_email || form.sending_email_id || "—"}</b></div>
+                <div style={styles.previewRow}><span>Phone</span><b>{pocs[0]?.number || "—"}</b></div>
+                <div style={styles.previewRow}><span>Email</span><b>{form.client_official_email || form.sending_email_id || pocs[0]?.email || "—"}</b></div>
                 <div style={styles.previewRow}><span>Tech</span><b>{form.specialized_tech_developers || "—"}</b></div>
                 <div style={{ ...styles.previewRow, borderBottom: "none" }}><span>Bench count</span><b>{form.no_of_bench_developers || "0"}</b></div>
               </div>
@@ -473,7 +474,7 @@ function AddVendor() {
           <div style={styles.footerBar}>
             <div style={styles.footerHint}>{completedCount} / 3 required done</div>
             <button type="submit" disabled={isSubmitting} style={{ ...styles.submitBtn, opacity: isSubmitting ? 0.7 : 1 }}>
-              {isSubmitting ? "Saving..." : "Create Vendor"}
+              {isSubmitting ? "Saving..." : "Create Client"}
             </button>
           </div>
         </form>
@@ -482,9 +483,9 @@ function AddVendor() {
   );
 }
 
-const Field = ({ label, required, style, children }) => (
+const Field = ({ label, required, style, htmlFor, children }) => (
   <div style={{ ...styles.inputGroup, ...style }}>
-    <label style={styles.label}>{label}{required ? <span style={styles.requiredDot}>*</span> : null}</label>
+    <label htmlFor={htmlFor} style={styles.label}>{label}{required ? <span style={styles.requiredDot}>●</span> : null}</label>
     <div style={styles.inputShell}>{children}</div>
   </div>
 );
@@ -539,6 +540,13 @@ const styles = {
   footerBar: { position: "sticky", bottom: 0, zIndex: 20, marginTop: "18px", background: "rgba(255,255,255,0.92)", backdropFilter: "blur(14px)", borderTop: "1px solid #EEF1F5", padding: "16px 0 0", display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center" },
   footerHint: { color: "#7B7E86", fontSize: "13px", fontWeight: "800" },
   submitBtn: { minWidth: "210px", border: "none", borderRadius: "15px", background: "linear-gradient(135deg, #FF9B51, #FF5E2F)", color: "#fff", padding: "14px 30px", fontSize: "15px", fontWeight: "900", cursor: "pointer", boxShadow: "0 12px 28px rgba(255, 94, 47, 0.32)" },
+  modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(15, 23, 42, 0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" },
+  modalContent: { background: "#fff", borderRadius: "20px", width: "90%", maxWidth: "500px", padding: "24px", boxShadow: "0 20px 40px rgba(0,0,0,0.15)" },
+  modalHeader: { marginBottom: "16px", borderBottom: "1px solid #EEF1F5", paddingBottom: "12px" },
+  modalTitle: { margin: 0, fontSize: "20px", fontWeight: "900", color: "#111827" },
+  pocCard: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px", border: "1px solid #E8ECF2", borderRadius: "12px", marginBottom: "10px", background: "#F9FAFB" },
+  assignBtn: { background: "#FFF5EB", color: "#FF6B2C", border: "1px solid #FFB777", padding: "8px 14px", borderRadius: "8px", fontWeight: "800", cursor: "pointer", fontSize: "13px" },
+  skipBtn: { background: "#fff", color: "#6B7280", border: "1px solid #D1D5DB", padding: "10px 18px", borderRadius: "10px", fontWeight: "700", cursor: "pointer" }
 };
 
-export default AddVendor;
+export default AddClient;

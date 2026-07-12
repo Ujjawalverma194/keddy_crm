@@ -32,8 +32,9 @@ router.delete("/api/vendors/:vendor_id/delete/", vendors.softDelete);
 router.get("/api/user/vendors/", vendors.listUserVendors);
 
 // Clients
-router.post("/clients/check-duplicate/", clients.checkDuplicate);
-router.post("/clients/create/", uploadClient.any(), clients.create);
+router.get("/api/clients/search/", clients.searchClients);
+router.post("/api/clients/check-duplicate/", clients.checkDuplicate);
+router.post("/api/clients/create/", uploadClient.any(), clients.create);
 router.patch(
   "/api/clients/:client_id/update/",
   uploadClient.any(),
@@ -45,7 +46,7 @@ router.put(
   clients.update,
 );
 router.post("/api/clients/:client_id/toggle-verify/", clients.toggleVerify);
-router.get("/clients/list/", clients.list);
+router.get("/api/clients/list/", clients.list);
 router.get("/api/clients/:client_id/", clients.detail);
 router.delete("/api/clients/:client_id/delete/", clients.softDelete);
 

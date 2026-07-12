@@ -140,6 +140,22 @@ const Client = sequelize.define(
 );
 Client.beforeCreate(assignNumericId('clients'));
 
+const ClientPOC = sequelize.define(
+  'ClientPOC',
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true },
+    clientId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING, allowNull: false },
+    number: { type: DataTypes.STRING, allowNull: false },
+    email: { type: DataTypes.STRING },
+    isPrimary: { type: DataTypes.BOOLEAN, defaultValue: false },
+    assignedEmployeeIds: { type: DataTypes.JSONB, defaultValue: [] },
+    isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+  },
+  { tableName: 'client_pocs' }
+);
+ClientPOC.beforeCreate(assignNumericId('clientPocs'));
+
 const Candidate = sequelize.define(
   'Candidate',
   {
@@ -597,6 +613,8 @@ EodReport.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(EodReport, { foreignKey: 'userId', as: 'eodReports' });
 Vendor.hasMany(VendorPOC, { foreignKey: 'vendorId', as: 'pocs' });
 VendorPOC.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendorCompany' });
+Client.hasMany(ClientPOC, { foreignKey: 'clientId', as: 'pocs' });
+ClientPOC.belongsTo(Client, { foreignKey: 'clientId', as: 'clientCompany' });
 
 async function syncDatabase() {
   await sequelize.sync();
@@ -624,6 +642,74 @@ async function syncDatabase() {
   } catch (err) {
     console.error('Error during VendorPOC migration:', err);
   }
+
+  // Merge duplicate Vendor Companies
+  try {
+    const vendors = await Vendor.findAll({ where: { isDeleted: false } });
+    const companyMap = {};
+    for (const v of vendors) {
+      const nameKey = (v.companyName || "").trim().toLowerCase();
+      if (!nameKey) continue;
+      if (!companyMap[nameKey]) {
+        companyMap[nameKey] = [];
+      }
+      companyMap[nameKey].push(v);
+    }
+    
+    for (const [nameKey, dupes] of Object.entries(companyMap)) {
+      if (dupes.length > 1) {
+        // Sort by createdAt, keep the oldest one as primary
+        dupes.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+        const primary = dupes[0];
+        const duplicates = dupes.slice(1);
+        
+        for (const dup of duplicates) {
+          // Move all POCs from dup to primary
+          await VendorPOC.update({ vendorId: primary.id }, { where: { vendorId: dup.id } });
+          
+          // Update assigned employees (merge)
+          const mergedEmpIds = [...new Set([...(primary.assignedEmployeeIds || []), ...(dup.assignedEmployeeIds || [])])];
+          await primary.update({ assignedEmployeeIds: mergedEmpIds });
+          
+          // Re-point candidates
+          await Candidate.update({ vendorId: primary.id }, { where: { vendorId: dup.id } });
+          
+          // Re-point invoices
+          await Invoice.update({ vendorId: primary.id }, { where: { vendorId: dup.id } });
+          
+          // Delete duplicate
+          await dup.destroy();
+        }
+        console.log(`Merged ${duplicates.length} duplicate vendors for company: ${nameKey}`);
+      }
+    }
+  } catch (err) {
+    console.error('Error during Vendor deduplication:', err);
+  }
+
+  // One-time migration for existing Clients to create their primary ClientPOC
+  try {
+    const pocCount = await ClientPOC.count();
+    if (pocCount === 0) {
+      const clients = await Client.findAll();
+      for (const c of clients) {
+        if (c.clientName && c.phoneNumber) {
+          await ClientPOC.create({
+            clientId: c.id,
+            name: c.clientName,
+            number: c.phoneNumber,
+            email: c.email,
+            assignedEmployeeIds: c.assignedEmployeeIds || [],
+            isPrimary: true,
+            isActive: c.isActive
+          });
+        }
+      }
+      console.log(`Migrated ${clients.length} clients to ClientPOCs.`);
+    }
+  } catch (err) {
+    console.error('Error during ClientPOC migration:', err);
+  }
 }
 
 module.exports = {
@@ -631,7 +717,9 @@ module.exports = {
   Counter,
   User,
   Vendor,
+  VendorPOC,
   Client,
+  ClientPOC,
   Candidate,
   CandidateStatusHistory,
   CandidateRemarkHistory,

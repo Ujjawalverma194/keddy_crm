@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
 import BaseLayout from "../components/emp_base";
 
-function EditVendor() {
+function EditClient() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
@@ -14,23 +14,27 @@ function EditVendor() {
         name: "",
         number: "",
         company_name: "",
-        email: "",
         company_website: "",
         company_pan_or_reg_no: "",
-        top_3_clients: "",
-        no_of_bench_developers: 0,
-        provide_onsite: false,
-        onsite_location: "",
-        specialized_tech_developers: "",
+        gst_number: "",
+        billing_address: "",
+        account_holder_name: "",
+        bank_name: "",
+        account_number: "",
+        ifsc_code: "",
+        remark: "",
+        official_email: "",
+        sending_email_id: "",
+        company_employee_count: "",
     });
 
     const [pocs, setPocs] = useState([{ name: "", number: "", email: "", isPrimary: false }]);
 
     // Step 1: Purana data fetch karna
     useEffect(() => {
-        const fetchVendor = async () => {
+        const fetchClient = async () => {
             try {
-                const data = await apiRequest(`/employee-portal/api/vendors/${id}/`, "GET");
+                const data = await apiRequest(`/employee-portal/api/clients/${id}/`, "GET");
                 setForm({
                     name: data.name || "",
                     number: data.number || "",
@@ -50,13 +54,13 @@ function EditVendor() {
                     setPocs([{ name: "", number: "", email: "", isPrimary: false }]);
                 }
             } catch (error) {
-                console.error("Error fetching vendor:", error);
-                alert("Vendor data load nahi ho paya.");
+                console.error("Error fetching client:", error);
+                alert("Client data load nahi ho paya.");
             } finally {
                 setLoading(false);
             }
         };
-        fetchVendor();
+        fetchClient();
     }, [id]);
 
     const handleChange = (e) => {
@@ -88,9 +92,9 @@ function EditVendor() {
 
         try {
             // Edit ke liye PUT request use hogi
-            await apiRequest(`/employee-portal/api/vendors/${id}/update/`, "PUT", formData);
-            alert("Vendor updated successfully!");
-            navigate(`/employee/vendor/view/${id}`);
+            await apiRequest(`/employee-portal/api/clients/${id}/update/`, "PUT", formData);
+            alert("Client updated successfully!");
+            navigate(`/employee/client/view/${id}`);
         } catch (error) {
             alert("Update failed. Please check all fields.");
             console.error(error);
@@ -105,14 +109,14 @@ function EditVendor() {
         <BaseLayout>
             <div style={styles.topBar}>
                 <button onClick={() => navigate(-1)} style={styles.backBtn}>← Back</button>
-                <h2 style={styles.pageTitle}>Edit Vendor: {form.name}</h2>
+                <h2 style={styles.pageTitle}>Edit Client: {form.name}</h2>
             </div>
 
             <form onSubmit={handleSubmit} style={styles.card}>
                 <div style={styles.formGrid}>
                     <div style={styles.sectionHeader}>Required Info</div>
                     <div style={styles.inputGroup}>
-                        <label style={styles.label}>Vendor Name *</label>
+                        <label style={styles.label}>Client Name *</label>
                         <input style={styles.input} name="name" value={form.name} onChange={handleChange} required />
                     </div>
                     <div style={styles.inputGroup}>
@@ -125,19 +129,49 @@ function EditVendor() {
                     </div>
 
                     <div style={styles.sectionHeader}>Company Details</div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Email</label>
-                        <input style={styles.input} type="email" name="email" value={form.email} onChange={handleChange} />
-                    </div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Website</label>
-                        <input style={styles.input} name="company_website" value={form.company_website} onChange={handleChange} />
-                    </div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>PAN / Reg No.</label>
-                        <input style={styles.input} name="company_pan_or_reg_no" value={form.company_pan_or_reg_no} onChange={handleChange} />
-                    </div>
-                    <div style={styles.sectionHeader}>Point of Contact (POC)</div>
+
+                      <div style={styles.inputGroup}>
+                          <label style={styles.label}>Client Official Email</label>
+                          <input style={styles.input} type="email" name="official_email" value={form.official_email} onChange={handleChange} />
+                      </div>
+                      <div style={styles.inputGroup}>
+                          <label style={styles.label}>Sending Email ID</label>
+                          <input style={styles.input} type="email" name="sending_email_id" value={form.sending_email_id} onChange={handleChange} />
+                      </div>
+                      <div style={styles.inputGroup}>
+                          <label style={styles.label}>GST Number</label>
+                          <input style={styles.input} name="gst_number" value={form.gst_number} onChange={handleChange} />
+                      </div>
+                      <div style={styles.inputGroup}>
+                          <label style={styles.label}>Billing Address</label>
+                          <input style={styles.input} name="billing_address" value={form.billing_address} onChange={handleChange} />
+                      </div>
+                      <div style={styles.inputGroup}>
+                          <label style={styles.label}>Account Holder Name</label>
+                          <input style={styles.input} name="account_holder_name" value={form.account_holder_name} onChange={handleChange} />
+                      </div>
+                      <div style={styles.inputGroup}>
+                          <label style={styles.label}>Bank Name</label>
+                          <input style={styles.input} name="bank_name" value={form.bank_name} onChange={handleChange} />
+                      </div>
+                      <div style={styles.inputGroup}>
+                          <label style={styles.label}>Account Number</label>
+                          <input style={styles.input} name="account_number" value={form.account_number} onChange={handleChange} />
+                      </div>
+                      <div style={styles.inputGroup}>
+                          <label style={styles.label}>IFSC Code</label>
+                          <input style={styles.input} name="ifsc_code" value={form.ifsc_code} onChange={handleChange} />
+                      </div>
+                      <div style={styles.inputGroup}>
+                          <label style={styles.label}>Company Employee Count</label>
+                          <input style={styles.input} type="number" name="company_employee_count" value={form.company_employee_count} onChange={handleChange} />
+                      </div>
+                      <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                          <label style={styles.label}>Remark</label>
+                          <textarea style={{...styles.input, minHeight: '60px', resize: 'vertical'}} name="remark" value={form.remark} onChange={handleChange} />
+                      </div>
+
+<div style={styles.sectionHeader}>Point of Contact (POC)</div>
                     <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: "10px" }}>
                         {pocs.map((poc, index) => (
                             <div key={index} style={styles.pocBlock}>
@@ -204,40 +238,10 @@ function EditVendor() {
                         </button>
                     </div>
 
-                    <div style={styles.sectionHeader}>Developer & Bench Info</div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Top 3 Clients</label>
-                        <input style={styles.input} name="top_3_clients" value={form.top_3_clients} onChange={handleChange} />
                     </div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Bench Developers Count</label>
-                        <input style={styles.input} type="number" name="no_of_bench_developers" value={form.no_of_bench_developers} onChange={handleChange} />
-                    </div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Specialized Technologies</label>
-                        <input style={styles.input} name="specialized_tech_developers" value={form.specialized_tech_developers} onChange={handleChange} placeholder="e.g. React, Java, Python" />
-                    </div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Update Bench List (File)</label>
-                        <input style={styles.input} type="file" onChange={handleFileChange} />
-                    </div>
-                </div>
-
-                <div style={styles.checkboxWrapper}>
-                    <input type="checkbox" id="onsite" name="provide_onsite" checked={form.provide_onsite} onChange={handleChange} />
-                    <label htmlFor="onsite" style={styles.checkLabel}>Provide Onsite Support?</label>
-                </div>
-
-                {form.provide_onsite && (
-                    <div style={{ ...styles.inputGroup, marginTop: '15px' }}>
-                        <label style={styles.label}>Onsite Location</label>
-                        <input style={styles.input} name="onsite_location" value={form.onsite_location} onChange={handleChange} />
-                    </div>
-                )}
-
-                <div style={styles.footer}>
+                  <div style={styles.footer}>
                     <button type="submit" disabled={updating} style={styles.submitBtn}>
-                        {updating ? "Updating..." : "Update Vendor"}
+                        {updating ? "Updating..." : "Update Client"}
                     </button>
                 </div>
             </form>
@@ -245,7 +249,7 @@ function EditVendor() {
     );
 }
 
-// Styles are exactly same as your AddVendor
+// Styles are exactly same as your AddClient
 const styles = {
     topBar: { display: "flex", alignItems: "center", gap: "20px", marginBottom: "20px" },
     backBtn: { background: "#25343f", border: "none", color: "white", fontWeight: "700", cursor: "pointer", fontSize: "15px",padding:"15px", borderRadius:"15px" },
@@ -269,7 +273,7 @@ const styles = {
     addPocBtn: { alignSelf: "flex-start", background: "none", border: "1px dashed #25343F", color: "#25343F", padding: "8px 15px", borderRadius: "8px", cursor: "pointer", fontWeight: "700", fontSize: "13px" }
 };
 
-export default EditVendor;
+export default EditClient;
 
 
 
@@ -282,7 +286,7 @@ export default EditVendor;
 // import { apiRequest } from "../../services/api";
 // import BaseLayout from "../components/emp_base";
 
-// function EditVendor() {
+// function EditClient() {
 //     const { id } = useParams();
 //     const navigate = useNavigate();
     
@@ -303,9 +307,9 @@ export default EditVendor;
 
 //     // Step 1: Purana data fetch karke form mein bharna
 //     useEffect(() => {
-//         const fetchVendor = async () => {
+//         const fetchClient = async () => {
 //             try {
-//                 const data = await apiRequest(`/employee-portal/api/vendors/${id}/`, "GET");
+//                 const data = await apiRequest(`/employee-portal/api/clients/${id}/`, "GET");
 //                 setFormData({
 //                     name: data.name || "",
 //                     number: data.number || "",
@@ -318,13 +322,13 @@ export default EditVendor;
 //                     onsite_location: data.onsite_location || "",
 //                 });
 //             } catch (error) {
-//                 console.error("Error fetching vendor:", error);
-//                 alert("Could not load vendor data.");
+//                 console.error("Error fetching client:", error);
+//                 alert("Could not load client data.");
 //             } finally {
 //                 setLoading(false);
 //             }
 //         };
-//         fetchVendor();
+//         fetchClient();
 //     }, [id]);
 
 //     // Input changes handle karna
@@ -352,9 +356,9 @@ export default EditVendor;
 //         }
 
 //         try {
-//             await apiRequest(`/employee-portal/api/vendors/${id}/update/`, "PUT", data, true);
-//             alert("Vendor updated successfully!");
-//             navigate(`/employee/vendor/view/${id}`); // Wapas details page par
+//             await apiRequest(`/employee-portal/api/clients/${id}/update/`, "PUT", data, true);
+//             alert("Client updated successfully!");
+//             navigate(`/employee/client/view/${id}`); // Wapas details page par
 //         } catch (error) {
 //             console.error("Update failed:", error);
 //             alert("Update failed. Please check your data.");
@@ -369,13 +373,13 @@ export default EditVendor;
 //         <BaseLayout>
 //             <div style={styles.topBar}>
 //                 <button onClick={() => navigate(-1)} style={styles.backBtn}>← Cancel</button>
-//                 <h2 style={styles.pageTitle}>Edit Vendor: {formData.name}</h2>
+//                 <h2 style={styles.pageTitle}>Edit Client: {formData.name}</h2>
 //             </div>
 
 //             <form onSubmit={handleSubmit} style={styles.formCard}>
 //                 <div style={styles.grid}>
 //                     <div style={styles.inputGroup}>
-//                         <label style={styles.label}>Vendor Name</label>
+//                         <label style={styles.label}>Client Name</label>
 //                         <input type="text" name="name" value={formData.name} onChange={handleChange} style={styles.input} required />
 //                     </div>
 //                     <div style={styles.inputGroup}>
@@ -419,7 +423,7 @@ export default EditVendor;
 //                 </div>
 
 //                 <button type="submit" disabled={updating} style={styles.saveBtn}>
-//                     {updating ? "Saving Changes..." : "Update Vendor Details"}
+//                     {updating ? "Saving Changes..." : "Update Client Details"}
 //                 </button>
 //             </form>
 //         </BaseLayout>
@@ -439,4 +443,4 @@ export default EditVendor;
 //     saveBtn: { marginTop: "30px", width: "100%", padding: "15px", background: "#FF9B51", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "700", fontSize: "16px", cursor: "pointer" }
 // };
 
-// export default EditVendor;
+// export default EditClient;

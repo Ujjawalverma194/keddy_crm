@@ -8,16 +8,9 @@ const { relPath } = require('../../middleware/upload');
 function parseBody(req) {
   const b = req.body || {};
   return {
-    name: b.name,
-    number: b.number,
     companyName: b.company_name || b.companyName,
-    email: b.email,
     companyWebsite: b.company_website,
     companyPanOrRegNo: b.company_pan_or_reg_no,
-    poc1Name: b.poc1_name,
-    poc1Number: b.poc1_number,
-    poc2Name: b.poc2_name,
-    poc2Number: b.poc2_number,
     top3Clients: b.top_3_clients,
     noOfBenchDevelopers: b.no_of_bench_developers ? parseInt(b.no_of_bench_developers, 10) : undefined,
     provideOnsite: b.provide_onsite === 'true' || b.provide_onsite === true,
@@ -41,7 +34,13 @@ async function search(req, res) {
   if (q) {
     filter.companyName = { $iLike: `%${q}%` };
   }
-  const items = await Vendor.find(filter).limit(10);
+  const { VendorPOC } = require('../../models/sequelize/init');
+  const { toSequelizeWhere } = require('../../utils/sequelizeWhere');
+  const items = await Vendor.rawModel.findAll({
+    where: toSequelizeWhere(filter, Vendor.rawModel),
+    limit: 10,
+    include: [{ model: VendorPOC, as: 'pocs', where: { isActive: true }, required: false }]
+  });
   return res.json(items.map((v) => ({ 
     id: v.id, 
     companyName: v.companyName, 
@@ -52,32 +51,81 @@ async function search(req, res) {
     companyEmployeeCount: v.companyEmployeeCount,
     top3Clients: v.top3Clients,
     noOfBenchDevelopers: v.noOfBenchDevelopers,
-    specializedTechDevelopers: v.specializedTechDevelopers
+    specializedTechDevelopers: v.specializedTechDevelopers,
+    pocs: v.pocs || []
   })));
 }
 
 async function create(req, res) {
   const data = parseBody(req);
   const companyId = req.body.company_id;
-  if (!data.name || !data.companyName || !data.number) {
-    return res.status(400).json({ name: ['Vendor name is required.'] });
+  let pocsRaw = [];
+  try {
+    pocsRaw = req.body.pocs ? JSON.parse(req.body.pocs) : [];
+  } catch (e) {
+    pocsRaw = [];
   }
-  const files = req.files || {};
+
+  // Fallback for legacy requests
+  if (pocsRaw.length === 0 && req.body.name) {
+    pocsRaw = [{ name: req.body.name, number: req.body.number, email: req.body.email, isPrimary: true }];
+  }
+
+  if (!data.companyName || pocsRaw.length === 0) {
+    return res.status(400).json({ detail: 'Company name and at least one POC are required.' });
+  }
   
+  const files = req.files || {};
   const { VendorPOC } = require('../../models/sequelize/init');
+  const { Op } = require('sequelize');
   let doc;
 
   if (companyId) {
     doc = await Vendor.findOne({ id: companyId });
-    if (doc) {
-      await VendorPOC.create({
-        vendorId: doc.id,
-        name: data.name,
-        number: data.number,
-        email: data.email,
-        isPrimary: false,
-        isActive: true
-      });
+  }
+
+  if (!doc && data.companyName) {
+    doc = await Vendor.findOne({
+      where: {
+        companyName: { [Op.iLike]: data.companyName.trim() },
+        isDeleted: false
+      }
+    });
+  }
+
+  if (doc) {
+    for (const p of pocsRaw) {
+        if (!p.name || !p.number) continue;
+        let pocToUpdate;
+        if (p.id) {
+          pocToUpdate = await VendorPOC.findByPk(p.id);
+        }
+        if (!pocToUpdate) {
+          pocToUpdate = await VendorPOC.findOne({ where: { vendorId: doc.id, number: p.number } });
+        }
+        
+        if (pocToUpdate) {
+           let assignedEmployees = [...(pocToUpdate.assignedEmployeeIds || [])];
+           if (!assignedEmployees.includes(req.user.id)) {
+               assignedEmployees.push(req.user.id);
+               await pocToUpdate.update({ assignedEmployeeIds: assignedEmployees });
+           }
+        } else {
+          // If this is marked primary, unset primary for others
+          if (p.isPrimary) {
+            await VendorPOC.update({ isPrimary: false }, { where: { vendorId: doc.id } });
+          }
+          await VendorPOC.create({
+            vendorId: doc.id,
+            name: p.name,
+            number: p.number,
+            email: p.email,
+            isPrimary: p.isPrimary || false,
+            assignedEmployeeIds: [req.user.id],
+            isActive: true
+          });
+        }
+      }
       
       const updates = {};
       if (data.companyWebsite) updates.companyWebsite = data.companyWebsite;
@@ -90,11 +138,14 @@ async function create(req, res) {
         await Vendor.updateOne({ id: doc.id }, updates);
       }
     }
-  }
 
   if (!doc) {
+    const primaryPoc = pocsRaw.find(p => p.isPrimary) || pocsRaw[0];
     doc = await Vendor.create({
       ...data,
+      name: primaryPoc.name,
+      number: primaryPoc.number,
+      email: primaryPoc.email,
       uploadedById: req.user.id,
       createdById: req.user.id,
       benchList: files.bench_list?.[0] ? relPath(files.bench_list[0].path) : undefined,
@@ -102,14 +153,52 @@ async function create(req, res) {
       msaDocument: files.msa_document?.[0] ? relPath(files.msa_document[0].path) : undefined,
     });
     
-    await VendorPOC.create({
-      vendorId: doc.id,
-      name: data.name,
-      number: data.number,
-      email: data.email,
-      isPrimary: true,
-      isActive: true
-    });
+    let isFirst = true;
+    for (const p of pocsRaw) {
+      if (!p.name || !p.number) continue;
+      
+      // Prevent duplicates if companyId was provided
+      if (companyId) {
+        const existing = await VendorPOC.findOne({
+          where: { vendorId: doc.id, number: p.number }
+        });
+        if (existing) {
+          // If this is marked primary, unset primary for others
+          if (p.isPrimary) {
+            await VendorPOC.update({ isPrimary: false }, { where: { vendorId: doc.id } });
+          }
+          // Add employee to assignedEmployeeIds if not present
+          let assigned = existing.assignedEmployeeIds || [];
+          if (!assigned.includes(req.user.id)) {
+            assigned.push(req.user.id);
+          }
+          // Update existing
+          await existing.update({
+            name: p.name,
+            email: p.email,
+            isPrimary: p.isPrimary || false,
+            assignedEmployeeIds: assigned
+          });
+          continue;
+        }
+      }
+      
+      // If this is marked primary, unset primary for others
+      if (p.isPrimary || (isFirst && p.isPrimary !== false)) {
+        await VendorPOC.update({ isPrimary: false }, { where: { vendorId: doc.id } });
+      }
+      
+      await VendorPOC.create({
+        vendorId: doc.id,
+        name: p.name,
+        number: p.number,
+        email: p.email,
+        isPrimary: p.isPrimary !== undefined ? p.isPrimary : isFirst,
+        assignedEmployeeIds: [req.user.id],
+        isActive: true
+      });
+      isFirst = false;
+    }
   }
 
   const json = await vendorToJSON(doc);
@@ -123,17 +212,80 @@ async function create(req, res) {
 async function update(req, res) {
   const vendor = await Vendor.findOne({ id: parseInt(req.params.vendor_id, 10), isDeleted: false });
   if (!vendor) return res.status(404).json({ detail: 'Not found.' });
-  Object.assign(vendor, parseBody(req));
+  
+  const data = parseBody(req);
+  let pocsRaw = [];
+  try {
+    pocsRaw = req.body.pocs ? JSON.parse(req.body.pocs) : [];
+  } catch (e) {
+    pocsRaw = [];
+  }
+
+  // Update primary vendor fields if we have pocs
+  const primaryPoc = pocsRaw.find(p => p.isPrimary) || pocsRaw[0];
+  if (primaryPoc) {
+    data.name = primaryPoc.name;
+    data.number = primaryPoc.number;
+    data.email = primaryPoc.email;
+  }
+  
+  Object.assign(vendor, data);
   const files = req.files || {};
   if (files.bench_list?.[0]) vendor.benchList = relPath(files.bench_list[0].path);
   if (files.nda_document?.[0]) vendor.ndaDocument = relPath(files.nda_document[0].path);
   if (files.msa_document?.[0]) vendor.msaDocument = relPath(files.msa_document[0].path);
   await vendor.save();
+
+  // Process POCs
+  if (pocsRaw.length > 0) {
+    const { VendorPOC } = require('../../models/sequelize/init');
+    const existingPocs = await VendorPOC.findAll({ where: { vendorId: vendor.id } });
+    
+    const submittedIds = pocsRaw.filter(p => p.id).map(p => p.id);
+    
+    // Delete missing POCs
+    for (const existing of existingPocs) {
+      if (!submittedIds.includes(existing.id)) {
+        await existing.destroy();
+      }
+    }
+    
+    // Update or Create POCs
+    for (const p of pocsRaw) {
+      if (!p.name || !p.number) continue;
+      
+      if (p.id) {
+        const existing = existingPocs.find(e => e.id === p.id);
+        if (existing) {
+          await existing.update({
+            name: p.name,
+            number: p.number,
+            email: p.email,
+            isPrimary: p.isPrimary || false
+          });
+        }
+      } else {
+        await VendorPOC.create({
+          vendorId: vendor.id,
+          name: p.name,
+          number: p.number,
+          email: p.email,
+          isPrimary: p.isPrimary || false,
+          isActive: true
+        });
+      }
+    }
+  }
+
   return res.json(await vendorToJSON(vendor));
 }
 
 async function detail(req, res) {
-  const vendor = await Vendor.findOne({ id: parseInt(req.params.vendor_id, 10), isDeleted: false });
+  const { VendorPOC } = require('../../models/sequelize/init');
+  const vendor = await Vendor.rawModel.findOne({ 
+    where: { id: parseInt(req.params.vendor_id, 10), is_deleted: false },
+    include: [{ model: VendorPOC, as: 'pocs', required: false }]
+  });
   if (!vendor) return res.status(404).json({ detail: 'Not found.' });
   const count = await Candidate.countDocuments({ vendorId: vendor.id, isDeleted: false });
   const json = await vendorToJSON(vendor);

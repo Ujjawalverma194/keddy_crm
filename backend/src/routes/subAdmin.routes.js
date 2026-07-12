@@ -27,6 +27,7 @@ router.delete('/api/users/:user_id/hard-delete/', ctrl.hardDeleteUser);
 router.patch('/api/users/:user_id/restore/', ctrl.restoreUser);
 
 router.get('/api/clients/', ctrl.listClients);
+router.get('/api/admin-clients/search/', ctrl.searchClients);
 router.post('/api/clients/assign/', ctrl.assignClient);
 router.post('/api/clients/revoke/', ctrl.revokeClient);
 router.delete('/api/clients/:client_id/soft-delete/', ctrl.clientSoftDelete);
