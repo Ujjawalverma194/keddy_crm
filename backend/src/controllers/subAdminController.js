@@ -536,6 +536,9 @@ async function vendorHardDelete(req, res) {
 function applyCandidateListFilters(filter, query) {
   const search = (query.search || '').trim();
   const tech = (query.technology || '').trim();
+  if (query.client_id) filter.clientId = parseInt(query.client_id, 10);
+  if (query.vendor_id) filter.vendorId = parseInt(query.vendor_id, 10);
+  
   if (search) {
     filter.$or = [
       { candidateName: new RegExp(search, 'i') },

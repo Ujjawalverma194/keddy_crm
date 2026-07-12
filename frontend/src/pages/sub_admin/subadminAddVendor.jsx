@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
-import BaseLayout from "../components/subAdminBase";
+import BaseLayout from "../components/SubAdminLayout";
 
 const Icons = {
   Back: () => (

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
 import BaseLayout from "../components/SubAdminLayout";
+import ProfilesPreviewModal from "../components/ProfilesPreviewModal";
 
 function ClientList() {
     const navigate = useNavigate();
@@ -24,6 +25,7 @@ function ClientList() {
     const [showDeleteModal, setShowDeleteModal] = useState({ show: false, clientId: null });
     const [selectedEmployees, setSelectedEmployees] = useState([]);
     const [empSearch, setEmpSearch] = useState("");
+    const [profilesModal, setProfilesModal] = useState({ isOpen: false, clientId: null, clientName: "" });
     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
     const [verifyingId, setVerifyingId] = useState(null); // ✅ Verify toggle loading state
     const [clientProfileCounts, setClientProfileCounts] = useState({});
@@ -395,7 +397,12 @@ function ClientList() {
                                             <div style={styles.secondaryText}>{client.email || 'No Email'}</div>
                                         </td>
                                         <td style={styles.td}>
-                                            <span style={styles.profileBadge}>{renderProfileCount(client)}</span>
+                                            <span 
+                                                style={{...styles.profileBadge, cursor: 'pointer'}}
+                                                onClick={() => setProfilesModal({ isOpen: true, clientId: client.id, clientName: client.company_name || client.client_name })}
+                                            >
+                                                {renderProfileCount(client)}
+                                            </span>
                                         </td>
                                         <td style={styles.td}>{client.created_by_name}</td>
                                         <td style={styles.td}>{new Date(client.created_at).toLocaleDateString('en-GB')}</td>
@@ -494,6 +501,14 @@ function ClientList() {
                     </div>
                 </div>
             )}
+            
+            <ProfilesPreviewModal 
+                isOpen={profilesModal.isOpen} 
+                onClose={() => setProfilesModal({ isOpen: false, clientId: null, clientName: "" })} 
+                title={`Profiles for ${profilesModal.clientName}`} 
+                fetchEndpoint={`/sub-admin/api/admin-candidates/?client_id=${profilesModal.clientId}`} 
+                userRole="subadmin" 
+            />
         </BaseLayout>
     );
 }

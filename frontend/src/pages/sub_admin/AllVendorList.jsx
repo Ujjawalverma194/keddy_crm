@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
 import { asList } from "../../utils/apiHelpers";
 import BaseLayout from "../components/SubAdminLayout";
+import ProfilesPreviewModal from "../components/ProfilesPreviewModal";
 
 function VendorList() {
     const navigate = useNavigate();
@@ -23,6 +24,7 @@ function VendorList() {
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState({ show: false, vendorId: null });
     const [empSearch, setEmpSearch] = useState("");
+    const [profilesModal, setProfilesModal] = useState({ isOpen: false, vendorId: null, vendorName: "" });
     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
     const [verifyingId, setVerifyingId] = useState(null);
     const [vendorProfileCounts, setVendorProfileCounts] = useState({});
@@ -457,7 +459,12 @@ function VendorList() {
                                     </td>
 
                                     <td style={styles.td}>
-                                        <div style={styles.profileBadge}>{renderProfileCount(vendor)}</div>
+                                        <div 
+                                            style={{...styles.profileBadge, cursor: 'pointer'}}
+                                            onClick={() => setProfilesModal({ isOpen: true, vendorId: vendor.id, vendorName: vendor.company_name || vendor.vendor_name })}
+                                        >
+                                            {renderProfileCount(vendor)}
+                                        </div>
                                     </td>
 
                                     <td style={styles.td}>{vendor.created_by_name}</td>
@@ -662,6 +669,14 @@ function VendorList() {
                     </div>
                 </div>
             )}
+            
+            <ProfilesPreviewModal 
+                isOpen={profilesModal.isOpen} 
+                onClose={() => setProfilesModal({ isOpen: false, vendorId: null, vendorName: "" })} 
+                title={`Profiles for ${profilesModal.vendorName}`} 
+                fetchEndpoint={`/sub-admin/api/admin-candidates/?vendor_id=${profilesModal.vendorId}`} 
+                userRole="subadmin" 
+            />
         </BaseLayout>
     );
 }

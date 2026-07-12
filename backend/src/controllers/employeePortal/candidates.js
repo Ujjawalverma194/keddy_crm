@@ -213,6 +213,9 @@ async function list(req, res) {
   const search = (req.query.search || '').trim();
   const tech = (req.query.technology || '').trim();
   const filter = { isDeleted: false, createdById: { $in: companyIds } };
+  if (req.query.client_id) filter.clientId = parseInt(req.query.client_id, 10);
+  if (req.query.vendor_id) filter.vendorId = parseInt(req.query.vendor_id, 10);
+  
   if (search) {
     filter.$or = [
       { candidateName: new RegExp(search, 'i') },
@@ -234,6 +237,9 @@ async function listUser(req, res) {
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const search = (req.query.search || '').trim();
   const filter = { isDeleted: false, createdById: req.user.id };
+  if (req.query.client_id) filter.clientId = parseInt(req.query.client_id, 10);
+  if (req.query.vendor_id) filter.vendorId = parseInt(req.query.vendor_id, 10);
+
   if (search) {
     filter.$or = [
       { candidateName: new RegExp(search, 'i') },
@@ -334,6 +340,9 @@ async function submittedProfiles(req, res) {
     clientId: { $ne: null },
     $or: [{ createdById: req.user.id }, { submittedToId: req.user.id }],
   };
+  if (req.query.client_id) filter.clientId = parseInt(req.query.client_id, 10);
+  if (req.query.vendor_id) filter.vendorId = parseInt(req.query.vendor_id, 10);
+
   const [items, total] = await Promise.all([
     Candidate.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
     Candidate.countDocuments(filter),

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
 import BaseLayout from "../components/emp_base";
+import ProfilesPreviewModal from "../components/ProfilesPreviewModal";
 
 function VendorList() {
     const navigate = useNavigate();
@@ -13,6 +14,7 @@ function VendorList() {
     const [totalCount, setTotalCount] = useState(0);
     const [hasNext, setHasNext] = useState(false);
     const [hasPrev, setHasPrev] = useState(false);
+    const [profilesModal, setProfilesModal] = useState({ isOpen: false, vendorId: null, vendorName: "" });
     const PAGE_SIZE = 10; 
 
     const fetchVendors = async (page = 1, search = "") => {
@@ -126,7 +128,12 @@ function VendorList() {
                                             </span>
                                         </td>
                                         <td style={styles.td}>
-                                            <span style={styles.profileBadge}>{vendor.profile_count}</span>
+                                            <span 
+                                                style={{...styles.profileBadge, cursor: 'pointer'}}
+                                                onClick={() => setProfilesModal({ isOpen: true, vendorId: vendor.id, vendorName: vendor.company_name || vendor.vendor_name })}
+                                            >
+                                                {vendor.profile_count}
+                                            </span>
                                         </td>
                                         <td style={styles.td}>
                                             <span style={styles.createdByBadge}>{vendor.created_by_name}</span>
@@ -174,6 +181,14 @@ function VendorList() {
                     </button>
                 </div>
             </div>
+            
+            <ProfilesPreviewModal 
+                isOpen={profilesModal.isOpen} 
+                onClose={() => setProfilesModal({ isOpen: false, vendorId: null, vendorName: "" })} 
+                title={`Profiles for ${profilesModal.vendorName}`} 
+                fetchEndpoint={`/employee-portal/api/user/candidates/list/?vendor_id=${profilesModal.vendorId}`} 
+                userRole="employee" 
+            />
         </BaseLayout>
     );
 }
