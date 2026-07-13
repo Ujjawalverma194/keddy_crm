@@ -20,7 +20,7 @@ function ClientList() {
     // Filters & Modals
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-    const [selectedClients, setSelectedClients] = useState([]);
+    const [selectedPocs, setSelectedPocs] = useState([]);
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState({ show: false, clientId: null });
     const [selectedEmployees, setSelectedEmployees] = useState([]);
@@ -260,7 +260,10 @@ function ClientList() {
         const delayDebounceFn = setTimeout(() => {
             fetchClients(1, searchQuery);
         }, 500);
-        return () => clearTimeout(delayDebounceFn);
+        
+
+
+    return () => clearTimeout(delayDebounceFn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery, startDate, endDate]);
 
@@ -294,11 +297,12 @@ function ClientList() {
     };
 
     const handleAssignSubmit = async () => {
-        if (selectedClients.length === 0 || selectedEmployees.length === 0) {
+        if (selectedPocs.length === 0 || selectedEmployees.length === 0) {
             return notify("Select clients and employees first", "error");
         }
         try {
-            const promises = selectedClients.map(clientId => 
+            const clientIdsToAssign = [...new Set(clients.filter(c => c.pocs?.some(p => selectedPocs.includes(p.id))).map(c => c.id))];
+            const promises = clientIdsToAssign.map(clientId => 
                 apiRequest("/sub-admin/api/clients/assign/", "POST", {
                     client_id: clientId,
                     employee_ids: selectedEmployees
@@ -307,7 +311,7 @@ function ClientList() {
             await Promise.all(promises);
             notify(`Assigned successfully`);
             setShowAssignModal(false);
-            setSelectedClients([]);
+            setSelectedPocs([]);
             setSelectedEmployees([]);
             fetchClients(currentPage, searchQuery);
         } catch (error) { notify("Assignment Failed", "error"); }
@@ -329,6 +333,22 @@ function ClientList() {
         }
     };
 
+    
+    const togglePocSelection = (clientId, pocId) => {
+        const client = clients.find(c => c.id === clientId);
+        if (!client || !client.pocs) return;
+        const allPocIds = client.pocs.map(p => p.id);
+        
+        setSelectedPocs(prev => {
+            const hasAny = prev.some(id => allPocIds.includes(id));
+            if (hasAny) {
+                return prev.filter(id => !allPocIds.includes(id));
+            } else {
+                return [...prev, ...allPocIds];
+            }
+        });
+    };
+
     return (
         <BaseLayout>
             {toast.show && <div style={{...styles.toast, backgroundColor: toast.type === 'error' ? '#E74C3C' : '#27AE60'}}>{toast.msg}</div>}
@@ -340,7 +360,7 @@ function ClientList() {
                     <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={styles.dateInput} />
                 </div>
                 <div style={{display:'flex', gap:'10px'}}>
-                    {selectedClients.length > 0 && <button style={styles.assignBtn} onClick={() => setShowAssignModal(true)}>Assign ({selectedClients.length})</button>}
+                    {selectedPocs.length > 0 && <button style={styles.assignBtn} onClick={() => setShowAssignModal(true)}>Assign ({selectedPocs.length})</button>}
                     <button onClick={() => navigate("/sub-admin/client/add")} style={styles.addBtn}>+ Add Client</button>
                 </div>
             </div>
@@ -360,16 +380,23 @@ function ClientList() {
                     <table style={styles.table}>
                         <thead>
                             <tr style={styles.tableHeader}>
-                                <th style={styles.th}>
+                                <th style={styles.th}>Client Company</th>
+                                <th style={{ ...styles.th, display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <input 
                                         type="checkbox" 
-                                        onChange={() => setSelectedClients(selectedClients.length === clients.length ? [] : clients.map(c => c.id))} 
-                                        checked={selectedClients.length === clients.length && clients.length > 0} 
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                const allIds = clients.flatMap(c => c.pocs || []).map(p => p.id);
+                                                setSelectedPocs(allIds);
+                                            } else {
+                                                setSelectedPocs([]);
+                                            }
+                                        }} 
+                                        checked={clients.length > 0 && selectedPocs.length === clients.flatMap(c => c.pocs || []).length} 
+                                        style={{ cursor: 'pointer' }}
                                     />
+                                    Points of Contact
                                 </th>
-                                <th style={styles.th}>S.No</th>
-                                <th style={styles.th}>Client & Company</th>
-                                <th style={styles.th}>Contact</th>
                                 <th style={styles.th}>Profiles</th>
                                 <th style={styles.th}>Created By</th>
                                 <th style={styles.th}>Date</th>
@@ -382,20 +409,32 @@ function ClientList() {
                                 <tr><td colSpan="9" style={{textAlign:'center', padding:'40px'}}>Loading...</td></tr>
                             ) : clients.length > 0 ? (
                                 clients.map((client, index) => (
-                                    <tr key={client.id} style={{...styles.tableRow, background: selectedClients.includes(client.id) ? '#F1F5F9' : 'transparent'}}>
+                                    <tr key={client.id} style={{...styles.tableRow, background: selectedPocs.includes(client.id) ? '#F1F5F9' : 'transparent'}}>
                                         <td style={styles.td}>
-                                            <input type="checkbox" checked={selectedClients.includes(client.id)} onChange={() => setSelectedClients(p => p.includes(client.id) ? p.filter(x => x !== client.id) : [...p, client.id])} />
-                                        </td>
-                                        <td style={styles.td}>{(currentPage - 1) * 10 + (index + 1)}</td>
-                                        <td style={styles.td}>
-                                            {/* ✅ Font visibility fix */}
-                                            <div style={styles.primaryText}>{client.client_name}</div>
-                                            <div style={styles.secondaryText}>{client.company_name}</div>
-                                        </td>
-                                        <td style={styles.td}>
-                                            <div style={styles.primaryText}>{client.phone_number || 'N/A'}</div>
-                                            <div style={styles.secondaryText}>{client.email || 'No Email'}</div>
-                                        </td>
+                                              <div style={styles.primaryText}>{client.company_name}</div>
+                                              <div style={styles.secondaryText}>{client.billing_address || "No Address"}</div>
+                                          </td>
+                                          <td style={styles.td}>
+                                              {(client.pocs || []).map(poc => (
+                                                  <div key={poc.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', padding: '4px', background: selectedPocs.includes(poc.id) ? '#F1F5F9' : 'transparent', borderRadius: '4px' }}>
+                                                      <input
+                                                          type="checkbox"
+                                                          checked={selectedPocs.includes(poc.id)}
+                                                          onChange={() => togglePocSelection(client.id, poc.id)}
+                                                          style={{ marginRight: '10px', cursor: 'pointer' }}
+                                                      />
+                                                      <div>
+                                                          <div style={{ ...styles.primaryText, fontSize: '13px' }}>{poc.name} {poc.isPrimary && <span style={{fontSize: '10px', color: '#f39c12'}}>(Primary)</span>}</div>
+                                                          <div style={{ ...styles.secondaryText, fontSize: '11px' }}>
+                                                              {poc.number || "No Number"} | {poc.email || "No Email"}
+                                                          </div>
+                                                      </div>
+                                                  </div>
+                                              ))}
+                                              {(!client.pocs || client.pocs.length === 0) && (
+                                                  <span style={{color: '#999', fontSize: '12px'}}>No POCs</span>
+                                              )}
+                                          </td>
                                         <td style={styles.td}>
                                             <span 
                                                 style={{...styles.profileBadge, cursor: 'pointer'}}
@@ -587,7 +626,7 @@ export default ClientList;
 //     // Filters & Modals
 //     const [startDate, setStartDate] = useState("");
 //     const [endDate, setEndDate] = useState("");
-//     const [selectedClients, setSelectedClients] = useState([]);
+//     const [selectedPocs, setSelectedPocs] = useState([]);
 //     const [showAssignModal, setShowAssignModal] = useState(false);
 //     const [showDeleteModal, setShowDeleteModal] = useState({ show: false, clientId: null });
 //     const [selectedEmployees, setSelectedEmployees] = useState([]);
@@ -648,11 +687,11 @@ export default ClientList;
 //     }, []);
 
 //     const handleAssignSubmit = async () => {
-//         if (selectedClients.length === 0 || selectedEmployees.length === 0) {
+//         if (selectedPocs.length === 0 || selectedEmployees.length === 0) {
 //             return notify("Select clients and employees first", "error");
 //         }
 //         try {
-//             const promises = selectedClients.map(clientId => 
+//             const promises = selectedPocs.map(clientId => 
 //                 apiRequest("/sub-admin/api/clients/assign/", "POST", {
 //                     client_id: clientId,
 //                     employee_ids: selectedEmployees
@@ -661,7 +700,7 @@ export default ClientList;
 //             await Promise.all(promises);
 //             notify(`Assigned successfully`);
 //             setShowAssignModal(false);
-//             setSelectedClients([]);
+//             setSelectedPocs([]);
 //             setSelectedEmployees([]);
 //             fetchClients(currentPage, searchQuery);
 //         } catch (error) { notify("Assignment Failed", "error"); }
@@ -694,7 +733,7 @@ export default ClientList;
 //                     <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={styles.dateInput} />
 //                 </div>
 //                 <div style={{display:'flex', gap:'10px'}}>
-//                     {selectedClients.length > 0 && <button style={styles.assignBtn} onClick={() => setShowAssignModal(true)}>Assign ({selectedClients.length})</button>}
+//                     {selectedPocs.length > 0 && <button style={styles.assignBtn} onClick={() => setShowAssignModal(true)}>Assign ({selectedPocs.length})</button>}
 //                     <button onClick={() => navigate("/sub-admin/client/add")} style={styles.addBtn}>+ Add Client</button>
 //                 </div>
 //             </div>
@@ -717,8 +756,8 @@ export default ClientList;
 //                                 <th style={styles.th}>
 //                                     <input 
 //                                         type="checkbox" 
-//                                         onChange={() => setSelectedClients(selectedClients.length === clients.length ? [] : clients.map(c => c.id))} 
-//                                         checked={selectedClients.length === clients.length && clients.length > 0} 
+//                                         onChange={() => setSelectedPocs(selectedPocs.length === clients.length ? [] : clients.map(c => c.id))} 
+//                                         checked={selectedPocs.length === clients.length && clients.length > 0} 
 //                                     />
 //                                 </th>
 //                                 <th style={styles.th}>S.No</th>
@@ -735,8 +774,8 @@ export default ClientList;
 //                                 <tr><td colSpan="8" style={{textAlign:'center', padding:'40px'}}>Loading...</td></tr>
 //                             ) : clients.length > 0 ? (
 //                                 clients.map((client, index) => (
-//                                     <tr key={client.id} style={{...styles.tableRow, background: selectedClients.includes(client.id) ? '#F1F5F9' : 'transparent'}}>
-//                                         <td style={styles.td}><input type="checkbox" checked={selectedClients.includes(client.id)} onChange={() => setSelectedClients(p => p.includes(client.id) ? p.filter(x => x !== client.id) : [...p, client.id])} /></td>
+//                                     <tr key={client.id} style={{...styles.tableRow, background: selectedPocs.includes(client.id) ? '#F1F5F9' : 'transparent'}}>
+//                                         <td style={styles.td}><input type="checkbox" checked={selectedPocs.includes(client.id)} onChange={() => setSelectedPocs(p => p.includes(client.id) ? p.filter(x => x !== client.id) : [...p, client.id])} /></td>
 //                                         <td style={styles.td}>{(currentPage - 1) * 10 + (index + 1)}</td>
 //                                         <td style={styles.td}>
 //                                             <div style={{fontWeight:'700'}}>{client.client_name}</div>

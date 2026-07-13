@@ -60,6 +60,9 @@ function AddClient() {
   const [companySuggestions, setCompanySuggestions] = useState([]);
   const [showCompanySuggestions, setShowCompanySuggestions] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  const [showPocModal, setShowPocModal] = useState(false);
+  const [modalCompany, setModalCompany] = useState(null);
+  const [pocs, setPocs] = useState([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
 
   const [files, setFiles] = useState({
     
@@ -108,25 +111,79 @@ function AddClient() {
     });
   };
 
-  const handleSelectCompany = async (comp) => {
-    setSelectedCompanyId(comp.id);
+  const handleSelectCompany = (comp) => {
+    setModalCompany(comp);
+    setShowCompanySuggestions(false);
+    setShowPocModal(true);
+  };
+
+  const assignPoc = (poc) => {
+    setSelectedCompanyId(modalCompany.id);
     setForm({
       ...form,
-      company_name: comp.companyName || "",
-      client_official_email: comp.email || "",
-      company_website: comp.companyWebsite || "",
-      company_pan_or_reg_no: comp.companyPanOrRegNo || "",
-      sending_email_id: comp.sendingEmailId || "",
-      company_employee_count: comp.companyEmployeeCount || "",
-      specialized_tech_developers: comp.specializedTechDevelopers || "",
-      top_3_clients: comp.top3Clients || "",
-      no_of_bench_developers: comp.noOfBenchDevelopers || "",
-      // Clear POC fields for new entry
-      name: "",
-      number: "",
-      email: "",
+      company_name: modalCompany.company_name || modalCompany.companyName || "",
+      official_email: modalCompany.email || modalCompany.official_email || "",
+      gst_number: modalCompany.gst_number || "",
+      billing_address: modalCompany.billing_address || "",
+      account_holder_name: modalCompany.account_holder_name || "",
+      bank_name: modalCompany.bank_name || "",
+      account_number: modalCompany.account_number || "",
+      ifsc_code: modalCompany.ifsc_code || "",
+      remark: modalCompany.remark || "",
+      sending_email_id: modalCompany.sending_email_id || "",
+      company_employee_count: modalCompany.company_employee_count || "",
     });
-    setShowCompanySuggestions(false);
+    setPocs([{ id: poc.id, name: poc.name || "", number: poc.number || "", email: poc.email || "", isPrimary: poc.isPrimary || false }]);
+    setShowPocModal(false);
+    setTimeout(() => {
+      const el = document.getElementById("poc-section");
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  };
+
+  const addNewPoc = () => {
+    setSelectedCompanyId(modalCompany.id);
+    setForm({
+      ...form,
+      company_name: modalCompany.company_name || modalCompany.companyName || "",
+      official_email: modalCompany.email || modalCompany.official_email || "",
+      gst_number: modalCompany.gst_number || "",
+      billing_address: modalCompany.billing_address || "",
+      account_holder_name: modalCompany.account_holder_name || "",
+      bank_name: modalCompany.bank_name || "",
+      account_number: modalCompany.account_number || "",
+      ifsc_code: modalCompany.ifsc_code || "",
+      remark: modalCompany.remark || "",
+      sending_email_id: modalCompany.sending_email_id || "",
+      company_employee_count: modalCompany.company_employee_count || "",
+    });
+    setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
+    setShowPocModal(false);
+    setTimeout(() => {
+      const el = document.getElementById("poc-section");
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  };
+
+  const handlePocChange = (index, e) => {
+    const { name, value, type, checked } = e.target;
+    const newPocs = [...pocs];
+    if (type === 'checkbox' && name === 'isPrimary') {
+      newPocs.forEach(p => p.isPrimary = false); // uncheck all others
+      newPocs[index][name] = checked;
+    } else {
+      newPocs[index][name] = value;
+    }
+    setPocs(newPocs);
+  };
+
+  const addAnotherPoc = () => {
+    setPocs([...pocs, { id: null, name: "", number: "", email: "", isPrimary: false }]);
+  };
+
+  const removePoc = (index) => {
+    const newPocs = pocs.filter((_, i) => i !== index);
+    setPocs(newPocs);
   };
 
   const handleFileChange = (e, key) => {
@@ -152,6 +209,13 @@ function AddClient() {
       }
     });
 
+    const validPocs = pocs.filter(p => p.name && p.number);
+    if (validPocs.length > 0) {
+      formData.append("pocs", JSON.stringify(validPocs));
+    } else if (pocs[0]?.name) {
+      formData.append("pocs", JSON.stringify([{name: pocs[0].name}]));
+    }
+
     if (files.bench_list) formData.append("bench_list", files.bench_list);
     if (files.nda_document) formData.append("nda_document", files.nda_document);
     if (files.msa_document) formData.append("msa_document", files.msa_document);
@@ -160,6 +224,7 @@ function AddClient() {
       await apiRequest("/employee-portal/api/clients/create/", "POST", formData);
       notify("Client created successfully!");
       setForm(EMPTY_FORM);
+      setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
       setFiles({ bench_list: null, nda_document: null, msa_document: null });
       e.target.reset();
     } catch (error) {
@@ -170,7 +235,7 @@ function AddClient() {
     }
   };
 
-  const completedCount = [form.name, form.number, form.company_name].filter(Boolean).length;
+  const completedCount = [pocs[0]?.name, pocs[0]?.number, form.company_name].filter(Boolean).length;
 
   return (
     <BaseLayout>
@@ -215,13 +280,8 @@ function AddClient() {
                 </div>
 
                 <div style={styles.innerGrid}>
-                  <Field label="Client Name" required style={styles.col4}>
-                    <input style={styles.input} name="name" value={form.name} onChange={handleChange} required placeholder="John Doe" />
-                  </Field>
-                  <Field label="Phone Number" required style={styles.col4}>
-                    <input style={styles.input} name="number" value={form.number} onChange={handleChange} required placeholder="9876543220" />
-                  </Field>
-                  <Field label="Company Name" required style={styles.col4}>
+                  
+                  <Field label="Company Name" required style={styles.col12}>
                     <div style={{ position: 'relative' }}>
                       <input style={styles.input} name="company_name" value={form.company_name} onChange={handleChange} required placeholder="ABC Tech" />
                       {showCompanySuggestions && companySuggestions.length > 0 && (
@@ -276,23 +336,55 @@ function AddClient() {
                 </div>
               </div>
 
-              <div style={styles.sectionCard}>
+              
+              <div id="poc-section" style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
                   <div style={styles.sectionIcon}><Icons.Client /></div>
                   <div>
-                    <h3 style={styles.sectionTitle}>POC & service info</h3>
-                    <p style={styles.sectionHint}>Contact persons, tech strengths, clients and bench details.</p>
+                    <h3 style={styles.sectionTitle}>Point of Contacts (POCs)</h3>
+                    <p style={styles.sectionHint}>Add multiple contacts for this client.</p>
                   </div>
                 </div>
 
                 <div style={styles.innerGrid}>
-                  <Field label="POC 1 Name" style={styles.col6}><input style={styles.input} name="poc1_name" value={form.poc1_name} onChange={handleChange} /></Field>
-                  <Field label="POC 1 Number" style={styles.col6}><input style={styles.input} name="poc1_number" value={form.poc1_number} onChange={handleChange} /></Field>
-                  <Field label="POC 2 Name" style={styles.col6}><input style={styles.input} name="poc2_name" value={form.poc2_name} onChange={handleChange} /></Field>
-                  <Field label="POC 2 Number" style={styles.col6}><input style={styles.input} name="poc2_number" value={form.poc2_number} onChange={handleChange} /></Field>
+                  {pocs.map((poc, index) => (
+                    <div key={index} style={{ gridColumn: 'span 12', background: '#F8FAFC', padding: '16px', borderRadius: '12px', position: 'relative', border: '1px solid #E2E8F0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#334155' }}>POC {index + 1} {poc.isPrimary ? "(Primary)" : ""}</span>
+                          {!poc.isPrimary && (
+                            <button type="button" onClick={() => {
+                              const e = { target: { name: 'isPrimary', type: 'checkbox', checked: true } };
+                              handlePocChange(index, e);
+                            }} style={{ background: 'none', border: 'none', color: '#FF6B2C', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Set as Primary</button>
+                          )}
+                        </div>
+                        {pocs.length > 1 && (
+                          <button type="button" onClick={() => removePoc(index)} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Remove</button>
+                        )}
+                      </div>
+                      <div style={styles.innerGrid}>
+                        <Field label="POC Name" required style={styles.col4}>
+                          <input style={styles.input} name="name" value={poc.name} onChange={(e) => handlePocChange(index, e)} required placeholder="Jane Doe" />
+                        </Field>
+                        <Field label="POC Phone" required style={styles.col4}>
+                          <input style={styles.input} name="number" value={poc.number} onChange={(e) => handlePocChange(index, e)} required placeholder="9876543210" />
+                        </Field>
+                        <Field label="POC Email" style={styles.col4}>
+                          <input style={styles.input} type="email" name="email" value={poc.email} onChange={(e) => handlePocChange(index, e)} placeholder="jane@abctech.com" />
+                        </Field>
+                      </div>
+                    </div>
+                  ))}
                   
+                  <div style={styles.col12}>
+                    <button type="button" onClick={addAnotherPoc} style={{ background: '#FFF2EA', color: '#FF6B2C', border: '1px dashed #FF6B2C', padding: '12px', width: '100%', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>
+                      + Add Another POC
+                    </button>
+                  </div>
                 </div>
               </div>
+  
 
               <div style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
@@ -319,11 +411,11 @@ function AddClient() {
 
             <div style={styles.sideCard}>
               <div style={styles.previewKicker}>Live Preview</div>
-              <h3 style={styles.previewTitle}>{form.name || "New client"}</h3>
+              <h3 style={styles.previewTitle}>{pocs[0]?.name || "New client POC"}</h3>
               <div style={styles.previewSub}>{form.company_name || "Company will show here"}</div>
 
               <div style={styles.previewList}>
-                <div style={styles.previewRow}><span>Phone</span><b>{form.number || "—"}</b></div>
+                <div style={styles.previewRow}><span>Phone</span><b>{pocs[0]?.number || "—"}</b></div>
                 <div style={styles.previewRow}><span>Email</span><b>{form.client_official_email || form.sending_email_id || "—"}</b></div>
                 <div style={styles.previewRow}><span>Tech</span><b>{form.specialized_tech_developers || "—"}</b></div>
                 <div style={{ ...styles.previewRow, borderBottom: "none" }}><span>Bench count</span><b>{form.no_of_bench_developers || "0"}</b></div>
@@ -352,7 +444,58 @@ function AddClient() {
           </div>
         </form>
       </div>
-    </BaseLayout>
+    
+      {showPocModal && modalCompany && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(15,23,42,0.6)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+          <div style={{ background: "#fff", width: "100%", maxWidth: "600px", borderRadius: "24px", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
+            <div style={{ padding: "24px 30px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "20px", fontWeight: "900", color: "#111827" }}>{modalCompany.companyName}</h3>
+                <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#6B7280" }}>Select a POC to assign or add a new one</p>
+              </div>
+              <button type="button" onClick={() => setShowPocModal(false)} style={{ background: "#F3F4F6", border: "none", width: "36px", height: "36px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#4B5563" }}>
+                ✕
+              </button>
+            </div>
+            
+            <div style={{ padding: "24px 30px", maxHeight: "60vh", overflowY: "auto" }}>
+              {modalCompany.pocs && modalCompany.pocs.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {modalCompany.pocs.map((poc, idx) => (
+                    <div key={idx} style={{ border: "1px solid #E5E7EB", borderRadius: "16px", padding: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#F9FAFB" }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontWeight: "700", color: "#111827", fontSize: "16px" }}>{poc.name}</span>
+                          {poc.isPrimary && <span style={{ background: "#FEF3C7", color: "#D97706", padding: "2px 8px", borderRadius: "999px", fontSize: "10px", fontWeight: "800" }}>PRIMARY</span>}
+                        </div>
+                        <div style={{ color: "#4B5563", fontSize: "14px", marginTop: "4px" }}>📞 {poc.number}</div>
+                        {poc.email && <div style={{ color: "#4B5563", fontSize: "14px", marginTop: "2px" }}>✉️ {poc.email}</div>}
+                      </div>
+                      <button type="button" onClick={() => assignPoc(poc)} style={{ background: "#FF6B2C", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "12px", fontWeight: "800", cursor: "pointer", boxShadow: "0 4px 14px rgba(255, 107, 44, 0.25)" }}>
+                        Assign POC
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "30px 0", color: "#6B7280" }}>
+                  <div style={{ fontSize: "40px", marginBottom: "10px" }}>📭</div>
+                  <div style={{ fontWeight: "600" }}>No existing POCs found for this company.</div>
+                </div>
+              )}
+            </div>
+            
+            <div style={{ padding: "20px 30px", background: "#F9FAFB", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "14px", color: "#6B7280", fontWeight: "500" }}>Need a different contact?</span>
+              <button type="button" onClick={addNewPoc} style={{ background: "#111827", color: "#fff", border: "none", padding: "12px 24px", borderRadius: "14px", fontWeight: "700", cursor: "pointer" }}>
+                + Add New POC
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </BaseLayout>
+  
   );
 }
 

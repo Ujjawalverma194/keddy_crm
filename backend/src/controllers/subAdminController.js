@@ -391,8 +391,16 @@ async function assignClient(req, res) {
   const { client_id, employee_ids } = req.body;
   const client = await Client.findOne({ id: client_id, isDeleted: false });
   if (!client) return res.status(404).json({ detail: 'Not found' });
-  client.assignedEmployeeIds = [...new Set([...(client.assignedEmployeeIds || []), ...employee_ids])];
-  await client.save();
+  
+  const { ClientPOC } = require('../models/sequelize/init');
+  const pocs = await ClientPOC.findAll({ where: { clientId: client.id } });
+  
+  for (const poc of pocs) {
+    const current = poc.assignedEmployeeIds || [];
+    const updated = [...new Set([...current, ...employee_ids])];
+    await poc.update({ assignedEmployeeIds: updated });
+  }
+  
   return res.json({ message: 'Assigned successfully' });
 }
 
@@ -400,10 +408,16 @@ async function revokeClient(req, res) {
   const { client_id, employee_ids } = req.body;
   const client = await Client.findOne({ id: client_id });
   if (!client) return res.status(404).json({ detail: 'Not found' });
-  client.assignedEmployeeIds = (client.assignedEmployeeIds || []).filter(
-    (id) => !employee_ids.includes(id)
-  );
-  await client.save();
+  
+  const { ClientPOC } = require('../models/sequelize/init');
+  const pocs = await ClientPOC.findAll({ where: { clientId: client.id } });
+  
+  for (const poc of pocs) {
+    const current = poc.assignedEmployeeIds || [];
+    const updated = current.filter(id => !employee_ids.includes(id));
+    await poc.update({ assignedEmployeeIds: updated });
+  }
+  
   return res.json({ message: 'Revoked successfully' });
 }
 

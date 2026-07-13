@@ -284,8 +284,20 @@ async function list(req, res) {
     Client.countDocuments(filter),
   ]);
 
+  const clientIds = items.map(c => c.id);
+  const pocsList = clientIds.length > 0 
+    ? await ClientPOC.findAll({ where: { clientId: clientIds } })
+    : [];
+
   const userMap = await getUserMap(items.map((c) => c.createdById));
-  return res.json(drfResponse(items.map((c) => clientToJSON(c, userMap)), total, page, pageSize));
+  
+  const serializedItems = items.map(c => {
+    // Manually attach pocs so clientToJSON can serialize them
+    c.pocs = pocsList.filter(p => p.clientId === c.id);
+    return clientToJSON(c, userMap);
+  });
+
+  return res.json(drfResponse(serializedItems, total, page, pageSize));
 }
 
 async function detail(req, res) {

@@ -11,8 +11,6 @@ function EditClient() {
     const [benchListFile, setBenchListFile] = useState(null);
 
     const [form, setForm] = useState({
-        name: "",
-        number: "",
         company_name: "",
         company_website: "",
         company_pan_or_reg_no: "",
@@ -36,8 +34,6 @@ function EditClient() {
             try {
                 const data = await apiRequest(`/employee-portal/api/clients/${id}/`, "GET");
                 setForm({
-                    name: data.name || "",
-                    number: data.number || "",
                     company_name: data.company_name || "",
                     email: data.email || "",
                     company_website: data.company_website || "",
@@ -109,20 +105,13 @@ function EditClient() {
         <BaseLayout>
             <div style={styles.topBar}>
                 <button onClick={() => navigate(-1)} style={styles.backBtn}>← Back</button>
-                <h2 style={styles.pageTitle}>Edit Client: {form.name}</h2>
+                <h2 style={styles.pageTitle}>Edit Client: {pocs[0]?.name || form.company_name}</h2>
             </div>
 
             <form onSubmit={handleSubmit} style={styles.card}>
                 <div style={styles.formGrid}>
                     <div style={styles.sectionHeader}>Required Info</div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Client Name *</label>
-                        <input style={styles.input} name="name" value={form.name} onChange={handleChange} required />
-                    </div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Phone Number *</label>
-                        <input style={styles.input} name="number" value={form.number} onChange={handleChange} required />
-                    </div>
+                    
                     <div style={styles.inputGroup}>
                         <label style={styles.label}>Company Name *</label>
                         <input style={styles.input} name="company_name" value={form.company_name} onChange={handleChange} required />
@@ -194,6 +183,7 @@ function EditClient() {
                                             <button 
                                                 type="button" 
                                                 onClick={() => {
+                                                    if (!window.confirm("Are you sure you want to remove this POC?")) return;
                                                     const newPocs = pocs.filter((_, i) => i !== index);
                                                     if (poc.isPrimary && newPocs.length > 0) newPocs[0].isPrimary = true;
                                                     setPocs(newPocs);
