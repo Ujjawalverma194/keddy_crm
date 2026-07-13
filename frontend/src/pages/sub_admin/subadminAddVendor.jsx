@@ -232,7 +232,7 @@ function AddVendor() {
     if (files.msa_document) formData.append("msa_document", files.msa_document);
 
     try {
-      await apiRequest("/sub-admin/api/admin-vendors/create/", "POST", formData);
+      await apiRequest("/employee-portal/api/vendors/create/", "POST", formData);
       notify("Vendor created successfully!");
       setForm(EMPTY_FORM);
       setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
@@ -244,6 +244,7 @@ function AddVendor() {
     } finally {
       setIsSubmitting(false);
     }
+     navigate(-1)
   };
 
   const completedCount = [pocs[0]?.name, pocs[0]?.number, form.company_name].filter(Boolean).length;
