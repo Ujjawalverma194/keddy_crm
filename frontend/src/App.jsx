@@ -12,6 +12,8 @@ import SubAdminDashboard from "./pages/sub_admin/SubAdminDashboard";
 import CentralAdminDashboard from "./pages/central_admin/CentralAdminDashboard";
 import EmployeeDashboard from "./pages/emplyee_portal/EmployeeDashboard";
 import EmployeeTeamSubmissions from "./pages/emplyee_portal/TeamSubmissions";
+import MyTargetsPage from "./pages/emplyee_portal/MyTargetsPage";
+import MyOverview from "./pages/emplyee_portal/MyOverview";
 
 // ================= Vendor =================
 import UserVendorManagement from "./pages/emplyee_portal/UserVendorManagement";
@@ -63,6 +65,8 @@ import SubadminTodaysSubmittedProfiles from "./pages/sub_admin/TodaysSubmittedPr
 import SubadminTodaysNewProfiles from "./pages/sub_admin/TodaysNewProfiles";
 import SubadminPipeline from "./pages/sub_admin/Pipeline";
 import OffboardedProfiles from "./pages/sub_admin/OffboardedProfiles";
+
+import TargetHistory from "./pages/TargetHistory";
 
 // -------Invoice---
 import SubadminCreateInvoice from "./pages/sub_admin/invoice/CreateInvoice";
@@ -133,6 +137,7 @@ function App() {
                 <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
 
                 <Route path="/employee" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><EmployeeDashboard /></ProtectedRoute>} />
+                <Route path="/employee/my-overview" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><MyOverview /></ProtectedRoute>} />
                 <Route path="/employee/TeamSubmissions" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><EmployeeTeamSubmissions /></ProtectedRoute>} />
                 <Route path="/employee/add-eod" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><AddEod /></ProtectedRoute>} />
                 <Route path="/employee/edit-eod/:id" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><AddEod /></ProtectedRoute>} />
@@ -143,6 +148,7 @@ function App() {
                 <Route path="/employee/candidate/edit/:id" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><UpdateCandidate /></ProtectedRoute>} />
                 <Route path="/employee/user-candidates" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><UserCandidatelist /></ProtectedRoute>} />
                 <Route path="/employee/submitted-profiles" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><SubmittedProfiles /></ProtectedRoute>} />
+                <Route path="/employee/target-history" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><TargetHistory /></ProtectedRoute>} />
 
                 <Route path="/employee/vendors" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><VendorManagement /></ProtectedRoute>} />
                 <Route path="/employee/user-vendors" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><UserVendorManagement /></ProtectedRoute>} />
@@ -167,6 +173,7 @@ function App() {
                 <Route path="/employee/requirement/edit/:id" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><RequirementUpdate /></ProtectedRoute>} />
                 <Route path="/employee/requirement/view/:id" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><RequirementView /></ProtectedRoute>} />
                 <Route path="/employee/requirements/my" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><EmpMyRequirements /></ProtectedRoute>} />
+                <Route path="/employee/my-targets" element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYEE]}><MyTargetsPage /></ProtectedRoute>} />
 
                 <Route path="/sub-admin" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubAdminDashboard /></ProtectedRoute>} />
                 <Route path="/sub-admin/all-candidates" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><AllCandidateList /></ProtectedRoute>} />
@@ -195,6 +202,7 @@ function App() {
                 <Route path="/sub-admin/Pipeline" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubadminPipeline /></ProtectedRoute>} />
                 <Route path="/sub-admin/pipeline" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubadminPipeline /></ProtectedRoute>} />
                 <Route path="/sub-admin/offboarded-profiles" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><OffboardedProfiles /></ProtectedRoute>} />
+                <Route path="/sub-admin/target-history" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><TargetHistory /></ProtectedRoute>} />
 
                 <Route path="/sub-admin/requirements" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubAdminRequirementList /></ProtectedRoute>} />
                 <Route path="/sub-admin/requirement/create" element={<ProtectedRoute allowedRoles={[ROLES.SUB_ADMIN]}><SubAdminRequirementCreate /></ProtectedRoute>} />

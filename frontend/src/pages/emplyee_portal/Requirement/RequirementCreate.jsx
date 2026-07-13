@@ -23,7 +23,8 @@ function RequirementCreate() {
         vendor_budget_range: "",
         time_zone: "IST",
         jd_description: "",
-        skills: ""
+        skills: "",
+        profiles_for_requirement: 3
     });
 
     const notify = (msg, type = "success") => {
@@ -34,7 +35,7 @@ function RequirementCreate() {
     // Fetch Clients for Searchable Dropdown
     const fetchClients = async (search = "") => {
         try {
-            const data = await apiRequest(`/employee-portal/clients/list/?search=${search}`, "GET");
+            const data = await apiRequest(`/employee-portal/api/clients/list/?search=${search}`, "GET");
             setClients(data.results || []);
         } catch (error) {
             console.error("Error fetching clients:", error);
@@ -94,7 +95,8 @@ function RequirementCreate() {
             vendor_budget_range: form.vendor_budget_range || "",
             time_zone: form.time_zone,
             jd_description: form.jd_description,
-            skills: form.skills
+            skills: form.skills,
+            profiles_for_requirement: parseInt(form.profiles_for_requirement) || 3
         };
 
         try {
@@ -170,6 +172,11 @@ function RequirementCreate() {
                     <div style={styles.inputGroup}>
                         <label style={styles.label}> Client Rate *</label>
                         <input style={styles.input} name="rate" value={form.rate} onChange={handleChange} required placeholder="1.8 LPM" />
+                    </div>
+
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>Profiles For Requirement *</label>
+                        <input style={styles.input} type="number" name="profiles_for_requirement" value={form.profiles_for_requirement} onChange={handleChange} required min="1" />
                     </div>
 
                     {/* <div style={styles.inputGroup}>

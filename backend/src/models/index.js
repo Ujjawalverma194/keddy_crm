@@ -10,4 +10,5 @@ module.exports = {
   ...require('./Invoice'),
   ...require('./Attendance'),
   VendorPOC: require('./VendorPOC'),
+  Target: require('./Target'),
 };

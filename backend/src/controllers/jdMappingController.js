@@ -25,6 +25,7 @@ function requirementJSON(r, client) {
     time_zone: r.timeZone,
     jd_description: r.jdDescription,
     skills: r.skills,
+    profiles_for_requirement: r.profilesForRequirement,
     status: computeRequirementStatus(r),
     manual_status: r.manualStatus,
     manual_status_updated_at: r.manualStatusUpdatedAt,
@@ -120,6 +121,7 @@ async function myJDDetailJSON(r, clientMap, assignmentMap, submissionCounts) {
     time_zone: r.timeZone,
     jd_description: r.jdDescription,
     skills: r.skills,
+    profiles_for_requirement: r.profilesForRequirement,
     manual_status: r.manualStatus,
     manual_status_updated_at: r.manualStatusUpdatedAt,
     created_by_details: createdBy
@@ -152,6 +154,7 @@ async function create(req, res) {
     timeZone: req.body.time_zone,
     jdDescription: req.body.jd_description,
     skills: req.body.skills,
+    profilesForRequirement: req.body.profiles_for_requirement ?? 3,
     requirementId,
     companyId,
     createdById: req.user.id,
@@ -363,6 +366,7 @@ async function update(req, res) {
     timeZone: req.body.time_zone ?? r.timeZone,
     jdDescription: req.body.jd_description ?? r.jdDescription,
     skills: req.body.skills ?? r.skills,
+    profilesForRequirement: req.body.profiles_for_requirement ?? r.profilesForRequirement ?? 3,
   });
   await r.save();
   const client = await Client.findOne({ id: r.clientId });

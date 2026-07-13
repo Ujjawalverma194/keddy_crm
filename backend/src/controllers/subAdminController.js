@@ -638,7 +638,12 @@ async function teamOverviewAnalytics(req, res) {
     startDate.setHours(0,0,0,0);
     endDate.setHours(23,59,59,999);
 
-    if (timeFilter === 'week') {
+    if (timeFilter === 'yesterday') {
+      startDate.setDate(startDate.getDate() - 1);
+      startDate.setHours(0,0,0,0);
+      endDate = new Date(startDate);
+      endDate.setHours(23,59,59,999);
+    } else if (timeFilter === 'week') {
       const day = startDate.getDay();
       const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
       startDate = new Date(startDate.setDate(diff));
@@ -659,6 +664,10 @@ async function teamOverviewAnalytics(req, res) {
     let prevStartDate = new Date(startDate);
     let prevEndDate = new Date(endDate);
     if (timeFilter === 'today') {
+      prevStartDate.setDate(prevStartDate.getDate() - 1);
+      prevEndDate = new Date(prevStartDate);
+      prevEndDate.setHours(23, 59, 59, 999);
+    } else if (timeFilter === 'yesterday') {
       prevStartDate.setDate(prevStartDate.getDate() - 1);
       prevEndDate = new Date(prevStartDate);
       prevEndDate.setHours(23, 59, 59, 999);
@@ -782,6 +791,7 @@ async function teamOverviewAnalytics(req, res) {
            last_name: u.lastName,
            role: u.role,
            isTeamLeader: u.isTeamLeader,
+           teamLeaderId: u.teamLeaderId,
            today_src: uTodayProfiles.length,
            today_sub: uTodaySub.length,
            sourced: uProfiles.length,

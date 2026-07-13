@@ -290,7 +290,7 @@ function SubmissionModal({
 
         const [empRes, clientRes, jdRes] = await Promise.all([
           apiRequest(`/employee-portal/api/employees/?search=${encodeURIComponent(employeeSearch)}`, "GET"),
-          apiRequest(`/employee-portal/clients/list/?page=1&search=${encodeURIComponent(clientSearch)}`, "GET"),
+          apiRequest(`/employee-portal/api/clients/list/?page=1&search=${encodeURIComponent(clientSearch)}`, "GET"),
           jdRequest,
         ]);
 

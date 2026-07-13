@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
 import BaseLayout from "../components/SubAdminLayout";
+import AssignTargetModal from "../../components/AssignTargetModal";
 import { getStoredAuth } from "../components/authSession";
 import {
     // eslint-disable-next-line no-unused-vars
@@ -55,13 +56,19 @@ export default function TeamOverview() {
   const navigate = useNavigate();
     // eslint-disable-next-line no-unused-vars
   const { isTeamLeaderMode, authState } = getStoredAuth();
+  const [globalData, setGlobalData] = useState(null);
   const [data, setData] = useState(null);
-    // eslint-disable-next-line no-unused-vars
+  const [targetData, setTargetData] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // Assign Target Modal State
+  const [assignTargetEmployee, setAssignTargetEmployee] = useState(null);
+  const [isAssignTargetModalOpen, setIsAssignTargetModalOpen] = useState(false);
+
   // Filters
   const [timeFilter, setTimeFilter] = useState("today"); // today, week, month, quarter, custom
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedTeamLeader, setSelectedTeamLeader] = useState(null);
   const [customRange, setCustomRange] = useState({ start: "", end: "" });
   const [sortConfig, setSortConfig] = useState({ key: 'submitted', direction: 'desc' });
   
@@ -76,24 +83,64 @@ export default function TeamOverview() {
     setLoading(true);
     try {
       let query = `?time=${timeFilter}`;
-      if (selectedEmployee) query += `&employee_id=${selectedEmployee.id}`;
       if (timeFilter === 'custom') query += `&start=${customRange.start}&end=${customRange.end}`;
       
-      const response = await apiRequest(`/sub-admin/api/team-overview/analytics/${query}`, "GET");
-      if (response && !response.detail) {
-        setData(response);
+      const globalPromise = apiRequest(`/sub-admin/api/team-overview/analytics/${query}`, "GET");
+      
+      let drilledPromise = null;
+      if (selectedEmployee) {
+          drilledPromise = apiRequest(`/sub-admin/api/team-overview/analytics/${query}&employee_id=${selectedEmployee.id}`, "GET");
+      } else if (selectedTeamLeader) {
+          localStorage.setItem('impersonateTlId', selectedTeamLeader.id.toString());
+          drilledPromise = apiRequest(`/sub-admin/api/team-overview/analytics/${query}`, "GET");
       }
+
+      const [globalRes, drilledRes] = await Promise.all([
+          globalPromise,
+          drilledPromise || Promise.resolve(null)
+      ]);
+      
+      if (selectedTeamLeader) {
+          localStorage.removeItem('impersonateTlId');
+      }
+
+      if (globalRes && !globalRes.detail) {
+          setGlobalData(globalRes);
+          if (!selectedEmployee && !selectedTeamLeader) {
+              setData(globalRes);
+          }
+      }
+      
+      if (drilledRes && !drilledRes.detail) {
+          setData(drilledRes);
+      }
+
     } catch (err) {
       console.error("Failed to load analytics", err);
+      if (selectedTeamLeader) {
+          localStorage.removeItem('impersonateTlId');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchTargets = async () => {
+    try {
+      const response = await apiRequest(`/api/targets/team`, "GET");
+      if (Array.isArray(response)) {
+         setTargetData(response);
+      }
+    } catch (err) {
+      console.error("Failed to load targets", err);
+    }
+  };
+
   useEffect(() => {
     fetchAnalytics();
+    fetchTargets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeFilter, selectedEmployee, customRange]);
+  }, [timeFilter, selectedEmployee, customRange, selectedTeamLeader]);
 
   const handleDrillDown = (employee) => {
     setSelectedEmployee(employee);
@@ -101,6 +148,15 @@ export default function TeamOverview() {
 
   const handleClearDrillDown = () => {
     setSelectedEmployee(null);
+  };
+
+  const handleDrillDownTeamLeader = (tl) => {
+    setSelectedEmployee(null);
+    setSelectedTeamLeader(tl);
+  };
+
+  const handleClearDrillDownTeamLeader = () => {
+    setSelectedTeamLeader(null);
   };
 
   const handleViewEod = async (e, user) => {
@@ -147,6 +203,44 @@ export default function TeamOverview() {
     }
     return sortableItems;
   }, [data?.team_breakdown, sortConfig]);
+
+  const sortedTeamLeaders = React.useMemo(() => {
+      if (!globalData?.team_breakdown) return [];
+      
+      const tls = globalData.team_breakdown.filter(u => u.isTeamLeader);
+      
+      const aggregatedTls = tls.map(tl => {
+          const teamMembers = globalData.team_breakdown.filter(
+              u => u.id === tl.id || u.teamLeaderId === tl.id
+          );
+          
+          const aggregated = { ...tl };
+          const statKeys = ['today_src', 'today_sub', 'sourced', 'screen', 'submitted', 'l1', 'l2', 'l3', 'onboarded'];
+          
+          statKeys.forEach(key => {
+              aggregated[key] = teamMembers.reduce((sum, member) => sum + (member[key] || 0), 0);
+          });
+          
+          return aggregated;
+      });
+      
+      if (sortConfig !== null) {
+          aggregatedTls.sort((a, b) => {
+            let aVal = a[sortConfig.key];
+            let bVal = b[sortConfig.key];
+            
+            if (sortConfig.key === 'name') {
+              aVal = `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase();
+              bVal = `${b.first_name || ''} ${b.last_name || ''}`.toLowerCase();
+            }
+
+            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+          });
+      }
+      return aggregatedTls;
+  }, [globalData?.team_breakdown, sortConfig]);
 
   const requestSort = (key) => {
     let direction = 'asc';
@@ -213,7 +307,7 @@ export default function TeamOverview() {
           </p>
         </div>
         <div style={styles.timeFilters}>
-          {['today', 'week', 'month', 'quarter', 'custom'].map(tf => (
+          {['today', 'yesterday', 'week', 'month', 'quarter', 'custom'].map(tf => (
             <button 
               key={tf} 
               style={timeFilter === tf ? styles.activeFilterBtn : styles.filterBtn}
@@ -237,6 +331,13 @@ export default function TeamOverview() {
         <div style={styles.drillDownBanner}>
            <span style={{color: '#FF9B51', fontWeight: 'bold'}}>Viewing: {selectedEmployee.first_name} {selectedEmployee.last_name}</span>
            <button onClick={handleClearDrillDown} style={styles.clearBtn}><Icons.Close /></button>
+        </div>
+      )}
+      
+      {selectedTeamLeader && !selectedEmployee && (
+        <div style={{...styles.drillDownBanner, background: 'rgba(72, 52, 212, 0.1)', border: '1px solid rgba(72, 52, 212, 0.2)'}}>
+           <span style={{color: '#4834D4', fontWeight: 'bold'}}>Viewing Team: {selectedTeamLeader.first_name} {selectedTeamLeader.last_name}</span>
+           <button onClick={handleClearDrillDownTeamLeader} style={{...styles.clearBtn, color: '#4834D4'}}><Icons.Close /></button>
         </div>
       )}
 
@@ -379,6 +480,86 @@ export default function TeamOverview() {
          </div>
       </div> */}
 
+      {/* Team Leaders Table */}
+      {sortedTeamLeaders.length > 0 && (
+      <div style={styles.panel}>
+         <div style={styles.panelHeader}>
+            <h3 style={styles.panelTitle}>Team Leaders</h3>
+            <span style={styles.panelMeta}>Click a Team Leader to view their team's performance</span>
+         </div>
+         <div style={{ overflowX: 'auto' }}>
+            <table style={styles.table}>
+               <thead>
+                  <tr style={styles.thRow}>
+                     <th style={{...styles.th, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('name')}>TEAM LEADER{getSortIndicator('name')}</th>
+                     <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('today_src')}>TODAY SRC{getSortIndicator('today_src')}</th>
+                     <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('today_sub')}>TODAY SUB{getSortIndicator('today_sub')}</th>
+                     <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('sourced')}>SOURCED{getSortIndicator('sourced')}</th>
+                     <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('screen')}>SCREEN{getSortIndicator('screen')}</th>
+                     <th style={{...styles.thCenterBlue, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('submitted')}>SUBMITTED{getSortIndicator('submitted')}</th>
+                     <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('l1')}>L1{getSortIndicator('l1')}</th>
+                     <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('l2')}>L2{getSortIndicator('l2')}</th>
+                     <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('l3')}>L3{getSortIndicator('l3')}</th>
+                     <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('onboarded')}>ONBOARDED{getSortIndicator('onboarded')}</th>
+                     <th style={{...styles.thCenter, width: '100px'}}>TARGET STATUS</th>
+                     <th style={{...styles.thCenter, width: '100px'}}>ASSIGN TARGET</th>
+                     <th style={{...styles.thCenter, width: '80px'}}>EOD</th>
+                  </tr>
+               </thead>
+               <tbody>
+                  {sortedTeamLeaders.map(user => {
+                     const initials = `${user.first_name?.charAt(0) || ''}${user.last_name?.charAt(0) || ''}`.toUpperCase();
+                     return (
+                     <tr key={user.id} style={{...styles.tr, backgroundColor: selectedTeamLeader?.id === user.id ? 'rgba(72, 52, 212, 0.1)' : 'transparent'}} onClick={() => handleDrillDownTeamLeader(user)}>
+                        <td style={styles.tdLeft}>
+                           <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                              <div style={{...styles.avatar, background: '#4834D4'}}>{initials}</div>
+                              <div>
+                                 <div style={styles.userName}>{user.first_name} {user.last_name}</div>
+                                 <div style={styles.userRole}>Team Lead</div>
+                              </div>
+                           </div>
+                        </td>
+                        <td style={styles.tdCenter}>{user.today_src}</td>
+                        <td style={styles.tdCenter}>{user.today_sub}</td>
+                        <td style={styles.tdCenter}>{user.sourced}</td>
+                        <td style={styles.tdCenter}>{user.screen}</td>
+                        <td style={styles.tdCenterBlue}>{user.submitted}</td>
+                        <td style={styles.tdCenter}>{user.l1}</td>
+                        <td style={styles.tdCenter}>{user.l2}</td>
+                        <td style={styles.tdCenter}>{user.l3}</td>
+                        <td style={styles.tdCenterOrange}>{user.onboarded}</td>
+                        <td style={styles.tdCenter}>
+                           {(() => {
+                               const ut = targetData.find(t => t.userId === user.id);
+                               if (!ut) return <span style={{fontSize:'10px', color:'#94A3B8'}}>No Target</span>;
+                               const isBehind = ut.calculatedStatus === 'BEHIND';
+                               const isCompleted = ut.calculatedStatus === 'COMPLETED';
+                               return (
+                                   <div style={{
+                                       fontSize:'10px', fontWeight:'700', padding:'4px 8px', borderRadius:'4px',
+                                       background: isCompleted ? '#DCFCE7' : isBehind ? '#FEE2E2' : '#EFF6FF',
+                                       color: isCompleted ? '#16A34A' : isBehind ? '#EF4444' : '#2563EB'
+                                   }}>
+                                       {ut.calculatedStatus}
+                                   </div>
+                               );
+                           })()}
+                        </td>
+                        <td style={styles.tdCenter}>
+                           <button onClick={(e) => { e.stopPropagation(); setAssignTargetEmployee(user); setIsAssignTargetModalOpen(true); }} style={styles.assignTargetBtn}>Assign</button>
+                        </td>
+                        <td style={styles.tdCenter}>
+                          <button onClick={(e) => handleViewEod(e, user)} style={styles.viewEodBtn}>View EOD</button>
+                        </td>
+                     </tr>
+                  )})}
+               </tbody>
+            </table>
+         </div>
+      </div>
+      )}
+
       {/* Team Breakdown Table */}
       <div style={styles.panel}>
          <div style={styles.panelHeader}>
@@ -399,6 +580,8 @@ export default function TeamOverview() {
                      <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('l2')}>L2{getSortIndicator('l2')}</th>
                      <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('l3')}>L3{getSortIndicator('l3')}</th>
                      <th style={{...styles.thCenter, cursor: 'pointer', userSelect: 'none'}} onClick={() => requestSort('onboarded')}>ONBOARDED{getSortIndicator('onboarded')}</th>
+                     <th style={{...styles.thCenter, width: '100px'}}>TARGET STATUS</th>
+                     <th style={{...styles.thCenter, width: '100px'}}>ASSIGN TARGET</th>
                      <th style={{...styles.thCenter, width: '80px'}}>EOD</th>
                   </tr>
                </thead>
@@ -425,6 +608,26 @@ export default function TeamOverview() {
                         <td style={styles.tdCenter}>{user.l2}</td>
                         <td style={styles.tdCenter}>{user.l3}</td>
                         <td style={styles.tdCenterOrange}>{user.onboarded}</td>
+                        <td style={styles.tdCenter}>
+                           {(() => {
+                               const ut = targetData.find(t => t.userId === user.id);
+                               if (!ut) return <span style={{fontSize:'10px', color:'#94A3B8'}}>No Target</span>;
+                               const isBehind = ut.calculatedStatus === 'BEHIND';
+                               const isCompleted = ut.calculatedStatus === 'COMPLETED';
+                               return (
+                                   <div style={{
+                                       fontSize:'10px', fontWeight:'700', padding:'4px 8px', borderRadius:'4px',
+                                       background: isCompleted ? '#DCFCE7' : isBehind ? '#FEE2E2' : '#EFF6FF',
+                                       color: isCompleted ? '#16A34A' : isBehind ? '#EF4444' : '#2563EB'
+                                   }}>
+                                       {ut.calculatedStatus}
+                                   </div>
+                               );
+                           })()}
+                        </td>
+                        <td style={styles.tdCenter}>
+                           <button onClick={(e) => { e.stopPropagation(); setAssignTargetEmployee(user); setIsAssignTargetModalOpen(true); }} style={styles.assignTargetBtn}>Assign</button>
+                        </td>
                         <td style={styles.tdCenter}>
                           <button onClick={(e) => handleViewEod(e, user)} style={styles.viewEodBtn}>View EOD</button>
                         </td>
@@ -505,6 +708,18 @@ export default function TeamOverview() {
           </div>
         </div>
       )}
+
+      {/* Assign Target Modal */}
+      {isAssignTargetModalOpen && assignTargetEmployee && (
+        <AssignTargetModal
+          employee={assignTargetEmployee}
+          onClose={() => {
+            setIsAssignTargetModalOpen(false);
+            setAssignTargetEmployee(null);
+          }}
+          onAssign={() => fetchTargets()}
+        />
+      )}
     </BaseLayout>
   );
 }
@@ -545,20 +760,21 @@ const styles = {
 
   table: { width: '100%', borderCollapse: 'collapse' },
   thRow: { borderBottom: '2px solid #E2E8F0' },
-  th: { padding: '12px 20px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#64748B', letterSpacing: '0.5px' },
-  thCenter: { padding: '12px 10px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#64748B', letterSpacing: '0.5px' },
-  thCenterBlue: { padding: '12px 10px', textAlign: 'center', fontSize: '11px', fontWeight: '800', color: '#FF9B51', letterSpacing: '0.5px' },
+  th: { padding: '12px 10px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#64748B', letterSpacing: '0.5px' },
+  thCenter: { padding: '12px 6px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#64748B', letterSpacing: '0.5px' },
+  thCenterBlue: { padding: '12px 6px', textAlign: 'center', fontSize: '11px', fontWeight: '800', color: '#FF9B51', letterSpacing: '0.5px' },
   tr: { borderBottom: '1px solid #F1F5F9', cursor: 'pointer', transition: 'background 0.2s' },
-  tdLeft: { padding: '12px 20px' },
-  tdCenter: { padding: '12px 10px', textAlign: 'center', fontSize: '13px', fontWeight: '600', color: '#334155' },
-  tdCenterBlue: { padding: '12px 10px', textAlign: 'center', fontSize: '13px', fontWeight: '800', color: '#FF9B51' },
-  tdCenterOrange: { padding: '12px 10px', textAlign: 'center', fontSize: '13px', fontWeight: '700', color: '#27AE60' },
+  tdLeft: { padding: '12px 10px' },
+  tdCenter: { padding: '12px 6px', textAlign: 'center', fontSize: '13px', fontWeight: '600', color: '#334155' },
+  tdCenterBlue: { padding: '12px 6px', textAlign: 'center', fontSize: '13px', fontWeight: '800', color: '#FF9B51' },
+  tdCenterOrange: { padding: '12px 6px', textAlign: 'center', fontSize: '13px', fontWeight: '700', color: '#27AE60' },
   
   avatar: { width: '32px', height: '32px', borderRadius: '50%', background: '#ff9b51', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700' },
   userName: { fontSize: '13px', fontWeight: '700', color: '#25343F' },
   userRole: { fontSize: '11px', color: '#64748B' },
   
   viewEodBtn: { padding: '4px 8px', fontSize: '11px', fontWeight: '700', color: '#4834D4', backgroundColor: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' },
+  assignTargetBtn: { padding: '4px 8px', fontSize: '11px', fontWeight: '700', color: '#fff', backgroundColor: '#FF8C00', border: 'none', borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' },
 
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalContent: { backgroundColor: '#fff', borderRadius: '12px', width: '600px', maxWidth: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' },

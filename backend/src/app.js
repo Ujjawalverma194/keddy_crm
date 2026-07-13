@@ -15,6 +15,7 @@ const jdMappingRoutes = require('./routes/jdMapping.routes');
 const invoicingRoutes = require('./routes/invoicing.routes');
 const attendanceRoutes = require('./routes/attendance.routes');
 const calendarRoutes = require('./routes/calendar.routes');
+const targetRoutes = require('./routes/target.routes');
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use('/jd-mapping/', jdMappingRoutes);
 app.use('/invoice/', invoicingRoutes);
 app.use('/attendance/', attendanceRoutes);
 app.use('/calendar/', calendarRoutes);
+app.use('/', targetRoutes);
 
 app.get('/health/', (_req, res) => {
   res.json({ status: 'ok', backend: 'nodejs', database: 'postgresql' });

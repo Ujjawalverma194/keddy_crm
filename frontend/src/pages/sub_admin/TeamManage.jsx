@@ -4,7 +4,8 @@ import { apiRequest } from "../../services/api";
 import BaseLayout from "../components/SubAdminLayout";
 import { getStoredAuth } from "../components/authSession";
     // eslint-disable-next-line no-unused-vars
-import { MoreVertical, Eye, Calendar, Edit, Trash2, UserMinus } from "lucide-react";
+import { MoreVertical, Eye, Calendar, Edit, Trash2, UserMinus, Target } from "lucide-react";
+import AssignTargetModal from "../../components/AssignTargetModal";
 
 function UserManagement() {
     const navigate = useNavigate();
@@ -20,6 +21,7 @@ function UserManagement() {
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [bulkAssignData, setBulkAssignData] = useState({ isTeamLeader: false, teamLeaderId: "" });
     const [assigning, setAssigning] = useState(false);
+    const [targetModal, setTargetModal] = useState({ show: false, employee: null });
     
     const [activeMenu, setActiveMenu] = useState(null);
 
@@ -61,6 +63,9 @@ function UserManagement() {
                             <button onClick={() => { navigate(`/sub-admin/user/detail/${user.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
                                 <Eye size={15} /> View Details
                             </button>
+                            <button onClick={() => { setTargetModal({ show: true, employee: user }); setActiveMenu(null); }} style={styles.dropdownItem}>
+                                <Target size={15} /> Assign Target
+                            </button>
                             <button onClick={() => { navigate(`/sub-admin/user/update/${user.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
                                 <Edit size={15} /> Edit
                             </button>
@@ -99,6 +104,9 @@ function UserManagement() {
                         <div style={{ position: 'absolute', right: '0', top: '100%', marginTop: '5px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.15)', zIndex: 9999, minWidth: '180px', overflow: 'hidden' }}>
                             <button onClick={() => { navigate(`/sub-admin/user/detail/${tl.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
                                 <Eye size={15} /> View Details
+                            </button>
+                            <button onClick={() => { setTargetModal({ show: true, employee: tl }); setActiveMenu(null); }} style={styles.dropdownItem}>
+                                <Target size={15} /> Assign Target
                             </button>
                             <button onClick={() => { navigate(`/sub-admin/user/update/${tl.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
                                 <Edit size={15} /> Edit Profile
@@ -603,6 +611,17 @@ function UserManagement() {
                         </div>
                     </div>
                 </div>
+            )}
+            
+            {targetModal.show && (
+                <AssignTargetModal
+                    employee={targetModal.employee}
+                    onClose={() => setTargetModal({ show: false, employee: null })}
+                    onAssign={() => {
+                        notify("Target assigned successfully");
+                        fetchUsers();
+                    }}
+                />
             )}
         </BaseLayout>
     );

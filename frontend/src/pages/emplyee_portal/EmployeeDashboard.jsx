@@ -136,6 +136,7 @@ function EmployeeDashboard() {
     const [selectedCand, setSelectedCand] = useState(null);
     const [editForm, setEditForm] = useState({ main_status: "", sub_status: "", remark: "" });
     const [submissionModalProps, setSubmissionModalProps] = useState({});
+    const [targetSummary, setTargetSummary] = useState(null);
     
     const [activeRequirements, setActiveRequirements] = useState([]);
     const [requirementsLoading, setRequirementsLoading] = useState(true);
@@ -146,14 +147,15 @@ function EmployeeDashboard() {
 
     const fetchAllData = async () => {
         try {
-            const [sData, tData, vData, pData, teamData, allTeamData, last7Data] = await Promise.all([
+            const [sData, tData, vData, pData, teamData, allTeamData, last7Data, targetData] = await Promise.all([
                 apiRequest("/employee-portal/dashboard/stats/"),
                 apiRequest("/employee-portal/dashboard/today-candidates/"),
                 apiRequest("/employee-portal/dashboard/today-verified-candidates/"),
                 apiRequest("/employee-portal/dashboard/active-pipeline-candidates/"),
                 apiRequest("/employee-portal/dashboard/team/today-submissions/"),
                 apiRequest("/employee-portal/team/all-submissions/"),
-                apiRequest("/employee-portal/dashboard/last-7-days-verified/")
+                apiRequest("/employee-portal/dashboard/last-7-days-verified/"),
+                apiRequest("/api/targets/my-targets", "GET").catch(() => [])
             ]);
             const asArray = (d) => (Array.isArray(d) ? d : (Array.isArray(d?.results) ? d.results : []));
             const hasClientSubmission = (candidate) => Boolean(
@@ -178,6 +180,9 @@ function EmployeeDashboard() {
             setTeamSubmissions(asArray(teamData));
             setTeamSubmissionsCount(getCount(allTeamData));
             setLast7Verified(asArray(last7Data));
+            if (Array.isArray(targetData) && targetData.length > 0) {
+                setTargetSummary(targetData[0]);
+            }
         } catch (err) { notify("Failed to load dashboard data", "error"); }
         finally { setLoading(false); }
     };
@@ -214,6 +219,29 @@ function EmployeeDashboard() {
         setToast({ show: true, msg, type });
         setTimeout(() => setToast({ show: false, msg: "", type: "" }), 3000);
     };
+
+    useEffect(() => {
+        if (targetSummary) {
+            const subTarget = targetSummary.totalSubmissionTarget || 0;
+            const profTarget = targetSummary.profilesSourcingTarget || 0;
+            const subProgress = targetSummary.progress?.submissions || 0;
+            const profProgress = targetSummary.progress?.profileSourcing || 0;
+
+            const submissionsRemaining = Math.max(subTarget - subProgress, 0);
+            const profilesRemaining = Math.max(profTarget - profProgress, 0);
+
+            const hasSubTarget = subTarget > 0;
+            const hasProfTarget = profTarget > 0;
+            
+            const isSubCompleted = hasSubTarget && submissionsRemaining === 0;
+            const isProfCompleted = hasProfTarget && profilesRemaining === 0;
+            
+            if ((hasSubTarget || hasProfTarget) && (!hasSubTarget || isSubCompleted) && (!hasProfTarget || isProfCompleted)) {
+                notify(`Congratulations you have achieved your ${targetSummary.targetType?.toLowerCase() || 'daily'} target!`, "success");
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [targetSummary]);
 
     const getCandidateId = (candidate) => {
         return (
@@ -434,7 +462,41 @@ function EmployeeDashboard() {
             {toast.show && <div style={{...styles.toast, backgroundColor: toast.type === 'error' ? '#E74C3C' : '#27AE60'}}>{toast.msg}</div>}
 
             <div style={styles.header}>
-                <div><h2 style={styles.welcome}>Welcome, {stats.user_name || "Recruiter"}</h2><p style={styles.subText}>Recruitment pipeline overview for today.</p></div>
+                <div><h2 style={styles.welcome}>Welcome, {stats.user_name || "Recruiter"}</h2>   {targetSummary && (() => {
+                    const subTarget = targetSummary.totalSubmissionTarget || 0;
+                    const profTarget = targetSummary.profilesSourcingTarget || 0;
+                    const subProgress = targetSummary.progress?.submissions || 0;
+                    const profProgress = targetSummary.progress?.profileSourcing || 0;
+
+                    const submissionsRemaining = Math.max(subTarget - subProgress, 0);
+                    const profilesRemaining = Math.max(profTarget - profProgress, 0);
+
+                    const hasSubTarget = subTarget > 0;
+                    const hasProfTarget = profTarget > 0;
+                    
+                    const isSubCompleted = hasSubTarget && submissionsRemaining === 0;
+                    const isProfCompleted = hasProfTarget && profilesRemaining === 0;
+
+                    return (
+                        <div style={{  color: "black", borderRadius: "10px", marginBottom: "25px", display: "flex", flexDirection: "column", gap:"5px", cursor: "pointer", marginTop: "10px" }} onClick={() => navigate("/employee/my-targets")}>
+                           <span style={{ fontSize: "1rem", fontWeight: "500", display: "flex", alignItems: "center", gap: "10px" }}>
+                                <span>
+                                    Submissions :{" "}
+                                    {isSubCompleted ? <span style={{color: '#27AE60', fontWeight: 'bold'}}>Completed</span> : submissionsRemaining}
+                                </span>
+                                <span style={{color: '#CBD5E1'}}>|</span>
+                                <span>
+                                    Profiles:{" "}
+                                    {isProfCompleted ? <span style={{color: '#27AE60', fontWeight: 'bold'}}>Completed</span> : profilesRemaining}
+                                </span>
+                                <span style={{color: '#94A3B8'}}>→</span>
+                            </span>
+                            <span style={{ fontSize: "12px", color: "#64748B", fontWeight: "600" }}>
+                                You need to complete this {targetSummary.targetType?.toLowerCase() || 'daily'} task
+                            </span>
+                        </div>
+                    );
+                })()}</div>
                 <div style={styles.btnGroup}>
                     <button style={{ ...styles.actionBtn, background: "#4834D4", color: "#fff", borderColor: "#4834D4" }} onClick={() => navigate("/employee/add-eod")}><Icons.Calendar /> Add EOD</button>
                     <button style={styles.actionBtn} onClick={() => navigate("/employee/candidates/add")}><Icons.UserPlus /> Add Profile</button>
@@ -442,6 +504,8 @@ function EmployeeDashboard() {
                     <button style={styles.actionBtn} onClick={() => navigate("/employee/requirement/create")}><Icons.Requirement /> Add Requirement</button>
                 </div>
             </div>
+
+          
 
             <div style={styles.statsGrid}>
                 {[
@@ -453,7 +517,6 @@ function EmployeeDashboard() {
                     { label: "Total Clients", val: stats.total_clients, icon: <Icons.Client />, col: "#25343F", url: "/employee/clients" },
                     { label: "Total Profiles", val: stats.total_profiles, icon: <Icons.Users />, col: "#25343F", url: "/employee/user-candidates" },
                     // { label: "Attendance", val: stats.attendance, icon: <Icons.Users />, col: "#25343F", url: "/employee/attendance" },
-                    { label: "Team Submissions", val: teamSubmissionsCount, icon: <Icons.Send />, col: "#FF9B51", url: "/employee/TeamSubmissions" },
                 ].map((s, i) => (
                     <div key={i} style={styles.statCard} onClick={() => navigate(s.url)}>
                         <div style={{overflow:'hidden'}}><p style={styles.statLabel}>{s.label}</p><h3 style={{...styles.statValue, color: s.col}}>{s.val || 0}</h3></div>
@@ -462,17 +525,18 @@ function EmployeeDashboard() {
                 ))}
             </div>
 
+            {/* Active Pipeline Requirements Section - NEW */}
             <div style={styles.sectionContainer}>
                 <div style={styles.sectionHeader}>
                     <h3 style={styles.sectionTitle}>Active Pipeline Requirements</h3>
                 </div>
                 <div style={{ ...styles.topBar, marginBottom: "15px" }}>
-                    <div style={styles.filterGroup}>
+                    {/* <div style={styles.filterGroup}>
                         <button onClick={() => setStatusFilter("")} style={!statusFilter ? styles.activeFilterBtn : styles.filterBtn}>All</button>
                         <button onClick={() => setStatusFilter("HOT")} style={statusFilter === "HOT" ? styles.activeFilterBtn : styles.filterBtn}>HOT</button>
                         <button onClick={() => setStatusFilter("WARM")} style={statusFilter === "WARM" ? styles.activeFilterBtn : styles.filterBtn}>WARM</button>
-                    </div>
-                    <div style={styles.searchContainer}>
+                    </div> */}
+                    {/* <div style={styles.searchContainer}>
                         <input 
                             type="text" 
                             placeholder="Search by ID, Title, Client..." 
@@ -480,7 +544,7 @@ function EmployeeDashboard() {
                             value={requirementsSearch}
                             onChange={(e) => setRequirementsSearch(e.target.value)}
                         />
-                    </div>
+                    </div> */}
                 </div>
                 <div style={styles.tableWrapper}>
                     <div style={{overflowX:'auto'}}>
@@ -621,7 +685,7 @@ const styles = {
     btnGroup: { display: "flex", gap: "10px", alignItems: "center"},
     actionBtn: { background: "#FF9B51", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" },
     statsGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "15px", marginBottom: "30px" },
-    statCard: { background: "#fff", padding: "15px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #F0F2F4", cursor: 'pointer' },
+    statCard: { background: "#fff", padding: "22px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #F0F2F4", cursor: 'pointer' },
     statLabel: { margin: 0, color: "#7F8C8D", fontSize: "11px", fontWeight: "600", textTransform: "uppercase" },
     statValue: { margin: "4px 0", fontSize: "20px", fontWeight: "800" },
     iconCircle: { width: "38px", height: "38px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" },

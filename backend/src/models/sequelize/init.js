@@ -253,6 +253,7 @@ const Requirement = sequelize.define(
     vendorBudgetRange: { type: DataTypes.STRING },
     jdDescription: { type: DataTypes.TEXT },
     skills: { type: DataTypes.TEXT },
+    profilesForRequirement: { type: DataTypes.INTEGER, defaultValue: 3 },
     requirementId: { type: DataTypes.STRING, unique: true },
     companyId: { type: DataTypes.INTEGER },
     createdById: { type: DataTypes.INTEGER },
@@ -580,7 +581,28 @@ const CandidateCalendarEventHistory = sequelize.define(
     updatedAt: false,
   }
 );
-
+const Target = sequelize.define(
+  'Target',
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    assignedById: { type: DataTypes.INTEGER, allowNull: false },
+    companyId: { type: DataTypes.INTEGER },
+    targetDuration: { type: DataTypes.ENUM('DAILY', 'WEEKLY', 'MONTHLY'), allowNull: false },
+    profilesSourcingTarget: { type: DataTypes.INTEGER, allowNull: true },
+    totalSubmissionTarget: { type: DataTypes.INTEGER, allowNull: true },
+    interviewTarget: { type: DataTypes.INTEGER, allowNull: true },
+    avgWeeklySubmissionsTarget: { type: DataTypes.FLOAT, allowNull: true },
+    startDate: { type: DataTypes.DATE, allowNull: false },
+    endDate: { type: DataTypes.DATE },
+    notes: { type: DataTypes.TEXT },
+    status: { type: DataTypes.STRING, defaultValue: 'ACTIVE' },
+    isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+    isDeleted: { type: DataTypes.BOOLEAN, defaultValue: false },
+  },
+  { tableName: 'targets' }
+);
+Target.beforeCreate(assignNumericId('targets'));
 
 // PostgreSQL-native associations for ATS/CRM workflows.
 // These aliases keep candidate/submission/client/vendor/user relations explicit and prevent blank nested data.
@@ -615,8 +637,16 @@ Vendor.hasMany(VendorPOC, { foreignKey: 'vendorId', as: 'pocs' });
 VendorPOC.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendorCompany' });
 Client.hasMany(ClientPOC, { foreignKey: 'clientId', as: 'pocs' });
 ClientPOC.belongsTo(Client, { foreignKey: 'clientId', as: 'clientCompany' });
+Target.belongsTo(User, { foreignKey: 'userId', as: 'employee' });
+Target.belongsTo(User, { foreignKey: 'assignedById', as: 'assignedBy' });
+Target.belongsTo(User, { foreignKey: 'companyId', as: 'companyOwner' });
 
 async function syncDatabase() {
+  try {
+    await sequelize.query('ALTER TABLE requirements ADD COLUMN profiles_for_requirement INTEGER DEFAULT 3;');
+  } catch (e) {
+    // Ignore if column already exists
+  }
   await sequelize.sync();
 
   // One-time migration for existing Vendors to create their primary VendorPOC
@@ -742,5 +772,6 @@ module.exports = {
   CandidateCalendarEvent,
   CandidateCalendarEventHistory,
   VendorPOC,
+  Target,
   syncDatabase,
 };

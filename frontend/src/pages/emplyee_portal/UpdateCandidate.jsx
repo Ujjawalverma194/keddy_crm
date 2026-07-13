@@ -36,7 +36,7 @@ function UpdateCandidate() {
       const candidateRes = await apiRequest(
         `/employee-portal/api/candidates/${id}/`,
       );
-      const clientRes = await apiRequest("/employee-portal/clients/list/");
+      const clientRes = await apiRequest("/employee-portal/api/clients/list/");
       const vendorRes = await apiRequest("/employee-portal/api/user/vendors/");
 
       setForm(candidateRes);
@@ -73,7 +73,7 @@ function UpdateCandidate() {
   const fetchSearchClients = async (query) => {
     try {
       const res = await apiRequest(
-        `/employee-portal/clients/list/?search=${query}`,
+        `/employee-portal/api/clients/list/?search=${query}`,
       );
       setClients(res.results || []);
     } catch (err) {
