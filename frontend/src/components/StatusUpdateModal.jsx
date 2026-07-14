@@ -1,8 +1,10 @@
 import React from 'react';
 import { MAIN_STATUS_OPTIONS, SUB_STATUS_OPTIONS } from '../utils/statusHelper';
 
-const StatusUpdateModal = ({ isOpen, onClose, formData, setFormData, onSave }) => {
+const StatusUpdateModal = ({ isOpen, onClose, formData, setFormData, onSave, hasClientSubmission = true }) => {
     if (!isOpen) return null;
+
+    const restrictedStatuses = ["L1", "L2", "L3", "OTHER", "OFFERED", "ONBORD", "OFFBOARDED"];
 
     return (
         <div style={mStyles.modalOverlay}>
@@ -11,7 +13,14 @@ const StatusUpdateModal = ({ isOpen, onClose, formData, setFormData, onSave }) =
                 <div style={mStyles.inputGroup}>
                     <label style={mStyles.modalLabel}>Main Status</label>
                     <select style={mStyles.select} value={formData.main_status} onChange={e => setFormData({...formData, main_status: e.target.value})}>
-                        {MAIN_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        {MAIN_STATUS_OPTIONS.map(opt => {
+                            const isRestricted = !hasClientSubmission && restrictedStatuses.includes(opt);
+                            return (
+                                <option key={opt} value={opt} disabled={isRestricted}>
+                                    {opt} {isRestricted ? "(Client Submission Required)" : ""}
+                                </option>
+                            );
+                        })}
                     </select>
                 </div>
                 {(formData.main_status === "L1" || formData.main_status === "L2") && (

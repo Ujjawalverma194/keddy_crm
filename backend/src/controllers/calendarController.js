@@ -31,6 +31,7 @@ function googleConnect(req, res) {
     scope: 'https://www.googleapis.com/auth/calendar',
     access_type: 'offline',
     prompt: 'consent',
+    state: req.query.token || '',
   });
 
   return res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
@@ -82,10 +83,13 @@ async function googleCallback(req, res) {
     await GoogleCalendarAccount.create({ userId: user.id, ...update });
   }
 
-  return res.json({
-    message: 'Google Calendar connected successfully.',
-    email: user.email,
-  });
+  // Optional: You could read the frontend URL from config, but we'll hardcode localhost for now
+  // or redirect to a specific success page.
+  const frontendUrl = (config.corsOrigins && config.corsOrigins.length > 0) 
+      ? config.corsOrigins[0] 
+      : 'http://localhost:3000';
+      
+  return res.redirect(`${frontendUrl}/employee`);
 }
 
 async function testGoogleApi(req, res) {

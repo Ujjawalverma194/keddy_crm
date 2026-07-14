@@ -11,3 +11,20 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Global Placeholder Styling */
+::placeholder {
+  color: #94A3B8 !important;
+  font-weight: 500 !important;
+  opacity: 1 !important; /* Firefox lowers opacity by default */
+}
+
+:-ms-input-placeholder {
+  color: #94A3B8 !important;
+  font-weight: 500 !important;
+}
+
+::-ms-input-placeholder {
+  color: #94A3B8 !important;
+  font-weight: 500 !important;
+}
