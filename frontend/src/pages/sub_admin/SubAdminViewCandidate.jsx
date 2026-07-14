@@ -86,6 +86,8 @@ function DetailedViewCandidate() {
     main_status: "",
     sub_status: "",
     remark: "",
+    l1_l2_date: "",
+    l1_l2_time: "",
   });
   const [toast, setToast] = useState({ show: false, msg: "", type: "" });
 
@@ -131,6 +133,8 @@ function DetailedViewCandidate() {
         main_status: res.main_status,
         sub_status: res.sub_status,
         remark: "",
+        l1_l2_date: res.l1L2Date || "",
+        l1_l2_time: res.l1L2Time || "",
       });
     } catch (err) {
       console.error("Error:", err);

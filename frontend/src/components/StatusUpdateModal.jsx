@@ -14,6 +14,28 @@ const StatusUpdateModal = ({ isOpen, onClose, formData, setFormData, onSave }) =
                         {MAIN_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     </select>
                 </div>
+                {(formData.main_status === "L1" || formData.main_status === "L2") && (
+                    <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
+                        <div style={{ flex: 1 }}>
+                            <label style={mStyles.modalLabel}>Date</label>
+                            <input
+                                type="date"
+                                style={mStyles.input}
+                                value={formData.l1_l2_date || ""}
+                                onChange={(e) => setFormData({ ...formData, l1_l2_date: e.target.value })}
+                            />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <label style={mStyles.modalLabel}>Time</label>
+                            <input
+                                type="time"
+                                style={mStyles.input}
+                                value={formData.l1_l2_time || ""}
+                                onChange={(e) => setFormData({ ...formData, l1_l2_time: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                )}
                 <div style={mStyles.inputGroup}>
                     <label style={mStyles.modalLabel}>Sub Status</label>
                     <select style={mStyles.select} value={formData.sub_status} onChange={e => setFormData({...formData, sub_status: e.target.value})}>
@@ -39,6 +61,7 @@ const mStyles = {
     inputGroup: { marginBottom: '15px' },
     modalLabel: { fontSize: '11px', fontWeight: '800', color: '#64748B', display: 'block', marginBottom: '5px', textTransform: 'uppercase' },
     select: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', outline: 'none' },
+    input: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', outline: 'none', boxSizing: 'border-box' },
     textarea: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', height: '80px', resize: 'none' },
     saveBtn: { flex: 1, background: '#FF9B51', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' },
     cancelBtn: { flex: 1, background: '#F1F5F9', color: '#64748B', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }

@@ -14,7 +14,7 @@ const {
 } = require('../utils/formatters');
 const { relPath } = require('../middleware/upload');
 
-const PIPELINE = ['SCREENING', 'L1', 'L2', 'L3', 'OTHER'];
+const PIPELINE = ['INTERNAL SCREENING', 'CLIENT SCREENING', 'L1', 'L2', 'L3', 'OTHER'];
 
 // A profile should be considered "submitted" only after the explicit
 // Submission Modal flow marks it verified. Newly sourced/created profiles may
@@ -713,7 +713,7 @@ async function teamOverviewAnalytics(req, res) {
     const l1Count = profiles.filter(p => p.mainStatus === 'L1').length;
     const l2Count = profiles.filter(p => p.mainStatus === 'L2').length;
     const l3Count = profiles.filter(p => p.mainStatus === 'L3').length;
-    const screeningCount = profiles.filter(p => p.mainStatus === 'SCREENING').length;
+    const screeningCount = profiles.filter(p => p.mainStatus === 'INTERNAL SCREENING' || p.mainStatus === 'CLIENT SCREENING').length;
     const interviewCount = l1Count + l2Count + l3Count;
     
     const prevTotalSourced = prevProfiles.length;
@@ -778,7 +778,7 @@ async function teamOverviewAnalytics(req, res) {
            if (p.mainStatus === 'L2') uL2++;
            if (p.mainStatus === 'L3') uL3++;
            if (p.mainStatus === 'ONBORD') uOnb++;
-           if (p.mainStatus === 'SCREENING') uScreen++;
+           if (p.mainStatus === 'INTERNAL SCREENING' || p.mainStatus === 'CLIENT SCREENING') uScreen++;
        });
 
        const todayStart = new Date(); todayStart.setHours(0,0,0,0);

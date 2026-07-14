@@ -4,7 +4,7 @@ const User = require('../models/User');
 const { getCompanyUserIds, resolveCompanyId } = require('../utils/company');
 const { Op } = require('sequelize');
 
-const PIPELINE_STATUSES = ['SCREENING', 'L1', 'L2', 'L3', 'OTHER'];
+const PIPELINE_STATUSES = ['INTERNAL SCREENING', 'CLIENT SCREENING', 'L1', 'L2', 'L3', 'OTHER'];
 
 async function calculateTargetProgress(target) {
   const start = new Date(target.startDate);

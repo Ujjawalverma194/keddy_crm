@@ -2030,7 +2030,8 @@ export default SubAdminDashboard;
 //     const getStatusStyles = (status) => {
 //             switch (status) {
 //                 case "SUBMITTED": return { bg: "#E8F4FD", text: "#1976D2" };
-//                 case "SCREENING": return { bg: "#ffee005e", text: "#383333" };
+//                 case "INTERNAL SCREENING": return { bg: "#ffee005e", text: "#383333" };
+//                 case "CLIENT SCREENING": return { bg: "#FFD54F", text: "#3E2723" };
 //                 case "L1": return { bg: "#6365f146", text: "#1976D2" };
 //                 case "L2": return { bg: "#D6DBF0", text: "#101933" };
 //                 case "L3": return { bg: "#31df39a8", text: "#183f1a" };
@@ -2166,7 +2167,8 @@ export default SubAdminDashboard;
 //                             <label style={styles.modalLabel}>Main Status</label>
 //                             <select style={styles.select} value={editForm.main_status} onChange={e => setEditForm({...editForm, main_status: e.target.value})}>
 //                                 <option value="SUBMITTED">Submitted</option>
-//                                 <option value="SCREENING">Screening</option>
+//                                 <option value="INTERNAL SCREENING">Internal Screening</option>
+//                                 <option value="CLIENT SCREENING">Client Screening</option>
 //                                 <option value="L1">L1</option>
 //                                 <option value="L2">L2</option>
 //                                 <option value="L3">L3</option>

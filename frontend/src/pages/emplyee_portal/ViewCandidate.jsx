@@ -75,6 +75,8 @@ function DetailedViewCandidate() {
     main_status: "",
     sub_status: "",
     remark: "",
+    l1_l2_date: "",
+    l1_l2_time: "",
   });
   const [toast, setToast] = useState({ show: false, msg: "", type: "" });
 
@@ -90,6 +92,8 @@ function DetailedViewCandidate() {
         main_status: res.main_status,
         sub_status: res.sub_status,
         remark: "", // Remark usually naya add hota hai isliye empty
+        l1_l2_date: res.l1L2Date || "",
+        l1_l2_time: res.l1L2Time || "",
       });
     } catch (err) {
       console.error("Error:", err);
@@ -494,7 +498,8 @@ function DetailedViewCandidate() {
                 }
               >
                 <option value="SUBMITTED">Submitted</option>
-                <option value="SCREENING">Screening</option>
+                <option value="INTERNAL SCREENING">Internal Screening</option>
+                <option value="CLIENT SCREENING">Client Screening</option>
                 <option value="L1">L1</option>
                 <option value="L2">L2</option>
                 <option value="L3">L3</option>
@@ -506,6 +511,30 @@ function DetailedViewCandidate() {
                 <option value="WITHDRAWN">Withdrawn</option>
               </select>
             </div>
+
+            {(editForm.main_status === "L1" || editForm.main_status === "L2") && (
+              <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={styles.modalLabel}>Date</label>
+                  <input
+                    type="date"
+                    style={styles.input}
+                    value={editForm.l1_l2_date}
+                    onChange={(e) => setEditForm({ ...editForm, l1_l2_date: e.target.value })}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={styles.modalLabel}>Time</label>
+                  <input
+                    type="time"
+                    style={styles.input}
+                    value={editForm.l1_l2_time}
+                    onChange={(e) => setEditForm({ ...editForm, l1_l2_time: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+
             <div style={styles.inputGroup}>
               <label style={styles.modalLabel}>Sub Status</label>
               <select

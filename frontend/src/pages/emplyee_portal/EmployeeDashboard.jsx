@@ -276,6 +276,8 @@ function EmployeeDashboard() {
             main_status: candidate?.main_status || "SUBMITTED",
             sub_status: candidate?.sub_status || "NONE",
             remark: candidate?.remark || "",
+            l1_l2_date: candidate?.l1_l2_date || candidate?.l1L2Date || "",
+            l1_l2_time: candidate?.l1_l2_time || candidate?.l1L2Time || "",
         });
         setShowModal(true);
     };
@@ -480,14 +482,16 @@ function EmployeeDashboard() {
                     return (
                         <div style={{  color: "black", borderRadius: "10px", marginBottom: "25px", display: "flex", flexDirection: "column", gap:"5px", cursor: "pointer", marginTop: "10px" }} onClick={() => navigate("/employee/my-targets")}>
                            <span style={{ fontSize: "1rem", fontWeight: "500", display: "flex", alignItems: "center", gap: "10px" }}>
-                                <span>
-                                    Submissions :{" "}
-                                    {isSubCompleted ? <span style={{color: '#27AE60', fontWeight: 'bold'}}>Completed</span> : submissionsRemaining}
-                                </span>
-                                <span style={{color: '#CBD5E1'}}>|</span>
+                               
+                                
                                 <span>
                                     Profiles:{" "}
-                                    {isProfCompleted ? <span style={{color: '#27AE60', fontWeight: 'bold'}}>Completed</span> : profilesRemaining}
+                                    {isProfCompleted ? <span style={{color: '#27AE60', fontWeight: 'bold'}}>Completed</span> : <b style={{color:"#FF9B51"}}>{profilesRemaining}</b>}
+                                </span>
+                                 <span style={{color: '#CBD5E1'}}>|</span>
+                                 <span>
+                                    Submissions :{" "}
+                                    {isSubCompleted ? <span style={{color: '#27AE60', fontWeight: 'bold'}}>Completed</span> : <b style={{color:"#FF9B51"}}>{submissionsRemaining}</b>}
                                 </span>
                                 <span style={{color: '#94A3B8'}}>→</span>
                             </span>

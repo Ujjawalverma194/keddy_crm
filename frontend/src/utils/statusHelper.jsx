@@ -7,8 +7,10 @@ export const getStatusStyles = (status) => {
     switch (status) {
         case "SUBMITTED":
             return { bg: "#E8F4FD", text: "#1976D2" };
-        case "SCREENING":
+        case "INTERNAL SCREENING":
             return { bg: "#ffee005e", text: "#383333" };
+        case "CLIENT SCREENING":
+            return { bg: "#FFD54F", text: "#3E2723" };
         case "L1":
             return { bg: "#6365f146", text: "#1976D2" };
         case "L2":
@@ -37,7 +39,8 @@ export const getStatusStyles = (status) => {
 // Main status dropdown options
 export const MAIN_STATUS_OPTIONS = [
     "SUBMITTED",
-    "SCREENING",
+    "INTERNAL SCREENING",
+    "CLIENT SCREENING",
     "L1",
     "L2",
     "L3",

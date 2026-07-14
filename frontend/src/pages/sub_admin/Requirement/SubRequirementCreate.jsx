@@ -30,7 +30,8 @@ function RequirementCreate() {
         rate: "",
         time_zone: "IST",
         jd_description: "",
-        skills: ""
+        skills: "",
+        profiles_for_requirement: 3
     });
 
     const notify = (msg, type = "success") => {
@@ -96,7 +97,8 @@ function RequirementCreate() {
             rate: form.rate,
             time_zone: form.time_zone,
             jd_description: form.jd_description,
-            skills: form.skills
+            skills: form.skills,
+            profiles_for_requirement: parseInt(form.profiles_for_requirement) || 3
         };
 
         try {
@@ -130,6 +132,7 @@ function RequirementCreate() {
                                 <div style={{...styles.inputGroup, ...styles.col6}} ref={dropdownRef}><label style={styles.label}>Select Client<span style={styles.requiredDot}>●</span></label><div style={styles.inputShell}><input style={styles.input} placeholder={form.client_display_name || "Search & select client..."} value={clientSearch} onChange={(e) => { setClientSearch(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} /></div>{showDropdown && (<div style={styles.dropdown}>{clients.length > 0 ? clients.map(c => (<div key={c.id} style={styles.dropdownItem} onClick={() => selectClient(c)}><div style={{fontWeight: "900", color: "#20242A"}}>{c.client_name}</div><div style={{fontSize: "12px", color: "#64748B", fontWeight: "700"}}>{c.company_name}</div></div>)) : <div style={styles.dropdownItem}>No clients found</div>}</div>)}</div>
                                 <div style={{...styles.inputGroup, ...styles.col4}}><label style={styles.label}>Experience Required<span style={styles.requiredDot}>●</span></label><div style={styles.inputShell}><input style={styles.input} name="experience_required" value={form.experience_required} onChange={handleChange} required placeholder="5-8 years" /></div></div>
                                 <div style={{...styles.inputGroup, ...styles.col4}}><label style={styles.label}>Rate<span style={styles.requiredDot}>●</span></label><div style={styles.inputShell}><input style={styles.input} name="rate" value={form.rate} onChange={handleChange} required placeholder="1.2 LPM" /></div></div>
+                                <div style={{...styles.inputGroup, ...styles.col4}}><label style={styles.label}>Profiles Req.<span style={styles.requiredDot}>●</span></label><div style={styles.inputShell}><input style={styles.input} type="number" min="1" name="profiles_for_requirement" value={form.profiles_for_requirement} onChange={handleChange} required placeholder="3" /></div></div>
                                 <div style={{...styles.inputGroup, ...styles.col4}}><label style={styles.label}>Time Zone</label><div style={styles.inputShell}><select style={styles.select} name="time_zone" value={form.time_zone} onChange={handleChange}><option value="IST">IST</option><option value="UST">UST</option><option value="EST">EST</option><option value="PST">PST</option><option value="GMT">GMT</option><option value="OTHER">OTHER</option></select></div></div>
                             </div></div>
                             <div style={styles.sectionCard}><div style={styles.sectionHeader}><div style={styles.sectionIcon}><Icons.File /></div><div><h3 style={styles.sectionTitle}>JD Description</h3><p style={styles.sectionHint}>Paste the complete requirement details.</p></div></div><div style={styles.textareaShell}><textarea style={styles.textarea} name="jd_description" value={form.jd_description} onChange={handleChange} required placeholder="Paste full JD here..." /></div></div>

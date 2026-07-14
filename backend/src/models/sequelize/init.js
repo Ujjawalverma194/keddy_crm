@@ -194,6 +194,8 @@ const Candidate = sequelize.define(
     billingEndDate: { type: DataTypes.DATE },
     defaultBillingRate: { type: DataTypes.FLOAT },
     defaultBillingRateType: { type: DataTypes.STRING },
+    l1L2Date: { type: DataTypes.DATEONLY },
+    l1L2Time: { type: DataTypes.STRING },
   },
   { tableName: 'candidates', updatedAt: false }
 );

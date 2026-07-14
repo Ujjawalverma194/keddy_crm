@@ -6,7 +6,7 @@ const { RequirementAssignment, CandidateJDSubmission } = require('../../models/J
 const { candidatesToJSON } = require('../../utils/formatters');
 const { startOfDay, subDays } = require('date-fns');
 
-const PIPELINE_STATUSES = ['SCREENING', 'L1', 'L2', 'L3', 'OTHER'];
+const PIPELINE_STATUSES = ['INTERNAL SCREENING', 'CLIENT SCREENING', 'L1', 'L2', 'L3', 'OTHER'];
 
 function todayRange() {
   const start = startOfDay(new Date());
