@@ -457,6 +457,61 @@ function EmployeeDashboard() {
         });
     };
 
+    const scheduledInterviews = (pipelineCandidates || [])
+        .filter(c => ['L1', 'L2', 'L3'].includes(c.main_status))
+        .sort((a, b) => {
+            const levelOrder = { 'L1': 1, 'L2': 2, 'L3': 3 };
+            if (levelOrder[a.main_status] !== levelOrder[b.main_status]) {
+                return levelOrder[a.main_status] - levelOrder[b.main_status];
+            }
+            const dateA = a.l1_l2_date ? new Date(`${a.l1_l2_date}T${a.l1_l2_time || '00:00'}`) : new Date(8640000000000000);
+            const dateB = b.l1_l2_date ? new Date(`${b.l1_l2_date}T${b.l1_l2_time || '00:00'}`) : new Date(8640000000000000);
+            return dateA - dateB;
+        });
+
+    const renderScheduledInterviewsRows = (list = []) => {
+        return list.map((c, i) => {
+            const statusStyle = getStatusStyles(c.main_status || 'SUBMITTED');
+            return (
+                <tr key={c.id || i} style={{ ...styles.tableRow, backgroundColor: statusStyle.bg }} onClick={() => navigate(`/employee/candidate/view/${c.id}`)}>
+                    <td style={styles.td}><b>{c.candidate_name}</b></td>
+                    <td style={styles.td}>{truncate(c.technology, 30)}</td>
+                    <td style={styles.td}>{c.client_name || c.client_company_name || '-'}</td>
+                    <td style={styles.td}>{truncate(c.requirement_title || c.jd_title || '-', 30)}</td>
+                    <td style={styles.td}>
+                        <span style={{...styles.badge, color: statusStyle.text, fontWeight: '800'}}>{c.main_status}</span>
+                    </td>
+                    <td style={styles.td}>
+                        {c.l1_l2_date ? new Date(c.l1_l2_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+                    </td>
+                    <td style={styles.td}>
+                        {c.l1_l2_time ? (() => {
+                            const [hours, minutes] = c.l1_l2_time.split(':');
+                            const h = parseInt(hours, 10);
+                            const ampm = h >= 12 ? 'PM' : 'AM';
+                            const h12 = h % 12 || 12;
+                            return `${h12}:${minutes} ${ampm}`;
+                        })() : '-'}
+                    </td>
+                    <td style={styles.td}>
+                        <small style={{ ...styles.subStatusText, color: statusStyle.text, fontWeight: '700' }}>{c.sub_status || 'Pending'}</small>
+                    </td>
+                    <td style={styles.td}>
+                        <b style={{color: "#27AE60"}}>{getCreatedByName(c) || '-'}</b>
+                    </td>
+                    <td style={styles.td}>
+                        <b>{getSubmittedToName(c) || '-'}</b>
+                    </td>
+                    <td style={styles.td}>
+                        <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+                            <button style={styles.viewBtn} onClick={(e) => { e.stopPropagation(); navigate(`/employee/candidate/view/${c.id}`); }}>View</button>
+                        </div>
+                    </td>
+                </tr>
+            );
+        });
+    };
+
     if (loading) return <BaseLayout><div style={styles.loading}>Loading Dashboard...</div></BaseLayout>;
 
     return (
@@ -512,6 +567,17 @@ function EmployeeDashboard() {
           
 
             <div style={styles.statsGrid}>
+                <div style={styles.statCard} onClick={() => navigate("/employee/my-overview")}>
+                    <div style={{overflow:'hidden'}}>
+                        <p style={styles.statLabel}>My Overview</p>
+                        <h3 style={{...styles.statValue, color: "#25343F", fontSize: "15px", marginTop: "5px", display: "flex", alignItems: "center", gap: "6px"}}>
+                            Profiles: {targetSummary?.progress?.profileSourcing || 0} <span style={{color: '#CBD5E1'}}>|</span> Submissions : {targetSummary?.progress?.submissions || 0} <span style={{color: '#94A3B8', fontSize: '18px'}}>→</span>
+                        </h3>
+                    </div>
+                    <div style={{...styles.iconCircle, color: "#25343F", backgroundColor: 'rgba(37,52,63,0.05)'}}>
+                        <Icons.Pipeline />
+                    </div>
+                </div>
                 {[
                     { label: "Total Pipeline", val: stats.total_pipelines, icon: <Icons.Pipeline />, col: "#25343F", url: "/employee" },
                     { label: "Today's Profiles", val: stats.today_profiles, icon: <Icons.UserPlus />, col: "#25343F", url: "/employee" },
@@ -530,6 +596,7 @@ function EmployeeDashboard() {
             </div>
 
             {/* Active Pipeline Requirements Section - NEW */}
+            {(activeRequirements?.length > 0 || requirementsLoading) && (
             <div style={styles.sectionContainer}>
                 <div style={styles.sectionHeader}>
                     <h3 style={styles.sectionTitle}>Active Pipeline Requirements</h3>
@@ -632,11 +699,14 @@ function EmployeeDashboard() {
                     </div>
                 </div>
             </div>
+            )}
 
-            <Section title="Active Pipeline Candidates"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>To/By</th><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th><th style={styles.th}>Client</th><th style={styles.th}>Vendor</th><th style={styles.th}>Rate</th><th style={styles.th}>Status</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderGroupedRows(pipelineCandidates)}</tbody></table></Section>
-            <Section title="Submitted Profiles Table"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>Team</th><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th><th style={styles.th}>Client</th><th style={styles.th}>Vendor</th><th style={styles.th}>Rates</th><th style={styles.th}>Status</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderGroupedRows(verifiedCandidates)}</tbody></table></Section>
-            <Section title="Today's Team Submissions"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>By</th><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th><th style={styles.th}>Client</th><th style={styles.th}>Vendor</th><th style={styles.th}>Rate</th><th style={styles.th}>Status</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderGroupedRows(teamSubmissions, false, true)}</tbody></table></Section>
-            <Section title="Today's New Profiles"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>To/By</th><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th><th style={styles.th}>Client</th><th style={styles.th}>Vendor</th><th style={styles.th}>Rate</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderGroupedRows(todayCandidates, true, false)}</tbody></table></Section>
+            {scheduledInterviews?.length > 0 && <Section title="Scheduled Interviews"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Client</th><th style={styles.th}>Requirement</th><th style={styles.th}>Level</th><th style={styles.th}>Date</th><th style={styles.th}>Time</th><th style={styles.th}>Status</th><th style={styles.th}>Scheduled By</th><th style={styles.th}>Assigned To</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderScheduledInterviewsRows(scheduledInterviews)}</tbody></table></Section>}
+
+            {pipelineCandidates?.length > 0 && <Section title="Active Pipeline Candidates"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>To/By</th><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th><th style={styles.th}>Client</th><th style={styles.th}>Vendor</th><th style={styles.th}>Rate</th><th style={styles.th}>Status</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderGroupedRows(pipelineCandidates)}</tbody></table></Section>}
+            {verifiedCandidates?.length > 0 && <Section title="Submitted Profiles Table"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>Team</th><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th><th style={styles.th}>Client</th><th style={styles.th}>Vendor</th><th style={styles.th}>Rates</th><th style={styles.th}>Status</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderGroupedRows(verifiedCandidates)}</tbody></table></Section>}
+            {teamSubmissions?.length > 0 && <Section title="Today's Team Submissions"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>By</th><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th><th style={styles.th}>Client</th><th style={styles.th}>Vendor</th><th style={styles.th}>Rate</th><th style={styles.th}>Status</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderGroupedRows(teamSubmissions, false, true)}</tbody></table></Section>}
+            {todayCandidates?.length > 0 && <Section title="Today's New Profiles"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>To/By</th><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th><th style={styles.th}>Client</th><th style={styles.th}>Vendor</th><th style={styles.th}>Rate</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderGroupedRows(todayCandidates, true, false)}</tbody></table></Section>}
 
             {selectedJd && (
                 <div style={styles.modalOverlay} onClick={() => setSelectedJd(null)}>

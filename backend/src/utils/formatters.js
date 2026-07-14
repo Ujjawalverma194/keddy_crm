@@ -236,6 +236,8 @@ async function candidateToJSON(c, caches = {}) {
     schedule_description: c.scheduleDescription,
     billing_start_date: c.billingStartDate,
     billing_end_date: c.billingEndDate,
+    l1_l2_date: c.l1L2Date || c.l1_l2_date,
+    l1_l2_time: c.l1L2Time || c.l1_l2_time,
   };
 }
 

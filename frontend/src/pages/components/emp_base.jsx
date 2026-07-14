@@ -45,8 +45,7 @@ const BaseLayout = ({ children }) => {
     const menuItems = [
         { label: "Dashboard", path: "/employee" },
         { label: "Submitted Profiles", path: "/employee/submitted-profiles" },
-        
-        { label: "My Overview", path: "/employee/my-overview" },
+
         { label: "Total Profiles", path: "/employee/user-candidates" },
         // { label: "Vendors", path: "/employee/user-vendors" },
         // { label: "Clients", path: "/employee/clients" },

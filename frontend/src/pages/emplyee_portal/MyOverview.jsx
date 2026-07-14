@@ -12,6 +12,7 @@ export default function MyOverview() {
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [targetsLoading, setTargetsLoading] = useState(true);
+  const [targetSummary, setTargetSummary] = useState(null);
   
   // Filters
   const [timeFilter, setTimeFilter] = useState("today");
@@ -55,6 +56,11 @@ export default function MyOverview() {
 
   useEffect(() => {
     fetchTargets();
+    apiRequest("/api/targets/my-targets", "GET").then((res) => {
+        if (Array.isArray(res) && res.length > 0) {
+            setTargetSummary(res[0]);
+        }
+    }).catch(console.error);
   }, []);
 
   const getStatusStyle = (status) => {
@@ -102,12 +108,48 @@ export default function MyOverview() {
     <BaseLayout>
       <div style={styles.headerContainer}>
         <div>
-          <h4 style={styles.subTitle}>PERFORMANCE</h4>
+          {/* <h4 style={styles.subTitle}>PERFORMANCE</h4> */}
           <h1 style={styles.pageTitle}>My Overview</h1>
           <p style={styles.metaText}>
             Personal Performance • This {timeFilter.charAt(0).toUpperCase() + timeFilter.slice(1)}
           </p>
         </div>
+           {targetSummary && (() => {
+          const subTarget = targetSummary.totalSubmissionTarget || 0;
+          const profTarget = targetSummary.profilesSourcingTarget || 0;
+          const subProgress = targetSummary.progress?.submissions || 0;
+          const profProgress = targetSummary.progress?.profileSourcing || 0;
+
+          const submissionsRemaining = Math.max(subTarget - subProgress, 0);
+          const profilesRemaining = Math.max(profTarget - profProgress, 0);
+
+          const hasSubTarget = subTarget > 0;
+          const hasProfTarget = profTarget > 0;
+          
+          const isSubCompleted = hasSubTarget && submissionsRemaining === 0;
+          const isProfCompleted = hasProfTarget && profilesRemaining === 0;
+
+          return (
+              <div style={{  color: "black", borderRadius: "10px", marginBottom: "25px", display: "flex", flexDirection: "column", gap:"5px", cursor: "pointer", marginTop: "10px", alignItems: "center", justifyContent: "center" }} onClick={() => navigate("/employee/my-targets")}>
+                  <span style={{ fontSize: "1rem", fontWeight: "500", display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span>
+                          Profiles:{" "}
+                          {isProfCompleted ? <span style={{color: '#27AE60', fontWeight: 'bold'}}>Completed</span> : <b style={{color:"#FF9B51"}}>{profilesRemaining}</b>}
+                      </span>
+                      <span style={{color: '#CBD5E1'}}>|</span>
+                      <span>
+                          Submissions :{" "}
+                          {isSubCompleted ? <span style={{color: '#27AE60', fontWeight: 'bold'}}>Completed</span> : <b style={{color:"#FF9B51"}}>{submissionsRemaining}</b>}
+                      </span>
+                      <span style={{color: '#94A3B8'}}>→</span>
+                  </span>
+                  <span style={{ fontSize: "12px", color: "#64748B", fontWeight: "600" }}>
+                      You need to complete this {targetSummary.targetType?.toLowerCase() || 'daily'} task
+                  </span>
+              </div>
+          );
+      })()}
+
         <div style={styles.timeFilters}>
           {['today', 'yesterday', 'week', 'month', 'quarter', 'custom'].map(tf => (
             <button 
@@ -129,6 +171,7 @@ export default function MyOverview() {
         </div>
       )}
 
+   
       {/* Summary Cards */}
       <div style={styles.summaryGrid}>
         <div style={styles.card}>

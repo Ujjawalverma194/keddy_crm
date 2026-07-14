@@ -468,8 +468,8 @@ function AddClient() {
                           <span style={{ fontWeight: "700", color: "#111827", fontSize: "16px" }}>{poc.name}</span>
                           {poc.isPrimary && <span style={{ background: "#FEF3C7", color: "#D97706", padding: "2px 8px", borderRadius: "999px", fontSize: "10px", fontWeight: "800" }}>PRIMARY</span>}
                         </div>
-                        <div style={{ color: "#4B5563", fontSize: "14px", marginTop: "4px" }}>📞 {poc.number}</div>
-                        {poc.email && <div style={{ color: "#4B5563", fontSize: "14px", marginTop: "2px" }}>✉️ {poc.email}</div>}
+                        <div style={{ color: "#4B5563", fontSize: "14px", marginTop: "4px" }}> {poc.number}</div>
+                        {poc.email && <div style={{ color: "#4B5563", fontSize: "14px", marginTop: "2px" }}> {poc.email}</div>}
                       </div>
                       <button type="button" onClick={() => assignPoc(poc)} style={{ background: "#FF6B2C", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "12px", fontWeight: "800", cursor: "pointer", boxShadow: "0 4px 14px rgba(255, 107, 44, 0.25)" }}>
                         Assign POC
