@@ -45,8 +45,14 @@ async function login(req, res) {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email: email?.toLowerCase(), isDeleted: false });
-    if (!user || !(await user.comparePassword(password))) {
+    const passwordMatches = user ? await user.comparePassword(password) : false;
+    if (!user || !passwordMatches) {
       return res.status(400).json({ error: 'Invalid credentials' });
+    }
+
+    if (typeof user.password === 'string' && user.password.startsWith('pbkdf2_sha256$')) {
+      user.password = await User.hashPassword(password);
+      await user.save();
     }
 
     req.session.userId = user.id;
