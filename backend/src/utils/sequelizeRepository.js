@@ -1,11 +1,26 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { toSequelizeWhere, toSequelizeOrder, parseAttributes } = require('./sequelizeWhere');
+
+function compareDjangoPbkdf2Password(candidate, encodedPassword = '') {
+  const [algorithm, iterations, salt, digest] = String(encodedPassword).split('$');
+  if (algorithm !== 'pbkdf2_sha256' || !iterations || !salt || !digest) return false;
+
+  const derived = crypto
+    .pbkdf2Sync(candidate, salt, Number(iterations), 32, 'sha256')
+    .toString('base64');
+
+  return crypto.timingSafeEqual(Buffer.from(derived), Buffer.from(digest));
+}
 
 function hydrate(model, row) {
   if (!row) return null;
   const instance = row.get ? row : model.build(row, { isNewRecord: false });
   if (model.name === 'User' && typeof instance.comparePassword !== 'function') {
     instance.comparePassword = async function comparePassword(candidate) {
+      if (typeof this.password === 'string' && this.password.startsWith('pbkdf2_sha256$')) {
+        return compareDjangoPbkdf2Password(candidate, this.password);
+      }
       return bcrypt.compare(candidate, this.password);
     };
   }
