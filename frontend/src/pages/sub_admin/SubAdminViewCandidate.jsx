@@ -1298,6 +1298,7 @@ function DetailedViewCandidate() {
         formData={editForm}
         setFormData={setEditForm}
         onSave={handleUpdateSubmit}
+        hasClientSubmission={Boolean(candidate?.client_id || candidate?.clientId || candidate?.client || (candidate?.client_name && candidate.client_name != "N/A"))}
       />
       {showPreviewModal && (
         <div style={styles.previewModalOverlay} onClick={closePreviewModal}>

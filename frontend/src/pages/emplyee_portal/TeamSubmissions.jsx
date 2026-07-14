@@ -364,6 +364,7 @@ const currentDate = new Date(dateValue).toLocaleDateString('en-GB', {
         formData={editForm}
         setFormData={setEditForm}
         onSave={handleUpdateSubmit}
+        hasClientSubmission={Boolean(selectedCand?.client_id || selectedCand?.clientId || selectedCand?.client || (selectedCand?.client_name && selectedCand.client_name != "N/A"))}
       />
 
       <SubmissionModal
@@ -748,7 +749,9 @@ export default TeamSubmissions;
 //             </div>
 
 //             {/* STATUS MODAL */}
-//             <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit} />
+//             <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit}
+//         hasClientSubmission={Boolean(selectedCand?.client_id || selectedCand?.clientId || selectedCand?.client || (selectedCand?.client_name && selectedCand.client_name != "N/A"))}
+//       />
 
 //             {/* CLIENT SUBMISSION MODAL */}
 //             {showClientModal && (
@@ -1037,7 +1040,9 @@ export default TeamSubmissions;
 //                 </div>
 
 //                 {/* STATUS MODAL */}
-//                 <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit} />
+//                 <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit}
+//         hasClientSubmission={Boolean(selectedCand?.client_id || selectedCand?.clientId || selectedCand?.client || (selectedCand?.client_name && selectedCand.client_name != "N/A"))}
+//       />
 
 //                 {/* CLIENT SUBMISSION MODAL */}
 //                 {showClientModal && (
