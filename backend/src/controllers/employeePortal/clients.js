@@ -291,11 +291,17 @@ async function list(req, res) {
 
   const userMap = await getUserMap(items.map((c) => c.createdById));
   
-  const serializedItems = items.map(c => {
+  const Candidate = require('../../models/Candidate');
+  
+  const countPromises = items.map(async c => {
     // Manually attach pocs so clientToJSON can serialize them
     c.pocs = pocsList.filter(p => p.clientId === c.id);
-    return clientToJSON(c, userMap);
+    const json = clientToJSON(c, userMap);
+    const profile_count = await Candidate.countDocuments({ clientId: c.id, isDeleted: false });
+    return { ...json, profile_count };
   });
+
+  const serializedItems = await Promise.all(countPromises);
 
   return res.json(drfResponse(serializedItems, total, page, pageSize));
 }

@@ -212,8 +212,12 @@ function CandidateList() {
     setLoading(true);
     try {
       const fetchPageSize = 100;
-      const buildUrl = (page) =>
-        `/sub-admin/api/admin-candidates/?page=${page}&page_size=${fetchPageSize}`;
+      const buildUrl = (page) => {
+        let url = `/sub-admin/api/admin-candidates/?page=${page}&page_size=${fetchPageSize}`;
+        if (appliedFilters.technology) url += `&technology=${encodeURIComponent(appliedFilters.technology)}`;
+        if (appliedFilters.skills) url += `&skills=${encodeURIComponent(appliedFilters.skills)}`;
+        return url;
+      };
 
       const firstRes = await apiRequest(buildUrl(1), "GET");
       const totalRecords = firstRes.count || 0;

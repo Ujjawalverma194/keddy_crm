@@ -388,7 +388,13 @@ async function listUserVendors(req, res) {
   });
 
   const userMap = await getUserMap(filteredItems.flatMap((v) => [v.uploadedById, v.createdById]));
-  return res.json(drfResponse(filteredItems.map((v) => vendorToJSON(v, userMap)), total, page, pageSize));
+  const Candidate = require('../../models/Candidate');
+  const results = await Promise.all(filteredItems.map(async (v) => {
+    const json = vendorToJSON(v, userMap);
+    const profile_count = await Candidate.countDocuments({ vendorId: v.id, isDeleted: false });
+    return { ...json, profile_count };
+  }));
+  return res.json(drfResponse(results, total, page, pageSize));
 }
 
 async function listCompanyPool(req, res) {
@@ -416,7 +422,13 @@ async function listCompanyPool(req, res) {
     Vendor.countDocuments(filter),
   ]);
   const userMap = await getUserMap(items.flatMap((v) => [v.uploadedById, v.createdById]));
-  return res.json(drfResponse(items.map((v) => vendorToJSON(v, userMap)), total, page, pageSize));
+  const Candidate = require('../../models/Candidate');
+  const results = await Promise.all(items.map(async (v) => {
+    const json = vendorToJSON(v, userMap);
+    const profile_count = await Candidate.countDocuments({ vendorId: v.id, isDeleted: false });
+    return { ...json, profile_count };
+  }));
+  return res.json(drfResponse(results, total, page, pageSize));
 }
 async function checkDuplicate(req, res) {
   const { vendor_name, company_name, phone_number } = req.body;

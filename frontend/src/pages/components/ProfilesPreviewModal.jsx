@@ -131,9 +131,9 @@ const ProfilesPreviewModal = ({ isOpen, onClose, title, fetchEndpoint, userRole 
                                                 <div style={styles.primaryText}>{profile.vendor_company_name || profile.vendor_name || '-'}</div>
                                                 {(profile.vendor_rate || profile.client_rate) && (
                                                     <div style={styles.secondaryText}>
-                                                        {profile.vendor_rate ? `V: $${profile.vendor_rate}` : ''}
+                                                        {profile.vendor_rate ? `V: ${profile.vendor_rate} ${profile.vendor_rate_type || ''}`.trim() : ''}
                                                         {profile.vendor_rate && profile.client_rate ? ' | ' : ''}
-                                                        {profile.client_rate ? `C: $${profile.client_rate}` : ''}
+                                                        {profile.client_rate ? `C: ${profile.client_rate} ${profile.client_rate_type || ''}`.trim() : ''}
                                                     </div>
                                                 )}
                                             </td>

@@ -320,7 +320,7 @@ function AddVendor() {
                     <div style={{ position: 'relative', display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <input style={{ ...styles.input, flex: 1 }} name="company_name" value={form.company_name} onChange={handleChange} required placeholder="ABC Tech" />
                       {showCompanySuggestions && companySuggestions.length > 0 && (
-                        <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', listStyle: 'none', padding: 0, margin: '4px 0 0', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
+                        <ul style={{ position: 'absolute', top: '100%', left: 0, minWidth: '350px', background: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', listStyle: 'none', padding: 0, margin: '4px 0 0', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
                           {companySuggestions.map(comp => (
                             <li 
                               key={comp.id} 
@@ -339,23 +339,6 @@ function AddVendor() {
                         </ul>
                       )}
                     </div>
-                  </Field>
-
-                  <Field label="Vendor Official Email" style={styles.col4}>
-                    <input style={styles.input} type="email" name="vendor_official_email" value={form.vendor_official_email} onChange={handleChange} placeholder="info@company.com" />
-                  </Field>
-                  <Field label="Sending Email ID" style={styles.col4}>
-                    <input style={styles.input} type="email" name="sending_email_id" value={form.sending_email_id} onChange={handleChange} placeholder="hello@company.com" />
-                  </Field>
-
-                  <Field label="Company Website" style={styles.col4}>
-                    <input style={styles.input} name="company_website" value={form.company_website} onChange={handleChange} placeholder="www.company.com" />
-                  </Field>
-                  <Field label="PAN / Reg No." style={styles.col4}>
-                    <input style={styles.input} name="company_pan_or_reg_no" value={form.company_pan_or_reg_no} onChange={handleChange} placeholder="ABCDE1234F" />
-                  </Field>
-                  <Field label="Company Employee Count" style={styles.col4}>
-                    <input style={styles.input} type="number" name="company_employee_count" value={form.company_employee_count} onChange={handleChange} placeholder="e.g. 50" />
                   </Field>
                 </div>
               </div>
@@ -396,6 +379,36 @@ function AddVendor() {
                   <button type="button" onClick={addAnotherPoc} style={{ background: "#FFF0EA", color: "#FF6B2C", border: "1px dashed #FF6B2C", padding: "12px", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "bold", textAlign: "center", width: "100%" }}>+ Add Another POC</button>
                 </div>
               </div>
+
+              <div style={styles.sectionCard}>
+                <div style={styles.sectionHeader}>
+                  <div style={styles.sectionIcon}><Icons.Vendor /></div>
+                  <div>
+                    <h3 style={styles.sectionTitle}>Additional information</h3>
+                    <p style={styles.sectionHint}>Vendor contact and company basics.</p>
+                  </div>
+                </div>
+
+                <div style={styles.innerGrid}>
+                  <Field label="Vendor Official Email" style={styles.col4}>
+                    <input style={styles.input} type="email" name="vendor_official_email" value={form.vendor_official_email} onChange={handleChange} placeholder="info@company.com" />
+                  </Field>
+                  <Field label="Sending Email ID" style={styles.col4}>
+                    <input style={styles.input} type="email" name="sending_email_id" value={form.sending_email_id} onChange={handleChange} placeholder="hello@company.com" />
+                  </Field>
+
+                  <Field label="Company Website" style={styles.col4}>
+                    <input style={styles.input} name="company_website" value={form.company_website} onChange={handleChange} placeholder="www.company.com" />
+                  </Field>
+                  <Field label="PAN / Reg No." style={styles.col4}>
+                    <input style={styles.input} name="company_pan_or_reg_no" value={form.company_pan_or_reg_no} onChange={handleChange} placeholder="ABCDE1234F" />
+                  </Field>
+                  <Field label="Company Employee Count" style={styles.col4}>
+                    <input style={styles.input} type="number" name="company_employee_count" value={form.company_employee_count} onChange={handleChange} placeholder="e.g. 50" />
+                  </Field>
+                </div>
+              </div>
+
 
               <div style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>

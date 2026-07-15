@@ -412,7 +412,6 @@ function ClientList() {
                                     <tr key={client.id} style={{...styles.tableRow, background: selectedPocs.includes(client.id) ? '#F1F5F9' : 'transparent'}}>
                                         <td style={styles.td}>
                                               <div style={styles.primaryText}>{client.company_name}</div>
-                                              <div style={styles.secondaryText}>{client.billing_address || "No Address"}</div>
                                           </td>
                                           <td style={styles.td}>
                                               {(client.pocs || []).map(poc => (

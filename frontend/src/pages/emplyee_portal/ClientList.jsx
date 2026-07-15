@@ -169,10 +169,7 @@ function ClientList() {
     };
 
     const renderProfileCount = (client) => {
-        if (profileCountsLoading) {
-            return "Loading...";
-        }
-        return `${clientProfileCounts[client.id] || 0} Profiles`;
+        return `${client.profile_count || 0} Profiles`;
     };
 
     const fetchClients = async (page = 1, search = "") => {
@@ -277,7 +274,6 @@ function ClientList() {
                                         <tr key={client.id} style={styles.tableRow}>
                                             <td style={styles.td}>
                                                 <div style={styles.primaryText}>{client.company_name}</div>
-                                                <div style={styles.subText}>{client.billing_address || "No Address"}</div>
                                             </td>
                                             <td style={styles.td}>
                                                 {(client.pocs || []).map(poc => (

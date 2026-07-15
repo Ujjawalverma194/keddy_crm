@@ -1,4 +1,5 @@
 const Candidate = require('../../models/Candidate');
+const sequelize = require('../../config/sequelize');
 const User = require('../../models/User');
 const { CandidateStatusHistory, CandidateRemarkHistory } = require('../../models/CandidateHistory');
 const { getCompanyUserIds, resolveCompanyId } = require('../../utils/company');
@@ -221,6 +222,7 @@ async function list(req, res) {
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const search = (req.query.search || '').trim();
   const tech = (req.query.technology || '').trim();
+  const skillsStr = (req.query.skills || '').trim();
   const filter = { isDeleted: false, createdById: { $in: companyIds } };
   if (req.query.client_id) filter.clientId = parseInt(req.query.client_id, 10);
   if (req.query.vendor_id) filter.vendorId = parseInt(req.query.vendor_id, 10);
@@ -232,10 +234,30 @@ async function list(req, res) {
       { technology: new RegExp(search, 'i') },
     ];
   }
-  if (tech) filter.technology = new RegExp(tech, 'i');
+
+  const order = [];
+  if (tech) {
+    const escapedTech = tech.replace(/'/g, "''");
+    order.push([
+      sequelize.literal(`CASE WHEN LOWER(technology) = '${escapedTech.toLowerCase()}' THEN 1 WHEN LOWER(technology) LIKE '${escapedTech.toLowerCase()}%' THEN 2 WHEN LOWER(technology) LIKE '%${escapedTech.toLowerCase()}%' THEN 3 ELSE 4 END`),
+      'ASC'
+    ]);
+    filter.technology = new RegExp(tech, 'i');
+  }
+  order.push(['createdAt', 'DESC']);
+
+  if (skillsStr) {
+    const skillsList = skillsStr.split(/[\s,]+/).filter(Boolean);
+    if (skillsList.length > 0) {
+      if (!filter.$or) filter.$or = [];
+      skillsList.forEach(s => {
+        filter.$or.push({ skills: new RegExp(s, 'i') });
+      });
+    }
+  }
 
   const [items, total] = await Promise.all([
-    Candidate.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Candidate.find(filter).sort(order).skip(skip).limit(limit),
     Candidate.countDocuments(filter),
   ]);
   const results = await candidatesToJSON(items);
@@ -245,6 +267,8 @@ async function list(req, res) {
 async function listUser(req, res) {
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const search = (req.query.search || '').trim();
+  const tech = (req.query.technology || '').trim();
+  const skillsStr = (req.query.skills || '').trim();
   const filter = { isDeleted: false, createdById: req.user.id };
   if (req.query.client_id) filter.clientId = parseInt(req.query.client_id, 10);
   if (req.query.vendor_id) filter.vendorId = parseInt(req.query.vendor_id, 10);
@@ -255,8 +279,30 @@ async function listUser(req, res) {
       { technology: new RegExp(search, 'i') },
     ];
   }
+
+  const order = [];
+  if (tech) {
+    const escapedTech = tech.replace(/'/g, "''");
+    order.push([
+      sequelize.literal(`CASE WHEN LOWER(technology) = '${escapedTech.toLowerCase()}' THEN 1 WHEN LOWER(technology) LIKE '${escapedTech.toLowerCase()}%' THEN 2 WHEN LOWER(technology) LIKE '%${escapedTech.toLowerCase()}%' THEN 3 ELSE 4 END`),
+      'ASC'
+    ]);
+    filter.technology = new RegExp(tech, 'i');
+  }
+  order.push(['createdAt', 'DESC']);
+
+  if (skillsStr) {
+    const skillsList = skillsStr.split(/[\s,]+/).filter(Boolean);
+    if (skillsList.length > 0) {
+      if (!filter.$or) filter.$or = [];
+      skillsList.forEach(s => {
+        filter.$or.push({ skills: new RegExp(s, 'i') });
+      });
+    }
+  }
+
   const [items, total] = await Promise.all([
-    Candidate.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Candidate.find(filter).sort(order).skip(skip).limit(limit),
     Candidate.countDocuments(filter),
   ]);
   const results = await candidatesToJSON(items);

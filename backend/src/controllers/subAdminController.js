@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const sequelize = require('../config/sequelize');
 const Vendor = require('../models/Vendor');
 const Client = require('../models/Client');
 const Candidate = require('../models/Candidate');
@@ -383,9 +384,18 @@ async function listClients(req, res) {
     }),
     Client.countDocuments(filter),
   ]);
-  const userMap = await getUserMap(items.map((c) => c.createdById));
-  return res.json(drfResponse(items.map((c) => clientToJSON(c, userMap)), total, page, pageSize));
-}
+    const userMap = await getUserMap(items.map((c) => c.createdById));
+    const Candidate = require('../models/Candidate');
+    
+    const countPromises = items.map(async c => {
+      const json = clientToJSON(c, userMap);
+      const profile_count = await Candidate.countDocuments({ clientId: c.id, isDeleted: false });
+      return { ...json, profile_count };
+    });
+    const serializedItems = await Promise.all(countPromises);
+    
+    return res.json(drfResponse(serializedItems, total, page, pageSize));
+  }
 
 async function assignClient(req, res) {
   const { client_id, employee_ids } = req.body;
@@ -454,9 +464,18 @@ async function listVendors(req, res) {
     }),
     Vendor.countDocuments(filter),
   ]);
-  const userMap = await getUserMap(items.flatMap((v) => [v.createdById, v.uploadedById]));
-  return res.json(drfResponse(items.map((v) => vendorToJSON(v, userMap)), total, page, pageSize));
-}
+    const userMap = await getUserMap(items.flatMap((v) => [v.createdById, v.uploadedById]));
+    const Candidate = require('../models/Candidate');
+    
+    const countPromises = items.map(async v => {
+      const json = vendorToJSON(v, userMap);
+      const profile_count = await Candidate.countDocuments({ vendorId: v.id, isDeleted: false });
+      return { ...json, profile_count };
+    });
+    const serializedItems = await Promise.all(countPromises);
+    
+    return res.json(drfResponse(serializedItems, total, page, pageSize));
+  }
 
 async function searchClients(req, res) {
   const { q } = req.query;
@@ -550,6 +569,7 @@ async function vendorHardDelete(req, res) {
 function applyCandidateListFilters(filter, query) {
   const search = (query.search || '').trim();
   const tech = (query.technology || '').trim();
+  const skillsStr = (query.skills || '').trim();
   if (query.client_id) filter.clientId = parseInt(query.client_id, 10);
   if (query.vendor_id) filter.vendorId = parseInt(query.vendor_id, 10);
   
@@ -561,6 +581,16 @@ function applyCandidateListFilters(filter, query) {
     ];
   }
   if (tech) filter.technology = new RegExp(tech, 'i');
+
+  if (skillsStr) {
+    const skillsList = skillsStr.split(/[\s,]+/).filter(Boolean);
+    if (skillsList.length > 0) {
+      if (!filter.$or) filter.$or = [];
+      skillsList.forEach(s => {
+        filter.$or.push({ skills: new RegExp(s, 'i') });
+      });
+    }
+  }
   return filter;
 }
 
@@ -571,8 +601,20 @@ async function listCandidates(req, res) {
     { isDeleted: false, createdById: { $in: ids } },
     req.query
   );
+
+  const order = [];
+  const tech = (req.query.technology || '').trim();
+  if (tech) {
+    const escapedTech = tech.replace(/'/g, "''");
+    order.push([
+      sequelize.literal(`CASE WHEN LOWER(technology) = '${escapedTech.toLowerCase()}' THEN 1 WHEN LOWER(technology) LIKE '${escapedTech.toLowerCase()}%' THEN 2 WHEN LOWER(technology) LIKE '%${escapedTech.toLowerCase()}%' THEN 3 ELSE 4 END`),
+      'ASC'
+    ]);
+  }
+  order.push(['createdAt', 'DESC']);
+
   const [items, total] = await Promise.all([
-    Candidate.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Candidate.find(filter).sort(order).skip(skip).limit(limit),
     Candidate.countDocuments(filter),
   ]);
   const results = await candidatesToJSON(items);
