@@ -74,7 +74,6 @@ async function createGoogleEvent(user, title, description, startDatetime, endDat
       dateTime: new Date(endDatetime).toISOString(),
       timeZone: config.timezone,
     },
-    attendees: [{ email: user.email }],
     reminders: {
       useDefault: false,
       overrides: [
