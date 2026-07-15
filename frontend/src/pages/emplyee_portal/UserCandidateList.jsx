@@ -157,7 +157,7 @@ function CandidateList() {
     try {
       const fetchPageSize = 100;
       const buildUrl = (page) =>
-        `/employee-portal/api/user/candidates/list/?page=${page}&page_size=${fetchPageSize}`;
+        `/employee-portal/api/user/candidates/list/?page=${page}&page_size=${fetchPageSize}&include_deleted=true`;
 
       const firstRes = await apiRequest(buildUrl(1), "GET");
       const totalRecords = firstRes.count || 0;

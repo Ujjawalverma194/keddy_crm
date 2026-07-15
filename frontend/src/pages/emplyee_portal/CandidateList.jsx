@@ -57,7 +57,7 @@ function CandidateList() {
   const fetchCandidates = async (page, search, tech) => {
     setLoading(true);
     try {
-      let url = `/employee-portal/api/candidates/list/?page=${page}`;
+      let url = `/employee-portal/api/candidates/list/?page=${page}&include_deleted=true`;
       if (search) url += `&search=${search}`;
       if (tech) url += `&technology=${tech}`;
       const res = await apiRequest(url, "GET");

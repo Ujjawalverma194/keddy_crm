@@ -16,6 +16,13 @@ const { relPath } = require('../middleware/upload');
 
 const PIPELINE = ['INTERNAL SCREENING', 'CLIENT SCREENING', 'L1', 'L2', 'L3', 'OTHER'];
 
+function parseBool(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (value === true || value === 'true' || value === '1' || value === 1) return true;
+  if (value === false || value === 'false' || value === '0' || value === 0) return false;
+  return undefined;
+}
+
 // A profile should be considered "submitted" only after the explicit
 // Submission Modal flow marks it verified. Newly sourced/created profiles may
 // still have mainStatus=SUBMITTED/submittedToId because of legacy Django parity,
@@ -567,8 +574,15 @@ function applyCandidateListFilters(filter, query) {
 async function listCandidates(req, res) {
   const ids = await getCompanyUserIds(req.user, req);
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
+  const includeDeleted = parseBool(req.query.include_deleted) === true;
+  const deletedOnly = parseBool(req.query.deleted_only) === true;
+  const baseFilter = { createdById: { $in: ids } };
+
+  if (deletedOnly) baseFilter.isDeleted = true;
+  else if (!includeDeleted) baseFilter.isDeleted = false;
+
   const filter = applyCandidateListFilters(
-    { isDeleted: false, createdById: { $in: ids } },
+    baseFilter,
     req.query
   );
   const [items, total] = await Promise.all([

@@ -215,7 +215,13 @@ async function list(req, res) {
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const search = (req.query.search || '').trim();
   const tech = (req.query.technology || '').trim();
-  const filter = { isDeleted: false, createdById: { $in: companyIds } };
+  const includeDeleted = parseBool(req.query.include_deleted) === true;
+  const deletedOnly = parseBool(req.query.deleted_only) === true;
+  const filter = { createdById: { $in: companyIds } };
+
+  if (deletedOnly) filter.isDeleted = true;
+  else if (!includeDeleted) filter.isDeleted = false;
+
   if (req.query.client_id) filter.clientId = parseInt(req.query.client_id, 10);
   if (req.query.vendor_id) filter.vendorId = parseInt(req.query.vendor_id, 10);
   
@@ -239,7 +245,13 @@ async function list(req, res) {
 async function listUser(req, res) {
   const { page, pageSize, skip, limit } = drfPaginate(req.query);
   const search = (req.query.search || '').trim();
-  const filter = { isDeleted: false, createdById: req.user.id };
+  const includeDeleted = parseBool(req.query.include_deleted) === true;
+  const deletedOnly = parseBool(req.query.deleted_only) === true;
+  const filter = { createdById: req.user.id };
+
+  if (deletedOnly) filter.isDeleted = true;
+  else if (!includeDeleted) filter.isDeleted = false;
+
   if (req.query.client_id) filter.clientId = parseInt(req.query.client_id, 10);
   if (req.query.vendor_id) filter.vendorId = parseInt(req.query.vendor_id, 10);
 
