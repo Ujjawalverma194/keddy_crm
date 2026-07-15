@@ -194,6 +194,7 @@ function SubAdminDashboard() {
   const [submittedData, setSubmittedData] = useState([]);
   const [todayProfilesData, setTodayProfilesData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [toast, setToast] = useState({ show: false, msg: "", type: "" });
 
   const [showModal, setShowModal] = useState(false);
@@ -250,6 +251,11 @@ function SubAdminDashboard() {
   useEffect(() => {
     fetchSubAdminData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const notify = (msg, type = "success") => {
@@ -391,16 +397,18 @@ const handleUpdateSubmit = async () => {
   };
 
   const scheduledInterviews = (pipelineData || [])
-    .filter(c => ['L1', 'L2', 'L3'].includes(c.main_status))
-    .sort((a, b) => {
-        const levelOrder = { 'L1': 1, 'L2': 2, 'L3': 3 };
-        if (levelOrder[a.main_status] !== levelOrder[b.main_status]) {
-            return levelOrder[a.main_status] - levelOrder[b.main_status];
-        }
-        const dateA = a.l1_l2_date ? new Date(`${a.l1_l2_date}T${a.l1_l2_time || '00:00'}`) : new Date(8640000000000000);
-        const dateB = b.l1_l2_date ? new Date(`${b.l1_l2_date}T${b.l1_l2_time || '00:00'}`) : new Date(8640000000000000);
-        return dateA - dateB;
-    });
+      .filter((c) => {
+          const scheduledStatuses = ["INTERNAL SCREENING", "CLIENT SCREENING", "L1", "L2", "L3", "OTHER"];
+          const hasStatus = scheduledStatuses.includes(c.main_status);
+          const hasDateAndTime = c.l1_l2_date && c.l1_l2_time;
+          const isNotRejectedOrOnhold = c.sub_status !== "REJECTED" && c.sub_status !== "ONHOLD";
+          return hasStatus && hasDateAndTime && isNotRejectedOrOnhold;
+      })
+      .sort((a, b) => {
+          const dateA = new Date(`${a.l1_l2_date}T${a.l1_l2_time}`);
+          const dateB = new Date(`${b.l1_l2_date}T${b.l1_l2_time}`);
+          return dateA - dateB;
+      });
 
   const renderScheduledInterviewsRows = (list = []) => {
     return list.map((c, i) => {
@@ -414,18 +422,7 @@ const handleUpdateSubmit = async () => {
                 <td style={styles.td}>
                     <span style={{...styles.badge, color: statusStyle.text, fontWeight: '800'}}>{c.main_status}</span>
                 </td>
-                <td style={styles.td}>
-                    {c.l1_l2_date ? new Date(c.l1_l2_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
-                </td>
-                <td style={styles.td}>
-                    {c.l1_l2_time ? (() => {
-                        const [hours, minutes] = c.l1_l2_time.split(':');
-                        const h = parseInt(hours, 10);
-                        const ampm = h >= 12 ? 'PM' : 'AM';
-                        const h12 = h % 12 || 12;
-                        return `${h12}:${minutes} ${ampm}`;
-                    })() : '-'}
-                </td>
+              
                 <td style={styles.td}>
                     <small style={{ ...styles.subStatusText, color: statusStyle.text, fontWeight: '700' }}>{c.sub_status || 'Pending'}</small>
                 </td>
@@ -435,11 +432,63 @@ const handleUpdateSubmit = async () => {
                 <td style={styles.td}>
                     <b>{getSubmittedToName(c) || '-'}</b>
                 </td>
+                  <td style={styles.td}>
+                    <div style={{ whiteSpace: "nowrap", fontWeight: "600", color: "#2C3E50" }}>
+                      {c.l1_l2_date ? new Date(c.l1_l2_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#7F8C8D", fontWeight: "600", marginTop: "2px" }}>
+                      {c.l1_l2_time ? (() => {
+                          const [hours, minutes] = c.l1_l2_time.split(':');
+                          const h = parseInt(hours, 10);
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          const h12 = h % 12 || 12;
+                          return `${h12}:${minutes} ${ampm}`;
+                      })() : ''}
+                    </div>
+                </td>
                 <td style={styles.td}>
+                  {(() => {
+                     if (!c.l1_l2_date || !c.l1_l2_time) return "-";
+                     const scheduledDate = new Date(`${c.l1_l2_date}T${c.l1_l2_time}`);
+                     const diffMs = scheduledDate - currentTime;
+                     if (diffMs > 0) {
+                       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                       const diffHrs = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+                       const diffMins = Math.floor((diffMs / 1000 / 60) % 60);
+                       const diffSecs = Math.floor((diffMs / 1000) % 60);
+                       
+                       let timeStr = "";
+                       if (diffDays > 0) timeStr = `${diffDays}d ${diffHrs}h`;
+                       else timeStr = `${diffHrs}h ${diffMins}m ${diffSecs}s`;
+                       
+                       const isUrgent = diffDays === 0 && diffHrs < 1;
+                       return (
+                         <span style={{ 
+                           color: isUrgent ? "#E74C3C" : "#D35400", 
+                           fontWeight: "800",
+                           padding: "4px 8px",
+                           background: isUrgent ? "#FDEDEC" : "#FEF5E7",
+                           borderRadius: "4px",
+                           border: `1px solid ${isUrgent ? "#F5B7B1" : "#FAD7A1"}`,
+                           whiteSpace: "nowrap",
+                           display: "inline-block"
+                         }}>
+                           {timeStr}
+                         </span>
+                       );
+                     }
+                     return (
+                       <span style={{ color: "#7F8C8D", fontWeight: "700", whiteSpace: "nowrap" }}>
+                         Time Passed
+                       </span>
+                     );
+                  })()}
+                </td>
+                {/* <td style={styles.td}>
                     <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
                         <button style={styles.viewBtn} onClick={(e) => { e.stopPropagation(); navigate(`/sub-admin/candidate/view/${c.id}`); }}>View</button>
                     </div>
-                </td>
+                </td> */}
             </tr>
         );
     });
@@ -476,25 +525,25 @@ const handleUpdateSubmit = async () => {
             </p>
           </div>
           <div style={styles.btnGroup}>
-            <button
+            {/* <button
               style={{ ...styles.actionBtn, background: "#25343F" }}
               onClick={() => navigate("/sub-admin/team-manage")}
             >
               <Icons.Manage /> Manage Team
-            </button>
-            <button
+            </button> */}
+            {/* <button
               style={styles.actionBtn}
               onClick={() => navigate("/sub-admin/add-user")}
             >
               <Icons.UserPlus /> Add Employee
-            </button>
-            <button
+            </button> */}
+            {/* <button
               style={styles.actionBtn}
               onClick={() => navigate("/sub-admin/team-reports")}
             >
               <Icons.UserPlus />
               Attendance
-            </button>
+            </button> */}
             <button
               style={styles.actionBtn}
               onClick={() => navigate("/sub-admin/requirement/create")}
@@ -569,7 +618,7 @@ const handleUpdateSubmit = async () => {
               path: "/sub-admin/all-candidates",
             },
             {
-              label: isTeamLeaderMode ? "Total Team Members" : "Total Employees",
+              label: isTeamLeaderMode ? "Total Team Members" : "Manage Team",
               val: stats.total_employees,
               icon: <Icons.Users />,
               col: "#25343F",
@@ -617,12 +666,13 @@ const handleUpdateSubmit = async () => {
                 {/* <th style={styles.th}>Client</th> */}
                 {/* <th style={styles.th}>Requirement</th> */}
                 <th style={styles.th}>Level</th>
-                <th style={styles.th}>Date</th>
-                <th style={styles.th}>Time</th>
-                <th style={styles.th}>Status</th>
+                
+                <th style={styles.th}> sub Status</th>
                 <th style={styles.th}>Scheduled By</th>
                 <th style={styles.th}>Assigned To</th>
-                <th style={styles.th}>Action</th>
+                <th style={styles.th}>Date & Time</th>
+                <th style={styles.th}>Time Left</th>
+               
               </tr>
             </thead>
             <tbody>{renderScheduledInterviewsRows(scheduledInterviews)}</tbody>

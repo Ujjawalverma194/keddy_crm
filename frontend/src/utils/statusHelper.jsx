@@ -48,7 +48,7 @@ export const MAIN_STATUS_OPTIONS = [
     "OFFERED",
     "ONBORD",
     "REJECTED",
-    "ON_HOLD",
+    "ONHOLD",
     "WITHDRAWN",
     "OFFBOARDED"
 ];
@@ -58,11 +58,11 @@ export const SUB_STATUS_OPTIONS = [
     "NONE", 
     "SCHEDULED", 
     "COMPLETED", 
-    "FEEDBACK_PENDING", 
+    "FEEDBACK PENDING", 
     "CLEARED", 
     "REJECTED", 
-    "ON_HOLD", 
+    "ONHOLD", 
     "POSTPONED", 
-    "NO_SHOW", 
-    "INTERVIEW_PENDING"
+    "NO SHOW", 
+    "INTERVIEW PENDING"
 ];

@@ -23,7 +23,7 @@ const StatusUpdateModal = ({ isOpen, onClose, formData, setFormData, onSave, has
                         })}
                     </select>
                 </div>
-                {(formData.main_status === "L1" || formData.main_status === "L2") && (
+                {["INTERNAL SCREENING", "CLIENT SCREENING", "L1", "L2", "L3", "OTHER"].includes(formData.main_status) && (
                     <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
                         <div style={{ flex: 1 }}>
                             <label style={mStyles.modalLabel}>Date</label>

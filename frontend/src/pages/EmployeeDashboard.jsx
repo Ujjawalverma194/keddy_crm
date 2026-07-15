@@ -237,7 +237,11 @@ function EmployeeDashboard() {
             const isProfCompleted = hasProfTarget && profilesRemaining === 0;
             
             if ((hasSubTarget || hasProfTarget) && (!hasSubTarget || isSubCompleted) && (!hasProfTarget || isProfCompleted)) {
-                notify(`Congratulations you have achieved your ${targetSummary.targetType?.toLowerCase() || 'daily'} target!`, "success");
+                const targetId = targetSummary.id || targetSummary.userId;
+                if (!localStorage.getItem(`target_achieved_${targetId}`)) {
+                    notify(`Congratulations you have achieved your ${targetSummary.targetType?.toLowerCase() || 'daily'} target!`, "success");
+                    localStorage.setItem(`target_achieved_${targetId}`, "true");
+                }
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -458,14 +462,16 @@ function EmployeeDashboard() {
     };
 
     const scheduledInterviews = (pipelineCandidates || [])
-        .filter(c => ['L1', 'L2', 'L3'].includes(c.main_status))
+        .filter((c) => {
+            const scheduledStatuses = ["INTERNAL SCREENING", "CLIENT SCREENING", "L1", "L2", "L3", "OTHER"];
+            const hasStatus = scheduledStatuses.includes(c.main_status);
+            const hasDateAndTime = c.l1_l2_date && c.l1_l2_time;
+            const isNotRejectedOrOnhold = c.sub_status !== "REJECTED" && c.sub_status !== "ONHOLD";
+            return hasStatus && hasDateAndTime && isNotRejectedOrOnhold;
+        })
         .sort((a, b) => {
-            const levelOrder = { 'L1': 1, 'L2': 2, 'L3': 3 };
-            if (levelOrder[a.main_status] !== levelOrder[b.main_status]) {
-                return levelOrder[a.main_status] - levelOrder[b.main_status];
-            }
-            const dateA = a.l1_l2_date ? new Date(`${a.l1_l2_date}T${a.l1_l2_time || '00:00'}`) : new Date(8640000000000000);
-            const dateB = b.l1_l2_date ? new Date(`${b.l1_l2_date}T${b.l1_l2_time || '00:00'}`) : new Date(8640000000000000);
+            const dateA = new Date(`${a.l1_l2_date}T${a.l1_l2_time}`);
+            const dateB = new Date(`${b.l1_l2_date}T${b.l1_l2_time}`);
             return dateA - dateB;
         });
 

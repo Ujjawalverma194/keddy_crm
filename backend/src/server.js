@@ -3,6 +3,7 @@ const config = require('./config');
 const { connectDB } = require('./config/db');
 const fs = require('fs');
 const path = require('path');
+const { startStatusUpdater } = require('./cron/statusUpdater');
 
 async function start() {
   if (!fs.existsSync(config.mediaRoot)) {
@@ -10,6 +11,8 @@ async function start() {
   }
 
   await connectDB();
+  
+  startStatusUpdater();
 
   app.listen(config.port, () => {
     console.log(`Keddy CRM API running at http://localhost:${config.port}`);

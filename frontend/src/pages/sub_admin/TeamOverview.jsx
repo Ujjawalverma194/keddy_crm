@@ -547,7 +547,10 @@ export default function TeamOverview() {
                            })()}
                         </td>
                         <td style={styles.tdCenter}>
-                           <button onClick={(e) => { e.stopPropagation(); setAssignTargetEmployee(user); setIsAssignTargetModalOpen(true); }} style={styles.assignTargetBtn}>Assign</button>
+                           <div style={{ display: 'flex', justifyContent: 'center', gap: '5px' }}>
+                             <button onClick={(e) => { e.stopPropagation(); setAssignTargetEmployee(user); setIsAssignTargetModalOpen(true); }} style={styles.assignTargetBtn}>Assign</button>
+                             <button onClick={(e) => { e.stopPropagation(); navigate(`/sub-admin/target-history?userId=${user.id}`); }} style={{...styles.assignTargetBtn, background: '#3b82f6'}}>History</button>
+                           </div>
                         </td>
                         <td style={styles.tdCenter}>
                           <button onClick={(e) => handleViewEod(e, user)} style={styles.viewEodBtn}>View EOD</button>
@@ -626,7 +629,10 @@ export default function TeamOverview() {
                            })()}
                         </td>
                         <td style={styles.tdCenter}>
-                           <button onClick={(e) => { e.stopPropagation(); setAssignTargetEmployee(user); setIsAssignTargetModalOpen(true); }} style={styles.assignTargetBtn}>Assign</button>
+                           <div style={{ display: 'flex', justifyContent: 'center', gap: '5px' }}>
+                             <button onClick={(e) => { e.stopPropagation(); setAssignTargetEmployee(user); setIsAssignTargetModalOpen(true); }} style={styles.assignTargetBtn}>Assign</button>
+                             <button onClick={(e) => { e.stopPropagation(); navigate(`/sub-admin/target-history?userId=${user.id}`); }} style={{...styles.assignTargetBtn, background: '#3b82f6'}}>History</button>
+                           </div>
                         </td>
                         <td style={styles.tdCenter}>
                           <button onClick={(e) => handleViewEod(e, user)} style={styles.viewEodBtn}>View EOD</button>

@@ -188,14 +188,50 @@ async function deleteTarget(req, res) {
   }
 }
 
+async function autoExpireTargets(targets, TargetModel) {
+  const now = new Date();
+  const activeTargets = [];
+  
+  for (const target of targets) {
+    const start = new Date(target.startDate);
+    start.setHours(0, 0, 0, 0);
+    
+    let end = new Date(start);
+    if (target.endDate) {
+      end = new Date(target.endDate);
+      end.setHours(23, 59, 59, 999);
+    } else if (target.targetDuration === 'DAILY') {
+      end.setHours(23, 59, 59, 999);
+    } else if (target.targetDuration === 'WEEKLY') {
+      end.setDate(end.getDate() + 7);
+      end.setHours(23, 59, 59, 999);
+    } else if (target.targetDuration === 'MONTHLY') {
+      end.setMonth(end.getMonth() + 1);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    if (now > end) {
+      await TargetModel.update(
+        { isActive: false, status: 'EXPIRED' },
+        { where: { id: target.id } }
+      );
+    } else {
+      activeTargets.push(target);
+    }
+  }
+  return activeTargets;
+}
+
 async function getMyTargets(req, res) {
   try {
     const userId = req.user.id;
     const { Target: TargetModel } = require('../models/sequelize/init');
-    const targets = await TargetModel.findAll({
+    let targets = await TargetModel.findAll({
       where: { userId, isActive: true, isDeleted: false },
       order: [['createdAt', 'DESC']]
     });
+    
+    targets = await autoExpireTargets(targets, TargetModel);
 
     const targetsWithProgress = await Promise.all(targets.map(calculateTargetProgress));
     res.json(targetsWithProgress);
@@ -218,12 +254,14 @@ async function getTeamTargets(req, res) {
     }
 
     const { Target: TargetModel } = require('../models/sequelize/init');
-    const targets = await TargetModel.findAll({
+    let targets = await TargetModel.findAll({
       where: { userId: { [Op.in]: userIds }, isActive: true, isDeleted: false },
       include: [
         { model: User.model, as: 'employee', attributes: ['id', 'firstName', 'lastName', 'email', 'profilePicture'] }
       ]
     });
+
+    targets = await autoExpireTargets(targets, TargetModel);
 
     const targetsWithProgress = await Promise.all(targets.map(calculateTargetProgress));
     res.json(targetsWithProgress);
@@ -239,23 +277,38 @@ async function getTargetHistory(req, res) {
     const { Target: TargetModel } = require('../models/sequelize/init');
     
     let queryWhere = { isDeleted: false };
-    
-    if (req.user.role === 'EMPLOYEE') {
+    const isTLMode = req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader;
+    const isImpersonatingTL = req.headers['x-impersonate-tl'] && req.user.role === 'SUB_ADMIN';
+
+    if (req.user.role === 'EMPLOYEE' && !isTLMode) {
       queryWhere.userId = req.user.id;
     } else {
       if (userId) {
         // verify permission to view this user
         const employee = await User.findById(userId);
-        if (req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader) {
-          if (employee.teamLeaderId !== req.user.id) {
+        
+        if (isTLMode) {
+          if (employee.teamLeaderId != req.user.id) {
             return res.status(403).json({ detail: "Permission denied." });
           }
         }
+        
+        if (isImpersonatingTL) {
+          const tlId = parseInt(req.headers['x-impersonate-tl'], 10);
+          if (employee.teamLeaderId != tlId && employee.id != tlId) {
+            return res.status(403).json({ detail: "Permission denied." });
+          }
+        }
+        
         queryWhere.userId = userId;
       } else {
         // list all for admin/tl
-        if (req.headers['x-team-leader-mode'] === 'true' && req.user.isTeamLeader) {
+        if (isTLMode) {
           const users = await User.find({ teamLeaderId: req.user.id, isDeleted: false });
+          queryWhere.userId = { [Op.in]: users.map(u => u.id) };
+        } else if (isImpersonatingTL) {
+          const tlId = parseInt(req.headers['x-impersonate-tl'], 10);
+          const users = await User.find({ teamLeaderId: tlId, isDeleted: false });
           queryWhere.userId = { [Op.in]: users.map(u => u.id) };
         } else {
           const companyId = resolveCompanyId(req.user) || req.user.id;

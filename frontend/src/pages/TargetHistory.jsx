@@ -49,7 +49,7 @@ export default function TargetHistory() {
         <Layout>
             <div style={{ padding: '20px' }}>
                 <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#25343F', marginBottom: '20px' }}>
-                    Target History {userId ? `- Employee ID: ${userId}` : ''}
+                    Target History {userId && targets.length > 0 && targets[0].employee ? `- ${targets[0].employee.firstName} ${targets[0].employee.lastName}` : ''}
                 </h2>
                 
                 {loading ? (
@@ -63,6 +63,7 @@ export default function TargetHistory() {
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead style={{ background: '#F9FAFB', borderBottom: '2px solid #E2E8F0' }}>
                                 <tr>
+                                    {role !== 'EMPLOYEE' && <th style={styles.th}>Employee</th>}
                                     <th style={styles.th}>Date Range</th>
                                     <th style={styles.th}>Duration</th>
                                     <th style={styles.thCenter}>Profiles Target</th>
@@ -76,6 +77,11 @@ export default function TargetHistory() {
                                     const sStyle = getStatusStyle(t.calculatedStatus || t.status);
                                     return (
                                         <tr key={t.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                                            {role !== 'EMPLOYEE' && (
+                                                <td style={styles.td}>
+                                                    <div style={{fontWeight: '600'}}>{t.employee?.firstName || ''} {t.employee?.lastName || ''}</div>
+                                                </td>
+                                            )}
                                             <td style={styles.td}>
                                                 <div>{new Date(t.startDate).toLocaleDateString()}</div>
                                                 {t.endDate && <div style={{ fontSize: '11px', color: '#64748B' }}>to {new Date(t.endDate).toLocaleDateString()}</div>}

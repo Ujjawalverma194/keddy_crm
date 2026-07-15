@@ -4,7 +4,7 @@ import { apiRequest } from "../../services/api";
 import BaseLayout from "../components/SubAdminLayout";
 import { getStoredAuth } from "../components/authSession";
     // eslint-disable-next-line no-unused-vars
-import { MoreVertical, Eye, Calendar, Edit, Trash2, UserMinus, Target } from "lucide-react";
+import { MoreVertical, Eye, Calendar, Edit, Trash2, UserMinus, Target, History } from "lucide-react";
 import AssignTargetModal from "../../components/AssignTargetModal";
 
 function UserManagement() {
@@ -66,6 +66,9 @@ function UserManagement() {
                             <button onClick={() => { setTargetModal({ show: true, employee: user }); setActiveMenu(null); }} style={styles.dropdownItem}>
                                 <Target size={15} /> Assign Target
                             </button>
+                            <button onClick={() => { navigate(`/sub-admin/target-history?userId=${user.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
+                                <History size={15} /> Target History
+                            </button>
                             <button onClick={() => { navigate(`/sub-admin/user/update/${user.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
                                 <Edit size={15} /> Edit
                             </button>
@@ -107,6 +110,9 @@ function UserManagement() {
                             </button>
                             <button onClick={() => { setTargetModal({ show: true, employee: tl }); setActiveMenu(null); }} style={styles.dropdownItem}>
                                 <Target size={15} /> Assign Target
+                            </button>
+                            <button onClick={() => { navigate(`/sub-admin/target-history?userId=${tl.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
+                                <History size={15} /> Target History
                             </button>
                             <button onClick={() => { navigate(`/sub-admin/user/update/${tl.id}`); setActiveMenu(null); }} style={styles.dropdownItem}>
                                 <Edit size={15} /> Edit Profile

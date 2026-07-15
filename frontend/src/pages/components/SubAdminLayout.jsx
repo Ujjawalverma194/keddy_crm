@@ -53,7 +53,7 @@ const SubAdminLayout = ({ children }) => {
 
     const menuItems = [
         { label: "Overview", path: "/sub-admin" },
-        { label: "Manage Team", path: "/sub-admin/team-manage" },
+        // { label: "Manage Team", path: "/sub-admin/team-manage" },
         { label: "Team Overview", path: "/sub-admin/team-overview" },
         { label: "Total Profiles", path: "/sub-admin/all-candidates" },
         // { label: "Offboarded Profiles", path: "/sub-admin/offboarded-profiles" },

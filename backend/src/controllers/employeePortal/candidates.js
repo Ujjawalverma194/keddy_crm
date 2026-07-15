@@ -97,8 +97,8 @@ function applyCandidatePatch(candidate, b) {
   if (b.remark !== undefined) candidate.remark = b.remark;
   if (b.extra_details !== undefined) candidate.extraDetails = b.extra_details;
 
-  if (b.l1_l2_date !== undefined) candidate.l1L2Date = b.l1_l2_date;
-  if (b.l1_l2_time !== undefined) candidate.l1L2Time = b.l1_l2_time;
+  if (b.l1_l2_date !== undefined) candidate.l1L2Date = b.l1_l2_date === "" ? null : b.l1_l2_date;
+  if (b.l1_l2_time !== undefined) candidate.l1L2Time = b.l1_l2_time === "" ? null : b.l1_l2_time;
 
   const blocklisted = parseBool(b.is_blocklisted);
   if (blocklisted !== undefined) candidate.isBlocklisted = blocklisted;
