@@ -175,6 +175,12 @@ async function update(req, res) {
 
   applyCandidatePatch(candidate, req.body || {});
 
+  // Validate workflow rules
+  const restrictedStatuses = ["L1", "L2", "L3", "OTHER", "OFFERED", "ONBORD", "OFFBOARDED"];
+  if (restrictedStatuses.includes(candidate.mainStatus) && !candidate.clientId) {
+    return res.status(400).json({ error: "Candidate must be submitted to a client before moving to advanced statuses." });
+  }
+
   const uploadedResume = getUploadedResumeFile(req);
   const uploadedResumePath = getResumeRelativePath(uploadedResume);
 

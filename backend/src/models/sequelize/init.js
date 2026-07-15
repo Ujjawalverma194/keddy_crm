@@ -42,6 +42,7 @@ const User = sequelize.define(
     lastAttendanceDate: { type: DataTypes.DATE, allowNull: true },
     lateWarningCount: { type: DataTypes.INTEGER, defaultValue: 0 },
     totalPoints: { type: DataTypes.INTEGER, defaultValue: 0 },
+    googleRefreshToken: { type: DataTypes.STRING, allowNull: true },
   },
   { tableName: 'users' }
 );

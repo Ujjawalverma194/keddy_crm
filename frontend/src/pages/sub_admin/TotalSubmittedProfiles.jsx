@@ -624,6 +624,7 @@ function SubmittedProfileList() {
         formData={editForm}
         setFormData={setEditForm}
         onSave={handleUpdateSubmit}
+        hasClientSubmission={Boolean(selectedCand?.client_id || selectedCand?.clientId || selectedCand?.client || (selectedCand?.client_name && selectedCand.client_name != "N/A"))}
       />
     </SubAdminLayout>
   );

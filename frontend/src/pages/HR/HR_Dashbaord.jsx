@@ -41,7 +41,6 @@ function HR_Dashboard() {
     const [verifiedCandidates, setVerifiedCandidates] = useState([]);
     const [pipelineCandidates, setPipelineCandidates] = useState([]);
     const [teamSubmissions, setTeamSubmissions] = useState([]);
-    // eslint-disable-next-line no-unused-vars
     const [last7Verified, setLast7Verified] = useState([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState({ show: false, msg: "", type: "" });
@@ -66,7 +65,6 @@ function HR_Dashboard() {
         finally { setLoading(false); }
     };
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { fetchAllData(); }, []);
 
     const notify = (msg, type = "success") => {
@@ -212,7 +210,9 @@ function HR_Dashboard() {
             <Section title="Today's Team Submissions"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>By</th><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th><th style={styles.th}>Client</th><th style={styles.th}>Source By</th><th style={styles.th}>Rate</th><th style={styles.th}>Status</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderGroupedRows(teamSubmissions, false, true)}</tbody></table></Section>
             <Section title="Today's New Profiles"><table style={styles.table}><thead style={styles.tableHeader}><tr><th style={styles.th}>To/By</th><th style={styles.th}>Candidate</th><th style={styles.th}>Tech</th><th style={styles.th}>Exp</th><th style={styles.th}>Client</th><th style={styles.th}>Source By</th><th style={styles.th}>Rate</th><th style={styles.th}>Action</th></tr></thead><tbody>{renderGroupedRows(todayCandidates, true, false)}</tbody></table></Section>
 
-            <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit} />
+            <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit}
+        hasClientSubmission={Boolean(selectedCand?.client_id || selectedCand?.clientId || selectedCand?.client || (selectedCand?.client_name && selectedCand.client_name != "N/A"))}
+      />
             
             <SubmissionModal 
                 isOpen={showSubmitModal} 

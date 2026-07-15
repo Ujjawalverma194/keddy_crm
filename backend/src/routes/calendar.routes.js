@@ -5,6 +5,11 @@ const ctrl = require('../controllers/calendarController');
 const router = express.Router();
 
 async function authOrSession(req, res, next) {
+  const token = req.query.token || req.query.state;
+  if (token) {
+    req.headers.authorization = `Bearer ${token}`;
+    return authenticate(req, res, next);
+  }
   if (req.headers.authorization?.startsWith('Bearer ')) {
     return authenticate(req, res, next);
   }

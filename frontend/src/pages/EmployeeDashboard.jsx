@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import BaseLayout from "../components/emp_base";
-import { apiRequest, API_BASE } from "../../services/api";
+import { apiRequest } from "../../services/api";
 import StatusUpdateModal from "../../components/StatusUpdateModal";
 import SubmissionModal from "../../components/SubmissionModal";
 import { getStatusStyles } from "../../utils/statusHelper";
@@ -298,32 +298,13 @@ function EmployeeDashboard() {
                 editForm
             );
 
-            if ((editForm.main_status === 'L1' || editForm.main_status === 'L2') && editForm.l1_l2_date && editForm.l1_l2_time) {
-                try {
-                    const startDt = new Date(`${editForm.l1_l2_date}T${editForm.l1_l2_time}:00`);
-                    const endDt = new Date(startDt.getTime() + 60 * 60 * 1000);
-                    await apiRequest('/calendar/google/create-event/', 'POST', {
-                        candidate_id: candidateId,
-                        title: `${editForm.main_status} Interview: ${selectedCand.candidate_name || 'Candidate'}`,
-                        description: `Interview Scheduled for ${editForm.main_status}. \nRemark: ${editForm.remark || 'N/A'}`,
-                        start_datetime: startDt.toISOString(),
-                        end_datetime: endDt.toISOString()
-                    });
-                    notify("Status updated & Calendar Event Scheduled!");
-                } catch (calErr) {
-                    console.error("Calendar scheduling failed", calErr);
-                    notify("Status updated, but Calendar Event failed (Not connected?)", "error");
-                }
-            } else {
-                notify("Status updated!");
-            }
-
             setTodayCandidates((prev) => updateCandidateInList(prev, candidateId, editForm));
             setVerifiedCandidates((prev) => updateCandidateInList(prev, candidateId, editForm));
             setPipelineCandidates((prev) => updateCandidateInList(prev, candidateId, editForm));
             setTeamSubmissions((prev) => updateCandidateInList(prev, candidateId, editForm));
             setLast7Verified((prev) => updateCandidateInList(prev, candidateId, editForm));
 
+            notify("Status updated!");
             setShowModal(false);
             setSelectedCand(null);
             fetchAllData();
@@ -559,12 +540,12 @@ function EmployeeDashboard() {
                                
                                 
                                 <span>
-                                    Profiles Remaining:{" "}
+                                    Profiles:{" "}
                                     {isProfCompleted ? <span style={{color: '#27AE60', fontWeight: 'bold'}}>Completed</span> : <b style={{color:"#FF9B51"}}>{profilesRemaining}</b>}
                                 </span>
                                  <span style={{color: '#CBD5E1'}}>|</span>
                                  <span>
-                                    Submissions Remaining  :{" "}
+                                    Submissions :{" "}
                                     {isSubCompleted ? <span style={{color: '#27AE60', fontWeight: 'bold'}}>Completed</span> : <b style={{color:"#FF9B51"}}>{submissionsRemaining}</b>}
                                 </span>
                                 <span style={{color: '#94A3B8'}}>→</span>
@@ -576,10 +557,6 @@ function EmployeeDashboard() {
                     );
                 })()}</div>
                 <div style={styles.btnGroup}>
-                    <button style={{...styles.actionBtn, background: "#FFF0E6", color: "#FF9B51", borderColor: "#FF9B51"}} onClick={() => {
-                        const token = localStorage.getItem("access");
-                        window.location.href = `${API_BASE}/calendar/google/connect/?token=${token}`;
-                    }}><Icons.Calendar /> Connect Calendar</button>
                     <button style={{ ...styles.actionBtn, background: "#4834D4", color: "#fff", borderColor: "#4834D4" }} onClick={() => navigate("/employee/add-eod")}><Icons.Calendar /> Add EOD</button>
                     <button style={styles.actionBtn} onClick={() => navigate("/employee/candidates/add")}><Icons.UserPlus /> Add Profile</button>
                     <button style={styles.actionBtn} onClick={() => navigate("/employee/vendor/add")}><Icons.UserPlus /> Add Vendor</button>
@@ -590,7 +567,6 @@ function EmployeeDashboard() {
           
 
             <div style={styles.statsGrid}>
-                
                 {[
                     { label: "Total Pipeline", val: stats.total_pipelines, icon: <Icons.Pipeline />, col: "#25343F", url: "/employee" },
                     { label: "Today's Profiles", val: stats.today_profiles, icon: <Icons.UserPlus />, col: "#25343F", url: "/employee" },
@@ -606,18 +582,6 @@ function EmployeeDashboard() {
                         <div style={{...styles.iconCircle, color: s.col, backgroundColor: 'rgba(37,52,63,0.05)'}}>{s.icon}</div>
                     </div>
                 ))}
-                <div style={styles.statCard} onClick={() => navigate("/employee/my-overview")}>
-                    <div style={{overflow:'hidden'}}>
-                        <p style={styles.statLabel}>My Overview</p>
-                        <h3 style={{...styles.statValue, color: "#25343F", fontSize: "15px", marginTop: "5px", display: "flex", alignItems: "center", gap: "6px"}}>
-                            Profiles: {targetSummary?.progress?.profileSourcing || 0} <span style={{color: '#CBD5E1'}}>|</span> Submissions : {targetSummary?.progress?.submissions || 0} <span style={{color: '#94A3B8', fontSize: '18px'}}>→</span>
-                        </h3>
-                    </div>
-                    <div style={{...styles.iconCircle, color: "#25343F", backgroundColor: 'rgba(37,52,63,0.05)'}}>
-                        <Icons.Pipeline />
-                    </div>
-                </div>
-
             </div>
 
             {/* Active Pipeline Requirements Section - NEW */}

@@ -227,7 +227,9 @@ function SubmittedProfiles() {
                 <button disabled={candidates.length < 10 || loading} onClick={() => setCurrentPage(p => p + 1)} style={candidates.length < 10 ? styles.pageBtnDisabled : styles.pageBtn}>Next</button>
             </div>
 
-            <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit} />
+            <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit}
+        hasClientSubmission={Boolean(selectedCand?.client_id || selectedCand?.clientId || selectedCand?.client || (selectedCand?.client_name && selectedCand.client_name != "N/A"))}
+      />
         </BaseLayout>
     );
 }
@@ -467,7 +469,9 @@ export default SubmittedProfiles;
 //                 <button disabled={candidates.length < 10 || loading} onClick={() => setCurrentPage(p => p + 1)} style={candidates.length < 10 ? styles.pageBtnDisabled : styles.pageBtn}>Next</button>
 //             </div>
 
-//             <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit} />
+//             <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit}
+//         hasClientSubmission={Boolean(selectedCand?.client_id || selectedCand?.clientId || selectedCand?.client || (selectedCand?.client_name && selectedCand.client_name != "N/A"))}
+//       />
 //         </BaseLayout>
 //     );
 // }
@@ -705,7 +709,9 @@ export default SubmittedProfiles;
 //                 <button disabled={candidates.length < 10 || loading} onClick={() => setCurrentPage(p => p + 1)} style={candidates.length < 10 ? styles.pageBtnDisabled : styles.pageBtn}>Next</button>
 //             </div>
 
-//             <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit} />
+//             <StatusUpdateModal isOpen={showModal} onClose={() => setShowModal(false)} formData={editForm} setFormData={setEditForm} onSave={handleUpdateSubmit}
+//         hasClientSubmission={Boolean(selectedCand?.client_id || selectedCand?.clientId || selectedCand?.client || (selectedCand?.client_name && selectedCand.client_name != "N/A"))}
+//       />
 //         </BaseLayout>
 //     );
 // }
