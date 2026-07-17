@@ -131,7 +131,8 @@ async function createCandidateEvent(req, res) {
     title,
     description,
     startDt,
-    endDt
+    endDt,
+    candidate.candidateEmail
   );
 
   if (googleResponse.error) return res.status(400).json(googleResponse);

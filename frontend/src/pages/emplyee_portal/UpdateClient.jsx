@@ -22,11 +22,10 @@ function UpdateClient() {
         msa_document: null
     });
 
+    const [pocs, setPocs] = useState([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
+
     const [form, setForm] = useState({
-        client_name: "",
         company_name: "",
-        phone_number: "",
-        email: "",
         official_email: "",
         sending_email_id: "",
         company_employee_count: "",
@@ -58,10 +57,7 @@ function UpdateClient() {
                 );
                 const data = response;
                 setForm({
-                    client_name: data.client_name || "",
                     company_name: data.company_name || "",
-                    phone_number: data.phone_number || "",
-                    email: data.email || "",
                     official_email: data.official_email || "",
                     sending_email_id: data.sending_email_id || "",
                     company_employee_count: data.company_employee_count || "",
@@ -69,6 +65,13 @@ function UpdateClient() {
                     nda_status: data.nda_status || "NOT_SENT",
                     msa_status: data.msa_status || "NOT_SENT"
                 });
+                if (data.pocs && data.pocs.length > 0) {
+                    setPocs(data.pocs);
+                } else if (data.client_name || data.phone_number) {
+                    setPocs([{ id: null, name: data.client_name || "", number: data.phone_number || "", email: data.email || "", isPrimary: true }]);
+                } else {
+                    setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
+                }
                 // Existing file names save karo dikhane ke liye
                 setExistingFiles({
                     nda_document: data.nda_document || null,
@@ -86,6 +89,27 @@ function UpdateClient() {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setForm({ ...form, [name]: value });
+    };
+
+    const handlePocChange = (index, e) => {
+        const { name, value, type, checked } = e.target;
+        const newPocs = [...pocs];
+        if (type === 'checkbox' && name === 'isPrimary') {
+            newPocs.forEach(p => p.isPrimary = false); // uncheck all others
+            newPocs[index][name] = checked;
+        } else {
+            newPocs[index][name] = value;
+        }
+        setPocs(newPocs);
+    };
+
+    const addAnotherPoc = () => {
+        setPocs([...pocs, { id: null, name: "", number: "", email: "", isPrimary: false }]);
+    };
+
+    const removePoc = (index) => {
+        const newPocs = pocs.filter((_, i) => i !== index);
+        setPocs(newPocs);
     };
 
     const handleFileChange = (e, key) => {
@@ -106,6 +130,13 @@ function UpdateClient() {
                 formData.append(key, val);
             }
         });
+
+        const validPocs = pocs.filter(p => p.name && p.number);
+        if (validPocs.length > 0) {
+            formData.append("pocs", JSON.stringify(validPocs));
+        } else if (pocs[0]?.name) {
+            formData.append("pocs", JSON.stringify([{name: pocs[0].name, number: pocs[0].number, email: pocs[0].email, isPrimary: true}]));
+        }
 
         // Files: sirf naye selected files append karo
         if (files.nda_document) formData.append("nda_document", files.nda_document);
@@ -164,24 +195,51 @@ function UpdateClient() {
                     {/* SECTION 1: REQUIRED */}
                     <div style={styles.sectionHeader}>Required Information</div>
                     <div style={styles.inputGroup}>
-                        <label style={styles.label}>Client Name *</label>
-                        <input style={styles.input} name="client_name" value={form.client_name} onChange={handleChange} required placeholder="e.g. John Doe" />
-                    </div>
-                    <div style={styles.inputGroup}>
                         <label style={styles.label}>Company Name *</label>
                         <input style={styles.input} name="company_name" value={form.company_name} onChange={handleChange} required placeholder="e.g. Infosys Limited" />
                     </div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Phone Number *</label>
-                        <input style={styles.input} name="phone_number" value={form.phone_number} onChange={handleChange} required placeholder="9876543210" />
+                    
+                    {/* SECTION 1.5: POCs */}
+                    <div style={{ ...styles.sectionHeader, gridColumn: "1 / -1", marginTop: "20px" }}>
+                        Point of Contacts (POCs)
+                    </div>
+                    <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: "15px" }}>
+                        {pocs.map((poc, index) => (
+                            <div key={index} style={{ background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontWeight: '600', color: '#1E293B' }}>Contact {index + 1} {poc.isPrimary && <span style={{ color: '#FF6B2C', fontSize: '12px', marginLeft: '5px' }}>(Primary)</span>}</span>
+                                        {!poc.isPrimary && (
+                                            <button type="button" name="isPrimary" onClick={(e) => handlePocChange(index, { target: { name: 'isPrimary', type: 'checkbox', checked: true } })} style={{ background: 'none', border: 'none', color: '#FF6B2C', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Set as Primary</button>
+                                        )}
+                                    </div>
+                                    {pocs.length > 1 && (
+                                        <button type="button" onClick={() => removePoc(index)} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Remove</button>
+                                    )}
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                                    <div style={styles.inputGroup}>
+                                        <label style={styles.label}>POC Name *</label>
+                                        <input style={styles.input} name="name" value={poc.name} onChange={(e) => handlePocChange(index, e)} required placeholder="Name" />
+                                    </div>
+                                    <div style={styles.inputGroup}>
+                                        <label style={styles.label}>POC Phone Number *</label>
+                                        <input style={styles.input} name="number" value={poc.number} onChange={(e) => handlePocChange(index, e)} required placeholder="Phone Number" />
+                                    </div>
+                                    <div style={styles.inputGroup}>
+                                        <label style={styles.label}>POC Email Address</label>
+                                        <input style={styles.input} type="email" name="email" value={poc.email} onChange={(e) => handlePocChange(index, e)} placeholder="Email" />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        <button type="button" onClick={addAnotherPoc} style={{ alignSelf: "flex-start", background: "none", border: "1px dashed #94A3B8", color: "#475569", padding: "10px 15px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "14px" }}>
+                            + Add Another POC
+                        </button>
                     </div>
 
                     {/* SECTION 2: CONTACT & CORPORATE */}
-                    <div style={styles.sectionHeader}>Contact & Corporate Info</div>
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Email Address</label>
-                        <input style={styles.input} type="email" name="email" value={form.email} onChange={handleChange} placeholder="hr@client.com" />
-                    </div>
+                    <div style={styles.sectionHeader}>Corporate Info</div>
                     <div style={styles.inputGroup}>
                         <label style={styles.label}>Official Email</label>
                         <input style={styles.input} type="email" name="official_email" value={form.official_email} onChange={handleChange} />

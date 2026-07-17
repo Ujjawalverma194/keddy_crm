@@ -110,7 +110,7 @@ exports.scheduleInterview = async (req, res) => {
     // time could be "HH:mm AM/PM" or "HH:mm"
     
     // Basic parser assuming 24-hour HH:mm string from input type="time"
-    const startDateTime = new Date(`${date}T${time}:00`);
+    const startDateTime = new Date(`${date}T${time}:00+05:30`);
     const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000); // 1 hour duration by default
 
     const event = {
@@ -136,15 +136,15 @@ exports.scheduleInterview = async (req, res) => {
       reminders: {
         useDefault: false,
         overrides: [
-          { method: 'email', minutes: 24 * 60 },
-          { method: 'popup', minutes: 10 },
+          { method: 'email', minutes: 30 },
+          { method: 'popup', minutes: 30 },
         ],
       },
     };
 
     // If candidate has email, add to attendees
-    if (candidate.candidateEmail) {
-      event.attendees.push({ email: candidate.candidateEmail });
+    if (candidate.candidateEmail && candidate.candidateEmail.trim() !== '') {
+      event.attendees.push({ email: candidate.candidateEmail.trim(), responseStatus: 'needsAction' });
     }
 
     const response = await calendar.events.insert({

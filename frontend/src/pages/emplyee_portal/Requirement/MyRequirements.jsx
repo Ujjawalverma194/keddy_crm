@@ -999,17 +999,17 @@ function MyRequirements() {
                             <h3 style={styles.subSectionTitle}>{typeParam === "today" ? "My Today's Requirements" : "My Yesterday Requirements"}</h3>
                             {renderMyRequirementsTable(paginatedMyCreatedRequirements, "No requirements created by you found.")}
                         </div>
-                        <div style={styles.splitBlock}>
-                            <h3 style={styles.subSectionTitle}>{typeParam === "today" ? "Team Today's Requirements" : "Team Yesterday Requirements"}</h3>
+                        {/* <div style={styles.splitBlock}>
+                       <h3 style={styles.subSectionTitle}>{typeParam === "today" ? "Team Today's Requirements" : "Team Yesterday Requirements"}</h3>
                             {renderMyRequirementsTable(paginatedTeamRequirements, "No team requirements found.")}
-                        </div>
-                        {renderPagination({
+                        </div> */}
+                        {/* {renderPagination({
                             totalItems: Math.max(myCreatedRequirements.length, teamRequirements.length),
                             currentPageValue: currentPage,
                             pageSizeValue: itemsPerPage,
                             onPageChange: setCurrentPage,
                             onPageSizeChange: setItemsPerPage,
-                        })}
+                        })} */}
                     </>
                 ) : (
                     <>
@@ -1037,12 +1037,12 @@ function MyRequirements() {
 
                 <div style={styles.statsContainer}>
                     <div style={styles.statCard}>Team Total: <strong>{availableStats.total_available || 0}</strong></div>
-                    {typeParam !== "all" && (
+                    {/* {typeParam !== "all" && (
                         <>
                             <div style={styles.statCard}>HOT: <strong style={{color: '#DC2626'}}>{availableStats.hot_count || 0}</strong></div>
                             <div style={styles.statCard}>WARM: <strong style={{color: '#F59E0B'}}>{availableStats.warm_count || 0}</strong></div>
                         </>
-                    )}
+                    )} */}
                 </div>
 
                 <div style={styles.tableWrapper}>

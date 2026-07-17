@@ -234,10 +234,7 @@ function AddVendor() {
     try {
       await apiRequest("/employee-portal/api/vendors/create/", "POST", formData);
       notify("Vendor created successfully!");
-      setForm(EMPTY_FORM);
-      setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
-      setFiles({ bench_list: null, nda_document: null, msa_document: null });
-      e.target.reset();
+      setTimeout(() => navigate('/employee/vendors'), 1500);
     } catch (error) {
       console.error("Vendor create error:", error);
       notify("Error creating vendor. Please check all fields.", "error");
@@ -485,7 +482,7 @@ function AddVendor() {
 
           <div style={styles.footerBar}>
             <div style={styles.footerHint}>{completedCount} / 3 required done</div>
-            <button type="submit" disabled={isSubmitting} style={{ ...styles.submitBtn, opacity: isSubmitting ? 0.7 : 1 }}>
+            <button  type="submit" disabled={isSubmitting} style={{ ...styles.submitBtn, opacity: isSubmitting ? 0.7 : 1 }}>
               {isSubmitting ? "Saving..." : "Create Vendor"}
             </button>
           </div>

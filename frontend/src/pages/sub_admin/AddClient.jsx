@@ -223,10 +223,7 @@ function AddClient() {
     try {
       await apiRequest("/employee-portal/api/clients/create/", "POST", formData);
       notify("Client created successfully!");
-      setForm(EMPTY_FORM);
-      setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
-      setFiles({ bench_list: null, nda_document: null, msa_document: null });
-      e.target.reset();
+      setTimeout(() => navigate('/sub-admin/clients'), 1500);
     } catch (error) {
       console.error("Client create error:", error);
       notify("Error creating client. Please check all fields.", "error");
@@ -285,7 +282,7 @@ function AddClient() {
                     <div style={{ position: 'relative' }}>
                       <input style={styles.input} name="company_name" value={form.company_name} onChange={handleChange} required placeholder="ABC Tech" />
                       {showCompanySuggestions && companySuggestions.length > 0 && (
-                        <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', listStyle: 'none', padding: 0, margin: '4px 0 0', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
+                        <ul style={{ position: 'absolute', top: '100%', left: 0, width: '150%', minWidth: '350px', background: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', listStyle: 'none', padding: 0, margin: '4px 0 0', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
                           {companySuggestions.map(comp => (
                             <li 
                               key={comp.id} 
@@ -309,6 +306,55 @@ function AddClient() {
               </div>
 
               
+              <div id="poc-section" style={styles.sectionCard}>
+                <div style={styles.sectionHeader}>
+                  <div style={styles.sectionIcon}><Icons.Client /></div>
+                  <div>
+                    <h3 style={styles.sectionTitle}>Point of Contacts (POCs)</h3>
+                    <p style={styles.sectionHint}>Add multiple contacts for this client.</p>
+                  </div>
+                </div>
+
+                <div style={styles.innerGrid}>
+                  {pocs.map((poc, index) => (
+                    <div key={index} style={{ gridColumn: 'span 12', background: '#F8FAFC', padding: '16px', borderRadius: '12px', position: 'relative', border: '1px solid #E2E8F0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#334155' }}>POC {index + 1} {poc.isPrimary ? "(Primary)" : ""}</span>
+                          {!poc.isPrimary && (
+                            <button type="button" onClick={() => {
+                              const e = { target: { name: 'isPrimary', type: 'checkbox', checked: true } };
+                              handlePocChange(index, e);
+                            }} style={{ background: 'none', border: 'none', color: '#FF6B2C', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Set as Primary</button>
+                          )}
+                        </div>
+                        {pocs.length > 1 && (
+                          <button type="button" onClick={() => removePoc(index)} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Remove</button>
+                        )}
+                      </div>
+                      <div style={styles.innerGrid}>
+                        <Field label="POC Name" required style={styles.col4}>
+                          <input style={styles.input} name="name" value={poc.name} onChange={(e) => handlePocChange(index, e)} required placeholder="Jane Doe" />
+                        </Field>
+                        <Field label="POC Phone" required style={styles.col4}>
+                          <input style={styles.input} name="number" value={poc.number} onChange={(e) => handlePocChange(index, e)} required placeholder="9876543210" />
+                        </Field>
+                        <Field label="POC Email" style={styles.col4}>
+                          <input style={styles.input} type="email" name="email" value={poc.email} onChange={(e) => handlePocChange(index, e)} placeholder="jane@abctech.com" />
+                        </Field>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div style={styles.col12}>
+                    <button type="button" onClick={addAnotherPoc} style={{ background: '#FFF2EA', color: '#FF6B2C', border: '1px dashed #FF6B2C', padding: '12px', width: '100%', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>
+                      + Add Another POC
+                    </button>
+                  </div>
+                </div>
+              </div>
+  
+
               <div id="poc-section" style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
                   <div style={styles.sectionIcon}><Icons.Client /></div>

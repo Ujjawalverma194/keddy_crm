@@ -223,10 +223,7 @@ function AddClient() {
     try {
       await apiRequest("/employee-portal/api/clients/create/", "POST", formData);
       notify("Client created successfully!");
-      setForm(EMPTY_FORM);
-      setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
-      setFiles({ bench_list: null, nda_document: null, msa_document: null });
-      e.target.reset();
+      setTimeout(() => navigate('/employee/clients'), 1500);
     } catch (error) {
       console.error("Client create error:", error);
       notify("Error creating client. Please check all fields.", "error");
@@ -285,7 +282,7 @@ function AddClient() {
                     <div style={{ position: 'relative' }}>
                       <input style={styles.input} name="company_name" value={form.company_name} onChange={handleChange} required placeholder="ABC Tech" />
                       {showCompanySuggestions && companySuggestions.length > 0 && (
-                        <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', listStyle: 'none', padding: 0, margin: '4px 0 0', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
+                        <ul style={{ position: 'absolute', top: '100%', left: 0, width: '150%', minWidth: '350px', background: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', listStyle: 'none', padding: 0, margin: '4px 0 0', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
                           {companySuggestions.map(comp => (
                             <li 
                               key={comp.id} 
@@ -308,35 +305,6 @@ function AddClient() {
                 </div>
               </div>
 
-              <div style={styles.sectionCard}>
-                <div style={styles.sectionHeader}>
-                  <div style={styles.sectionIcon}><Icons.Mail /></div>
-                  <div>
-                    <h3 style={styles.sectionTitle}>Contact & online presence</h3>
-                    <p style={styles.sectionHint}>Official mail IDs, website, registration and company size.</p>
-                  </div>
-                </div>
-
-                <div style={styles.innerGrid}>
-                  <Field label="Client Official Email" style={styles.col6}>
-                    <input style={styles.input} type="email" name="client_official_email" value={form.client_official_email} onChange={handleChange} />
-                  </Field>
-                  <Field label="Sending Email ID" style={styles.col6}>
-                    <input style={styles.input} type="email" name="sending_email_id" value={form.sending_email_id} onChange={handleChange} />
-                  </Field>
-                  <Field label="Website URL" style={styles.col4}>
-                    <input style={styles.input} name="company_website" value={form.company_website} onChange={handleChange} />
-                  </Field>
-                  <Field label="PAN / Reg No." style={styles.col4}>
-                    <input style={styles.input} name="company_pan_or_reg_no" value={form.company_pan_or_reg_no} onChange={handleChange} />
-                  </Field>
-                  <Field label="Company Employee Count" style={styles.col4}>
-                    <input style={styles.input} type="number" name="company_employee_count" value={form.company_employee_count} onChange={handleChange} />
-                  </Field>
-                </div>
-              </div>
-
-              
               <div id="poc-section" style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
                   <div style={styles.sectionIcon}><Icons.Client /></div>
@@ -386,6 +354,35 @@ function AddClient() {
               </div>
   
 
+              <div style={styles.sectionCard}>
+                <div style={styles.sectionHeader}>
+                  <div style={styles.sectionIcon}><Icons.Mail /></div>
+                  <div>
+                    <h3 style={styles.sectionTitle}>Contact & online presence</h3>
+                    <p style={styles.sectionHint}>Official mail IDs, website, registration and company size.</p>
+                  </div>
+                </div>
+
+                <div style={styles.innerGrid}>
+                  <Field label="Client Official Email" style={styles.col6}>
+                    <input style={styles.input} type="email" name="client_official_email" value={form.client_official_email} onChange={handleChange} />
+                  </Field>
+                  <Field label="Sending Email ID" style={styles.col6}>
+                    <input style={styles.input} type="email" name="sending_email_id" value={form.sending_email_id} onChange={handleChange} />
+                  </Field>
+                  <Field label="Website URL" style={styles.col4}>
+                    <input style={styles.input} name="company_website" value={form.company_website} onChange={handleChange} />
+                  </Field>
+                  <Field label="PAN / Reg No." style={styles.col4}>
+                    <input style={styles.input} name="company_pan_or_reg_no" value={form.company_pan_or_reg_no} onChange={handleChange} />
+                  </Field>
+                  <Field label="Company Employee Count" style={styles.col4}>
+                    <input style={styles.input} type="number" name="company_employee_count" value={form.company_employee_count} onChange={handleChange} />
+                  </Field>
+                </div>
+              </div>
+
+              
               <div style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
                   <div style={styles.sectionIcon}><Icons.File /></div>

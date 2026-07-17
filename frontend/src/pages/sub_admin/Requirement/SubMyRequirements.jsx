@@ -469,7 +469,7 @@ function MyRequirements() {
           Create Requirement
         </button>
       </div>
-     <div style={styles.filterGroup}>
+     {/* <div style={styles.filterGroup}>
         <button
           type="button"
           onClick={() => {
@@ -522,7 +522,7 @@ function MyRequirements() {
         >
           COLD
         </button>
-      </div>
+      </div> */}
       {/* <div style={styles.statsContainer}>
                 <div style={styles.statCard}>Total: <strong>{stats.total}</strong></div>
                 <div style={styles.statCard}>Created By Me: <strong style={{color: '#27AE60'}}>{getCreatedByMeDisplayCount()}</strong></div>

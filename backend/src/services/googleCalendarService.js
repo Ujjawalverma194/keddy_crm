@@ -56,7 +56,7 @@ async function testGoogleConnection(user) {
   return { error: 'Google API call failed.', details };
 }
 
-async function createGoogleEvent(user, title, description, startDatetime, endDatetime) {
+async function createGoogleEvent(user, title, description, startDatetime, endDatetime, candidateEmail) {
   let account = await getActiveAccount(user.id);
   if (!account) return { error: 'Google account not connected.' };
 
@@ -78,14 +78,24 @@ async function createGoogleEvent(user, title, description, startDatetime, endDat
       useDefault: false,
       overrides: [
         { method: 'popup', minutes: 30 },
-        { method: 'email', minutes: 0 },
+        { method: 'email', minutes: 30 },
       ],
+    },
+    conferenceData: {
+      createRequest: {
+        requestId: `keddycrm-${Date.now()}`,
+        conferenceSolutionKey: { type: 'hangoutsMeet' },
+      },
     },
   };
 
+  if (candidateEmail && candidateEmail.trim() !== '') {
+    eventData.attendees = [{ email: candidateEmail.trim(), responseStatus: 'needsAction' }];
+  }
+
   const postEvent = async (accessToken) => {
     return fetch(
-      'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all',
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all&conferenceDataVersion=1',
       {
         method: 'POST',
         headers: {

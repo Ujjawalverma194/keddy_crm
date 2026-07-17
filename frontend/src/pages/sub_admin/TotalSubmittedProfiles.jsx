@@ -130,6 +130,7 @@ function SubmittedProfileList() {
   const [candidates, setCandidates] = useState([]);
   const [count, setCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [techFilter, setTechFilter] = useState("");
@@ -153,10 +154,10 @@ function SubmittedProfileList() {
     setTimeout(() => setToast({ show: false, msg: "", type: "" }), 3000);
   };
 
-  const fetchSubmittedProfiles = async (page, search, tech) => {
+  const fetchSubmittedProfiles = async (page, search, tech, currentLimit) => {
     setLoading(true);
     try {
-      let url = `/sub-admin/api/candidates/submitted/?page=${page}`;
+      let url = `/sub-admin/api/candidates/submitted/?page=${page}&page_size=${currentLimit}`;
       if (search) url += `&search=${search}`;
       if (tech) url += `&technology=${tech}`;
       const res = await apiRequest(url, "GET");
@@ -170,8 +171,8 @@ function SubmittedProfileList() {
   };
 
   useEffect(() => {
-    fetchSubmittedProfiles(currentPage, searchTerm, techFilter);
-  }, [currentPage, searchTerm, techFilter]);
+    fetchSubmittedProfiles(currentPage, searchTerm, techFilter, limit);
+  }, [currentPage, searchTerm, techFilter, limit]);
 
   const handleUpdateSubmit = async () => {
     try {
@@ -182,7 +183,7 @@ function SubmittedProfileList() {
       );
       notify("Status Updated");
       setShowStatusModal(false);
-      fetchSubmittedProfiles(currentPage, searchTerm, techFilter);
+      fetchSubmittedProfiles(currentPage, searchTerm, techFilter, limit);
     } catch (err) {
       notify("Failed to update", "error");
     }
@@ -200,7 +201,7 @@ function SubmittedProfileList() {
         "success",
       );
       setShowDeletePopup(false);
-      fetchSubmittedProfiles(currentPage, searchTerm, techFilter);
+      fetchSubmittedProfiles(currentPage, searchTerm, techFilter, limit);
     } catch (err) {
       notify("Delete failed", "error");
     }
@@ -500,26 +501,44 @@ function SubmittedProfileList() {
       </div>
 
       <div style={styles.pagination}>
-        <button
-          disabled={currentPage === 1}
-          onClick={() => setCurrentPage((p) => p - 1)}
-          style={currentPage === 1 ? styles.pageBtnDisabled : styles.pageBtn}
-        >
-          Prev
-        </button>
-        <span style={styles.pageInfo}>
-          {currentPage} / {Math.ceil(count / 10) || 1}
-        </span>
-        <button
-          disabled={currentPage * 10 >= count}
-          onClick={() => setCurrentPage((p) => p + 1)}
-          style={
-            currentPage * 10 >= count ? styles.pageBtnDisabled : styles.pageBtn
-          }
-        >
-          Next
-        </button>
-      </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748B' }}>Rows per page:</span>
+              <select 
+                  value={limit} 
+                  onChange={(e) => {
+                      setLimit(Number(e.target.value));
+                      setCurrentPage(1);
+                  }}
+                  style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', cursor: 'pointer', background: '#fff', color: '#334155', fontWeight: '600' }}
+              >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={30}>30</option>
+                  <option value={40}>40</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+              </select>
+          </div>
+          <button
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+            style={currentPage === 1 ? styles.pageBtnDisabled : styles.pageBtn}
+          >
+            Prev
+          </button>
+          <span style={styles.pageInfo}>
+            {currentPage} / {Math.ceil(count / limit) || 1}
+          </span>
+          <button
+            disabled={currentPage * limit >= count}
+            onClick={() => setCurrentPage((p) => p + 1)}
+            style={
+              currentPage * limit >= count ? styles.pageBtnDisabled : styles.pageBtn
+            }
+          >
+            Next
+          </button>
+        </div>
 
       {showDeletePopup && (
         <div

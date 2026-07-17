@@ -36,12 +36,22 @@ const StatusUpdateModal = ({ isOpen, onClose, formData, setFormData, onSave, has
                         </div>
                         <div style={{ flex: 1 }}>
                             <label style={mStyles.modalLabel}>Time</label>
-                            <input
-                                type="time"
-                                style={mStyles.input}
+                            <select
+                                style={mStyles.select}
                                 value={formData.l1_l2_time || ""}
                                 onChange={(e) => setFormData({ ...formData, l1_l2_time: e.target.value })}
-                            />
+                            >
+                                <option value="" disabled>Select Time</option>
+                                {Array.from({ length: 48 }).map((_, i) => {
+                                    const h = Math.floor(i / 2).toString().padStart(2, '0');
+                                    const m = i % 2 === 0 ? '00' : '30';
+                                    const val = `${h}:${m}`;
+                                    const ampm = Math.floor(i / 2) >= 12 ? 'PM' : 'AM';
+                                    const h12 = Math.floor(i / 2) % 12 || 12;
+                                    const label = `${h12}:${m} ${ampm}`;
+                                    return <option key={val} value={val}>{label}</option>;
+                                })}
+                            </select>
                         </div>
                     </div>
                 )}

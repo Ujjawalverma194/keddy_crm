@@ -136,6 +136,23 @@ const Icons = {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
     </svg>
   ),
+  TrashIcon: ({ color }) => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      <line x1="10" y1="11" x2="10" y2="17"></line>
+      <line x1="14" y1="11" x2="14" y2="17"></line>
+    </svg>
+  ),
   Requirement: () => (
     <svg
       width="18"
@@ -522,8 +539,9 @@ function EmployeeDashboard() {
         editForm,
       );
 
+      const scheduledStatuses = ["INTERNAL SCREENING", "CLIENT SCREENING", "L1", "L2", "L3", "OTHER"];
       if (
-        (editForm.main_status === "L1" || editForm.main_status === "L2") &&
+        scheduledStatuses.includes(editForm.main_status) &&
         editForm.l1_l2_date &&
         editForm.l1_l2_time
       ) {
@@ -689,6 +707,7 @@ function EmployeeDashboard() {
     i,
     showSubmitBtn = false,
     showSubmitToClientBtn = false,
+    showDeleteBtn = false,
   ) => {
     const statusStyle = getStatusStyles(c.main_status || "SUBMITTED");
     const currentUserId = getCurrentUserId();
@@ -836,6 +855,26 @@ function EmployeeDashboard() {
                   Submit to Client
                 </button>
               ))}
+
+            {showDeleteBtn && (
+                <button
+                  style={{ background: '#FEE2E2', color: '#EF4444', border: 'none', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!window.confirm('Are you sure you want to delete this profile?')) return;
+                    try {
+                      await apiRequest(`/employee-portal/api/candidates/${c.id}/soft-delete/`, 'DELETE');
+                      notify('Profile deleted successfully!');
+                      fetchAllData();
+                    } catch (err) {
+                      notify('Delete failed', 'error');
+                    }
+                  }}
+                  title="Delete Profile"
+                >
+                  <Icons.TrashIcon color="#EF4444" />
+                </button>
+            )}
           </div>
         </td>
       </tr>
@@ -846,6 +885,7 @@ function EmployeeDashboard() {
     list = [],
     showSubmit = false,
     showSubmitClient = false,
+    showDelete = false,
   ) => {
     const rows = Array.isArray(list) ? list : [];
     let lastDate = "";
@@ -866,7 +906,7 @@ function EmployeeDashboard() {
       return (
         <React.Fragment key={c.id || i}>
           {dateSeparator}
-          {renderRow(c, i, showSubmit, showSubmitClient)}
+          {renderRow(c, i, showSubmit, showSubmitClient, showDelete)}
         </React.Fragment>
       );
     });
@@ -1539,7 +1579,7 @@ function EmployeeDashboard() {
                 <th style={styles.th}>Action</th>
               </tr>
             </thead>
-            <tbody>{renderGroupedRows(todayCandidates, true, false)}</tbody>
+            <tbody>{renderGroupedRows(todayCandidates, true, false, true)}</tbody>
           </table>
         </Section>
       )}

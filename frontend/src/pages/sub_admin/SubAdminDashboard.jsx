@@ -152,6 +152,23 @@ const Icons = {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
     </svg>
   ),
+  TrashIcon: ({ color }) => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      <line x1="10" y1="11" x2="10" y2="17"></line>
+      <line x1="14" y1="11" x2="14" y2="17"></line>
+    </svg>
+  ),
   Onboard: () => (
     <svg
       width="22"
@@ -300,7 +317,7 @@ const handleUpdateSubmit = async () => {
   const truncate = (text, limit) =>
     text?.length > limit ? text.substring(0, limit) + "..." : text;
 
-  const renderRows = (list = []) => {
+  const renderRows = (list = [], showDeleteBtn = false) => {
     const rows = Array.isArray(list) ? list : [];
     return rows.map((c, i) => {
       const currentDate = new Date(c.created_at).toLocaleDateString("en-GB", {
@@ -384,12 +401,33 @@ const handleUpdateSubmit = async () => {
             </small>
           </td>
           <td style={styles.td}>
-            <button
-              style={styles.editBtn}
-              onClick={(e) => handleEditClick(e, c)}
-            >
-              <Icons.Edit />
-            </button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                style={styles.editBtn}
+                onClick={(e) => handleEditClick(e, c)}
+                >
+                <Icons.Edit />
+                </button>
+                {showDeleteBtn && (
+                    <button
+                        style={{ background: '#FEE2E2', color: '#EF4444', border: 'none', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!window.confirm('Are you sure you want to delete this profile?')) return;
+                            try {
+                                await apiRequest(`/sub-admin/candidates/${c.id}/soft-delete/`, 'DELETE');
+                                notify('Profile deleted successfully!');
+                                fetchSubAdminData();
+                            } catch (err) {
+                                notify('Delete failed', 'error');
+                            }
+                        }}
+                        title="Delete Profile"
+                    >
+                        <Icons.TrashIcon color="#EF4444" />
+                    </button>
+                )}
+            </div>
           </td>
         </tr>
       );
@@ -741,7 +779,7 @@ const handleUpdateSubmit = async () => {
                 <th style={styles.th}>Action</th>
               </tr>
             </thead>
-            <tbody>{renderRows(todayProfilesData)}</tbody>
+            <tbody>{renderRows(todayProfilesData, true)}</tbody>
           </table>
         </Section>
         )}
