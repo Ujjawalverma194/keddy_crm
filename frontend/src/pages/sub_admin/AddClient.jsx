@@ -133,7 +133,8 @@ function AddClient() {
       sending_email_id: modalCompany.sending_email_id || "",
       company_employee_count: modalCompany.company_employee_count || "",
     });
-    setPocs([{ id: poc.id, name: poc.name || "", number: poc.number || "", email: poc.email || "", isPrimary: poc.isPrimary || false }]);
+    const validPocs = pocs.filter(p => (p.name && p.name.trim() !== "") || (p.number && p.number.trim() !== ""));
+      setPocs([...validPocs, { id: poc.id, name: poc.name || "", number: poc.number || "", email: poc.email || "", isPrimary: poc.isPrimary || false }]);
     setShowPocModal(false);
     setTimeout(() => {
       const el = document.getElementById("poc-section");
@@ -157,7 +158,8 @@ function AddClient() {
       sending_email_id: modalCompany.sending_email_id || "",
       company_employee_count: modalCompany.company_employee_count || "",
     });
-    setPocs([{ id: null, name: "", number: "", email: "", isPrimary: false }]);
+    const validPocs = pocs.filter(p => (p.name && p.name.trim() !== "") || (p.number && p.number.trim() !== ""));
+      setPocs([...validPocs, { id: null, name: "", number: "", email: "", isPrimary: false }]);
     setShowPocModal(false);
     setTimeout(() => {
       const el = document.getElementById("poc-section");
@@ -355,54 +357,6 @@ function AddClient() {
               </div>
   
 
-              <div id="poc-section" style={styles.sectionCard}>
-                <div style={styles.sectionHeader}>
-                  <div style={styles.sectionIcon}><Icons.Client /></div>
-                  <div>
-                    <h3 style={styles.sectionTitle}>Point of Contacts (POCs)</h3>
-                    <p style={styles.sectionHint}>Add multiple contacts for this client.</p>
-                  </div>
-                </div>
-
-                <div style={styles.innerGrid}>
-                  {pocs.map((poc, index) => (
-                    <div key={index} style={{ gridColumn: 'span 12', background: '#F8FAFC', padding: '16px', borderRadius: '12px', position: 'relative', border: '1px solid #E2E8F0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#334155' }}>POC {index + 1} {poc.isPrimary ? "(Primary)" : ""}</span>
-                          {!poc.isPrimary && (
-                            <button type="button" onClick={() => {
-                              const e = { target: { name: 'isPrimary', type: 'checkbox', checked: true } };
-                              handlePocChange(index, e);
-                            }} style={{ background: 'none', border: 'none', color: '#FF6B2C', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Set as Primary</button>
-                          )}
-                        </div>
-                        {pocs.length > 1 && (
-                          <button type="button" onClick={() => removePoc(index)} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Remove</button>
-                        )}
-                      </div>
-                      <div style={styles.innerGrid}>
-                        <Field label="POC Name" required style={styles.col4}>
-                          <input style={styles.input} name="name" value={poc.name} onChange={(e) => handlePocChange(index, e)} required placeholder="Jane Doe" />
-                        </Field>
-                        <Field label="POC Phone" required style={styles.col4}>
-                          <input style={styles.input} name="number" value={poc.number} onChange={(e) => handlePocChange(index, e)} required placeholder="9876543210" />
-                        </Field>
-                        <Field label="POC Email" style={styles.col4}>
-                          <input style={styles.input} type="email" name="email" value={poc.email} onChange={(e) => handlePocChange(index, e)} placeholder="jane@abctech.com" />
-                        </Field>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  <div style={styles.col12}>
-                    <button type="button" onClick={addAnotherPoc} style={{ background: '#FFF2EA', color: '#FF6B2C', border: '1px dashed #FF6B2C', padding: '12px', width: '100%', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>
-                      + Add Another POC
-                    </button>
-                  </div>
-                </div>
-              </div>
-  
 
               <div style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
@@ -585,10 +539,10 @@ const styles = {
   inputGroup: { display: "flex", flexDirection: "column", gap: "7px", position: "relative" },
   label: { color: "#24272D", fontSize: "13px", fontWeight: "900" },
   requiredDot: { color: "#FF5E2F", marginLeft: "5px" },
-  inputShell: { minHeight: "50px", borderRadius: "14px", border: "1px solid #E8ECF2", background: "#fff", display: "flex", alignItems: "center", gap: "10px", padding: "0 14px", boxSizing: "border-box" },
-  input: { width: "100%", border: "none", outline: "none", fontSize: "15px", color: "#20242A", background: "transparent", fontWeight: "600", boxSizing: "border-box" },
-  textareaShell: { borderRadius: "16px", border: "1px solid #E8ECF2", background: "#fff", padding: "13px 14px", boxSizing: "border-box" },
-  textarea: { width: "100%", minHeight: "88px", resize: "vertical", border: "none", outline: "none", fontSize: "14px", color: "#20242A", lineHeight: "1.55", fontWeight: "600", background: "transparent", boxSizing: "border-box" },
+  inputShell: { borderRadius: "14px", border: "1px solid #E8ECF2", background: "#fff", display: "flex", alignItems: "stretch", overflow: "hidden", boxSizing: "border-box" },
+  input: { flex: 1, border: "none", outline: "none", fontSize: "15px", color: "#20242A", background: "transparent", fontWeight: "600", boxSizing: "border-box", padding: "14px" },
+  textareaShell: { borderRadius: "16px", border: "1px solid #E8ECF2", background: "#fff", overflow: "hidden", boxSizing: "border-box" },
+  textarea: { width: "100%", minHeight: "88px", resize: "vertical", border: "none", outline: "none", fontSize: "14px", color: "#20242A", lineHeight: "1.55", fontWeight: "600", background: "transparent", boxSizing: "border-box", padding: "14px" },
   sideCard: { position: "sticky", top: "88px", background: "#fff", borderRadius: "22px", padding: "22px", border: "1px solid #EEF1F5", borderTop: "5px solid #FF6B2C", boxShadow: "0 18px 42px rgba(15,23,42,0.08)" },
   previewKicker: { color: "#8A8D94", fontSize: "12px", fontWeight: "900", letterSpacing: "2px", textTransform: "uppercase", borderBottom: "1px solid #E8ECF2", paddingBottom: "10px", marginBottom: "18px" },
   previewTitle: { margin: "0 0 5px", color: "#20242A", fontSize: "22px", fontWeight: "900", opacity: 0.88 },

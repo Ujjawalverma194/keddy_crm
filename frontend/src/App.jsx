@@ -25,6 +25,7 @@ import EditVendor from "./pages/emplyee_portal/EditVendor";
 // ================= Client =================
 import ClientList from "./pages/emplyee_portal/ClientList";
 import AddClient from "./pages/emplyee_portal/AddClient";
+import EditClient from "./pages/emplyee_portal/EditClient";
 import UpdateClient from "./pages/emplyee_portal/UpdateClient";
 import EmployeeViewClient from "./pages/emplyee_portal/ClientView";
 
@@ -59,6 +60,7 @@ import SubAdminUserDetail from "./pages/sub_admin/SubAdminUserDetail";
 import SubAdminUserUpdate from "./pages/sub_admin/SubAdminUserUpdate";
 
 import SubAdminClientView from "./pages/sub_admin/ClientView";
+import SubadminUpdateClient from "./pages/sub_admin/Updateclient";
 import SubadminTotalSubmittedProfiles from "./pages/sub_admin/TotalSubmittedProfiles";
 import SubadminTotalOnbording from "./pages/sub_admin/TotalOnbording";
 import SubadminTodaysSubmittedProfiles from "./pages/sub_admin/TodaysSubmittedProfiles";
@@ -76,7 +78,6 @@ import SubadminSettings from "./pages/sub_admin/invoice/CompanySettingsView";
 import SubadminSettingsEdit from "./pages/sub_admin/invoice/CompanySettingsEdit";
 import SubadminEditInvoice from "./pages/sub_admin/invoice/EditInvoice";
 import CandidateInvoiceHistory from "./pages/sub_admin/invoice/CandidateHistory";
-import SubadminUpdateClient from "./pages/sub_admin/Updateclient";
 
 // ========================================================
 

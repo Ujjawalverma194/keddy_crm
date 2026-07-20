@@ -40,8 +40,10 @@ function UpdateCandidate() {
   const [loading, setLoading] = useState(true);
   const [vendors, setVendors] = useState([]);
   const [vendorSearch, setVendorSearch] = useState("");
+  const [showVendorDropdown, setShowVendorDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
 
   const getResumeUrl = (resumePath) => {
     if (!resumePath) return "";
@@ -262,55 +264,93 @@ function UpdateCandidate() {
                 </div>
 
                 <div style={styles.innerGrid}>
-                  <div style={{ ...styles.inputGroup, ...styles.col6 }}>
-                    <label style={styles.label}>Vendor Company</label>
+                  
+                  {/* Vendor Details Section Header */}
+                  <div style={{ gridColumn: "span 12", paddingBottom: "8px", borderBottom: "1px solid #EEF1F5", marginBottom: "10px", marginTop: "5px" }}>
+                    <h4 style={{ margin: 0, color: "#1E293B", fontSize: "15px", fontWeight: "700" }}>Vendor Details</h4>
+                  </div>
+
+                  <div style={{ ...styles.inputGroup, ...styles.col6, position: "relative" }}>
+                    <label style={styles.label}>Search & Select Vendor</label>
                     <div style={styles.inputShell}>
-                      <input type="text" placeholder="Search Vendor..." style={styles.input} value={vendorSearch} onChange={(e) => setVendorSearch(e.target.value)} />
-                    </div>
-                    <div style={styles.inputShell}>
-                      <select
-                        style={styles.select}
-                        value={form.vendor_company_name || ""}
+                      <input
+                        type="text"
+                        placeholder="Search vendor..."
+                        style={styles.input}
+                        value={vendorSearch}
                         onChange={(e) => {
-                          const selectedVendor = vendors.find((v) => v.company_name === e.target.value);
-                          setForm({
-                            ...form,
-                            vendor_company_name: selectedVendor?.company_name || "",
-                            vendor_number: selectedVendor?.phone_number || selectedVendor?.vendor_number || "",
-                          });
+                          setVendorSearch(e.target.value);
+                          setShowVendorDropdown(true);
                         }}
-                      >
-                        <option value="">-- Choose Vendor --</option>
-                        {vendors.map((v) => (
-                          <option key={v.vendor_id || v.id} value={v.company_name}>
-                            {v.vendor_name || v.name} - {v.company_name}
-                          </option>
-                        ))}
-                      </select>
+                        onFocus={() => setShowVendorDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowVendorDropdown(false), 200)}
+                      />
                     </div>
+                    {showVendorDropdown && (
+                      <div style={styles.dropdownList}>
+                        {vendors.length > 0 ? (
+                          vendors.map((v) => (
+                            <div key={v.vendor_id || v.id} style={styles.dropdownItem} onMouseDown={() => {
+                                setForm({ ...form, vendor_company_name: v.company_name, vendor_number: v.phone_number || v.vendor_number || "" });
+                                setVendorSearch(v.company_name);
+                                setShowVendorDropdown(false);
+                            }}>
+                              <div style={styles.dropdownTitle}>{v.company_name}</div>
+                              <div style={styles.dropdownSubText}>{v.vendor_name || v.name || "No name"} - {v.phone_number || v.vendor_number || ""}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div style={styles.noDropdownText}>No vendors found</div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <Field label="Vendor Contact" style={styles.col6}><input name="vendor_number" style={styles.input} value={form.vendor_number || ""} onChange={handleChange} /></Field>
-                  <Field label="Vendor Rate" style={styles.col4}><input name="vendor_rate" style={styles.input} value={form.vendor_rate || ""} onChange={handleChange} /></Field>
-                  <Field label="Vendor Rate Type" style={styles.col4}>
+                  <Field label="Vendor Rate" style={styles.col6}><input name="vendor_rate" style={styles.input} value={form.vendor_rate || ""} onChange={handleChange} /></Field>
+                  <Field label="Vendor Rate Type" style={styles.col6}>
                     <RateTypeSelect name="vendor_rate_type" value={form.vendor_rate_type || ""} onChange={handleChange} />
                   </Field>
 
-                  <div style={{ ...styles.inputGroup, ...styles.col4 }}>
-                    <label style={styles.label}>Select Client</label>
+                  {/* Client Details Section Header */}
+                  <div style={{ gridColumn: "span 12", paddingBottom: "8px", borderBottom: "1px solid #EEF1F5", marginBottom: "10px", marginTop: "20px" }}>
+                    <h4 style={{ margin: 0, color: "#1E293B", fontSize: "15px", fontWeight: "700" }}>Client Details</h4>
+                  </div>
+
+                  <div style={{ ...styles.inputGroup, ...styles.col12, position: "relative" }}>
+                    <label style={styles.label}>Search & Select Client</label>
                     <div style={styles.inputShell}>
-                      <input type="text" placeholder="Type to search client..." style={styles.input} value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+                      <input
+                        type="text"
+                        placeholder="Search client..."
+                        style={styles.input}
+                        value={clientSearch}
+                        onChange={(e) => {
+                          setClientSearch(e.target.value);
+                          setShowClientDropdown(true);
+                        }}
+                        onFocus={() => setShowClientDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
+                      />
                     </div>
-                    <div style={styles.inputShell}>
-                      <select name="client" style={styles.select} value={form.client || ""} onChange={handleChange}>
-                        <option value="">-- Choose Client --</option>
-                        {clients.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.client_name} - {c.company_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {showClientDropdown && (
+                      <div style={styles.dropdownList}>
+                        {clients.length > 0 ? (
+                          clients.map((c) => (
+                            <div key={c.id} style={styles.dropdownItem} onMouseDown={() => {
+                                setForm({ ...form, client: c.id });
+                                setClientSearch(c.client_name + " - " + c.company_name);
+                                setShowClientDropdown(false);
+                            }}>
+                              <div style={styles.dropdownTitle}>{c.client_name}</div>
+                              <div style={styles.dropdownSubText}>{c.company_name}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div style={styles.noDropdownText}>No clients found</div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <Field label="Client Rate" style={styles.col6}><input name="client_rate" style={styles.input} value={form.client_rate || ""} onChange={handleChange} /></Field>
@@ -439,6 +479,43 @@ const RateTypeSelect = ({ name, value, onChange }) => (
 );
 
 const styles = {
+  dropdownList: {
+    position: "absolute",
+    top: "calc(100% + 4px)",
+    left: 0,
+    width: "100%",
+    background: "#fff",
+    border: "1px solid #E2E8F0",
+    borderRadius: "12px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+    maxHeight: "220px",
+    overflowY: "auto",
+    zIndex: 50,
+  },
+  dropdownItem: {
+    padding: "12px 14px",
+    cursor: "pointer",
+    borderBottom: "1px solid #F1F5F9",
+    display: "flex",
+    flexDirection: "column",
+    gap: "3px",
+  },
+  dropdownTitle: {
+    color: "#25343F",
+    fontSize: "14px",
+    fontWeight: "700",
+  },
+  dropdownSubText: {
+    color: "#64748B",
+    fontSize: "12px",
+  },
+  noDropdownText: {
+    padding: "12px 14px",
+    color: "#94A3B8",
+    fontSize: "13px",
+    textAlign: "center",
+  },
+
   loading: { padding: "80px", textAlign: "center", fontWeight: "900", color: "#25343F" },
   pageShell: { width: "100%", maxWidth: "1260px", margin: "0 auto", padding: "26px 18px 98px", boxSizing: "border-box" },
   hero: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "18px", marginBottom: "18px" },

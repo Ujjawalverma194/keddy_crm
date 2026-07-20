@@ -287,6 +287,22 @@ async function detail(req, res) {
     include: [{ model: VendorPOC, as: 'pocs', required: false }]
   });
   if (!vendor) return res.status(404).json({ detail: 'Not found.' });
+
+  const User = require('../../models/User');
+  let targetIds = [req.user.id];
+  if (req.user.isTeamLeader && req.headers['x-team-leader-mode'] === 'true') {
+    const teamMembers = await User.find({ teamLeaderId: req.user.id }).select('id');
+    targetIds = targetIds.concat(teamMembers.map(u => u.id));
+  }
+
+  if (vendor.pocs) {
+    const allowedPocs = vendor.pocs.filter(poc => {
+      if (!poc.assignedEmployeeIds) return false;
+      return targetIds.some(id => poc.assignedEmployeeIds.includes(id));
+    });
+    vendor.setDataValue('pocs', allowedPocs);
+  }
+
   const count = await Candidate.countDocuments({ vendorId: vendor.id, isDeleted: false });
   const json = await vendorToJSON(vendor);
   return res.json({ ...json, profile_count: count });
@@ -376,16 +392,16 @@ async function listUserVendors(req, res) {
     }),
     Vendor.countDocuments(filter),
   ]);
-  const filteredItems = items.map(vendor => {
-    if (!targetIds.includes(vendor.createdById) && vendor.pocs) {
-      const allowedPocs = vendor.pocs.filter(poc => {
-        if (!poc.assignedEmployeeIds) return false;
-        return targetIds.some(id => poc.assignedEmployeeIds.includes(id));
-      });
-      vendor.setDataValue('pocs', allowedPocs);
-    }
-    return vendor;
-  });
+    const filteredItems = items.map(vendor => {
+      if (vendor.pocs) {
+        const allowedPocs = vendor.pocs.filter(poc => {
+          if (!poc.assignedEmployeeIds) return false;
+          return targetIds.some(id => poc.assignedEmployeeIds.includes(id));
+        });
+        vendor.setDataValue('pocs', allowedPocs);
+      }
+      return vendor;
+    });
 
   const userMap = await getUserMap(filteredItems.flatMap((v) => [v.uploadedById, v.createdById]));
   const Candidate = require('../../models/Candidate');

@@ -317,6 +317,21 @@ async function detail(req, res) {
     return res.status(404).json({ detail: 'Not found.' });
   }
 
+  const User = require('../../models/User');
+  let targetIds = [req.user.id];
+  if (req.user.isTeamLeader && req.headers['x-team-leader-mode'] === 'true') {
+    const teamMembers = await User.find({ teamLeaderId: req.user.id }).select('id');
+    targetIds = targetIds.concat(teamMembers.map(u => u.id));
+  }
+
+  if (client.pocs) {
+    const allowedPocs = client.pocs.filter(poc => {
+      if (!poc.assignedEmployeeIds) return false;
+      return targetIds.some(id => poc.assignedEmployeeIds.includes(id));
+    });
+    client.setDataValue('pocs', allowedPocs);
+  }
+
   const userMap = await getUserMap([client.createdById]);
   return res.json(clientToJSON(client, userMap));
 }

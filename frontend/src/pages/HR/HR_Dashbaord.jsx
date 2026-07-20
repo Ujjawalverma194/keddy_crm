@@ -121,7 +121,7 @@ function HR_Dashboard() {
                 <td style={styles.td}>
                    Vendor: ₹{c.vendor_rate} {c.vendor_rate_type || ''}
                     
-                    <br/><small style={styles.subStatusText}>Client: ₹{c.client_rate} {c.vendor_rate_type  || '-'}</small>
+                    <br/><small style={styles.subStatusText}>Client: ₹{c.client_rate} {c.client_rate_type  || '-'}</small>
                 </td>
                 <td style={styles.td}>
                     <div style={{display:'flex', alignItems:'center', gap:'8px'}}>

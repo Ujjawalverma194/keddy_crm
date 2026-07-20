@@ -75,15 +75,15 @@ const StatusUpdateModal = ({ isOpen, onClose, formData, setFormData, onSave, has
 };
 
 const mStyles = {
-    modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, backdropFilter: 'blur(3px)' },
-    modalContent: { background: '#fff', padding: '30px', borderRadius: '15px', width: '380px', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' },
-    inputGroup: { marginBottom: '15px' },
-    modalLabel: { fontSize: '11px', fontWeight: '800', color: '#64748B', display: 'block', marginBottom: '5px', textTransform: 'uppercase' },
-    select: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', outline: 'none' },
-    input: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', outline: 'none', boxSizing: 'border-box' },
-    textarea: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', height: '80px', resize: 'none' },
-    saveBtn: { flex: 1, background: '#FF9B51', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' },
-    cancelBtn: { flex: 1, background: '#F1F5F9', color: '#64748B', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }
+    modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, backdropFilter: 'blur(5px)' },
+    modalContent: { background: '#fff', padding: '32px', borderRadius: '24px', width: '400px', boxShadow: '0 24px 48px rgba(0,0,0,0.12)' },
+    inputGroup: { marginBottom: '18px' },
+    modalLabel: { fontSize: '13px', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '8px' },
+    select: { width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1.5px solid #E2E8F0', outline: 'none', background: '#FAFBFC', fontSize: '14px', color: '#1E293B', transition: 'border-color 0.2s', cursor: 'pointer', appearance: 'none', backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23475569%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 14px top 50%', backgroundSize: '10px auto' },
+    input: { width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1.5px solid #E2E8F0', outline: 'none', boxSizing: 'border-box', background: '#FAFBFC', fontSize: '14px', color: '#1E293B', transition: 'border-color 0.2s' },
+    textarea: { width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1.5px solid #E2E8F0', height: '90px', resize: 'none', outline: 'none', background: '#FAFBFC', fontSize: '14px', color: '#1E293B', transition: 'border-color 0.2s', fontFamily: 'inherit' },
+    saveBtn: { flex: 1, background: '#FF9B51', color: '#fff', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', transition: 'transform 0.1s, opacity 0.2s' },
+    cancelBtn: { flex: 1, background: '#F1F5F9', color: '#475569', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', transition: 'background 0.2s' }
 };
 
 export default StatusUpdateModal;
